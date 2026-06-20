@@ -1,0 +1,8 @@
+# robots.txt for REAL ESTATE SCRAPER
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+Disallow: /vencido
+
+Sitemap: https://realestatescraper.com/sitemap.xml

@@ -1,12 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import ErrorBoundary from "./components/ErrorBoundary"
 import { ThemeProvider } from "./contexts/ThemeContext"
-import Login from './pages/Login'
-import Vencido from './pages/Vencido'
-import Portal from './pages/Portal'
-import Admin from './pages/Admin'
+const Login = lazy(() => import('./pages/Login'))
+const Vencido = lazy(() => import('./pages/Vencido'))
+const Portal = lazy(() => import('./pages/Portal'))
+const Admin = lazy(() => import('./pages/Admin'))
 import { useToast, ToastProvider } from './contexts/ToastContext'
 import { supabase } from './lib/supabase'
 
@@ -111,7 +111,16 @@ function Router() {
   }
 
   return (
-    <>
+    <Suspense fallback={
+      <div className="flex h-screen w-screen bg-black items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#C9A96E]"></div>
+          <span className="text-sm font-medium tracking-wider text-[#F0EDE8]/60 uppercase" style={{ fontFamily: 'DM Sans' }}>
+            Cargando...
+          </span>
+        </div>
+      </div>
+    }>
       {state.vista === 'login' && <Login onLoginSuccess={handleLoginSuccess} />}
       {state.vista === 'vencido' && <Vencido onLogout={handleLogout} />}
       {state.vista === 'portal' && state.usuario && (
@@ -130,7 +139,7 @@ function Router() {
           onLogout={handleLogout}
         />
       )}
-    </>
+    </Suspense>
   )
 }
 

@@ -18,6 +18,11 @@ export default function Pagination({
   const startItem = currentPage * itemsPerPage + 1
   const endItem = Math.min((currentPage + 1) * itemsPerPage, totalItems)
 
+  const handlePageChange = (page: number) => {
+    onPageChange(page)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   const getPageNumbers = () => {
     const pages = []
     const maxVisible = 5
@@ -63,13 +68,18 @@ export default function Pagination({
       <div className="flex items-center gap-2">
         {/* Anterior */}
         <button
-          onClick={() => onPageChange(currentPage - 1)}
+          onClick={() => handlePageChange(currentPage - 1)}
           disabled={currentPage === 0}
-          className="p-2 rounded transition disabled:opacity-50 disabled:cursor-not-allowed"
+          aria-label="Página anterior"
+          className="rounded transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
           style={{
             backgroundColor: 'transparent',
             border: '1px solid #2A2A2A',
             color: '#C9A96E',
+            width: '44px',
+            height: '44px',
+            minWidth: '44px',
+            minHeight: '44px',
           }}
         >
           <ChevronLeft size={18} />
@@ -79,13 +89,18 @@ export default function Pagination({
         {pageNumbers.map((page) => (
           <button
             key={page}
-            onClick={() => onPageChange(page)}
-            className="w-8 h-8 rounded text-sm font-medium transition"
+            onClick={() => handlePageChange(page)}
+            aria-label={`Ir a página ${page + 1}`}
+            className="rounded text-sm font-medium transition flex items-center justify-center"
             style={{
               backgroundColor:
                 currentPage === page ? '#C9A96E' : 'transparent',
               color: currentPage === page ? '#0F0F0F' : '#6B6B6B',
               border: '1px solid #2A2A2A',
+              width: '44px',
+              height: '44px',
+              minWidth: '44px',
+              minHeight: '44px',
             }}
           >
             {page + 1}
@@ -94,13 +109,18 @@ export default function Pagination({
 
         {/* Siguiente */}
         <button
-          onClick={() => onPageChange(currentPage + 1)}
+          onClick={() => handlePageChange(currentPage + 1)}
           disabled={currentPage === totalPages - 1}
-          className="p-2 rounded transition disabled:opacity-50 disabled:cursor-not-allowed"
+          aria-label="Página siguiente"
+          className="rounded transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
           style={{
             backgroundColor: 'transparent',
             border: '1px solid #2A2A2A',
             color: '#C9A96E',
+            width: '44px',
+            height: '44px',
+            minWidth: '44px',
+            minHeight: '44px',
           }}
         >
           <ChevronRight size={18} />

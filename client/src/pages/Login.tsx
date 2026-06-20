@@ -63,20 +63,28 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       {/* Mitad izquierda — solo desktop */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
         <img
-          src="https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=1200"
+          src="https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=1200&auto=format&fm=webp&q=80"
           alt="Lima"
           className="w-full h-full object-cover"
+          decoding="async"
+          fetchPriority="high"
         />
         {/* Overlay */}
         <div className="absolute inset-0 bg-black/72"></div>
 
         {/* Contenido centrado */}
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
+          <img
+            src="/logo.png"
+            alt="REAL ESTATE SCRAPER Logo"
+            className="w-24 h-24 mb-6 object-contain"
+            decoding="async"
+          />
           <h1
             className="text-6xl font-bold mb-4"
             style={{ fontFamily: 'Cormorant Garamond', color: '#C9A96E' }}
           >
-            INMODAPERU
+            REAL ESTATE SCRAPER
           </h1>
           <p
             className="text-base text-white"
@@ -168,7 +176,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
 
       {/* Botón WhatsApp flotante */}
       <a
-        href={`https://wa.me/${ADMIN_WHATSAPP}?text=Hola, quiero información sobre InmodaPeru`}
+        href={`https://wa.me/${ADMIN_WHATSAPP}?text=Hola, quiero información sobre Real Estate Scraper`}
         target="_blank"
         rel="noopener noreferrer"
         className="wa-button"

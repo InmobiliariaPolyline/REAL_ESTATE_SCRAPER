@@ -43,7 +43,7 @@ export default function Admin({ usuario, usuarioId, onLogout }: AdminProps) {
 
       {/* Contenido principal */}
       <main className="flex-1 overflow-y-auto">
-        <div className="p-8">
+        <div className="p-4 sm:p-8">
           {/* Título de pestaña */}
           <h1
             className="text-3xl font-bold mb-8"

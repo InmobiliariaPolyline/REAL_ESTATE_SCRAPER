@@ -2,7 +2,7 @@
 @import "tw-animate-css";
 
 /* ════════════════════════════════════════════════════════════════ */
-/* VARIABLES GLOBALES — InmodaPeru SaaS                             */
+/* VARIABLES GLOBALES — REAL ESTATE SCRAPER                         */
 /* ════════════════════════════════════════════════════════════════ */
 
 :root {
@@ -14,14 +14,14 @@
   --bg-4: #252525;
   --border: #2A2A2A;
   
-  /* Dorado (marca) */
-  --gold: #C9A96E;
-  --gold-dim: #9A7A4E;
+  /* Dorado (marca) - Optimizado para contraste WCAG AAA */
+  --gold: #D4B782;
+  --gold-dim: #A88659;
   
-  /* Tipografía */
+  /* Tipografía - Optimizado para contraste WCAG AA/AAA */
   --text: #F0EDE8;
-  --muted: #6B6B6B;
-  --muted2: #3A3A3A;
+  --muted: #9B9B9B;
+  --muted2: #4E4E4E;
   
   /* Estados */
   --green: #22C55E;

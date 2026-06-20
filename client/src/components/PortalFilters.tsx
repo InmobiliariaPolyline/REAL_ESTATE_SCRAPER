@@ -5,6 +5,7 @@ interface PortalFiltersProps {
   onFilterChange: (filters: FilterState) => void
   onSearch: () => void
   onClear: () => void
+  isMobileDrawer?: boolean
 }
 
 export interface FilterState {
@@ -40,6 +41,7 @@ export default function PortalFilters({
   onFilterChange,
   onSearch,
   onClear,
+  isMobileDrawer = false,
 }: PortalFiltersProps) {
   const [filters, setFilters] = useState<FilterState>({
     distrito: '',
@@ -132,8 +134,8 @@ export default function PortalFilters({
 
   return (
     <div
-      className="sticky top-16 px-6 py-4 space-y-4"
-      style={{ backgroundColor: '#1A1A1A', borderBottom: '1px solid #2A2A2A' }}
+      className={isMobileDrawer ? "px-6 py-6 space-y-6" : "sticky top-16 px-6 py-4 space-y-4"}
+      style={isMobileDrawer ? { backgroundColor: 'transparent' } : { backgroundColor: '#1A1A1A', borderBottom: '1px solid #2A2A2A' }}
     >
       {/* Fila 1: Distrito + Operación + Inmueble */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -164,7 +166,7 @@ export default function PortalFilters({
               }}
               placeholder="Buscar distrito..."
               className="input-underline w-full pl-8"
-              style={{ fontSize: '0.875rem' }}
+              style={{ fontSize: '1rem', height: '44px', padding: '8px 0 8px 32px' }}
             />
             {showSuggestions && suggestions.length > 0 && (
               <div
@@ -183,7 +185,7 @@ export default function PortalFilters({
                       handleDistritoChange(dist)
                       setShowSuggestions(false)
                     }}
-                    className="w-full text-left px-3 py-2 hover:bg-black/30 text-sm transition"
+                    className="w-full text-left px-4 py-3 hover:bg-black/30 text-sm transition min-h-[44px] flex items-center"
                     style={{ color: '#F0EDE8' }}
                   >
                     {dist}
@@ -209,7 +211,7 @@ export default function PortalFilters({
                 onClick={() =>
                   handleOperacionChange(op as FilterState['operacion'])
                 }
-                className="px-3 py-1 rounded text-xs font-medium transition"
+                className="px-4 py-2.5 rounded text-sm font-medium transition min-h-[44px] flex-1 flex items-center justify-center"
                 style={{
                   backgroundColor:
                     filters.operacion === op ? '#C9A96E' : 'transparent',
@@ -239,7 +241,7 @@ export default function PortalFilters({
                 onClick={() =>
                   handleInmuebleChange(inm as FilterState['inmueble'])
                 }
-                className="px-3 py-1 rounded text-xs font-medium transition"
+                className="px-4 py-2.5 rounded text-sm font-medium transition min-h-[44px] flex-1 flex items-center justify-center"
                 style={{
                   backgroundColor:
                     filters.inmueble === inm ? '#C9A96E' : 'transparent',
@@ -264,7 +266,7 @@ export default function PortalFilters({
           </label>
           <button
             onClick={() => setShowPortalDropdown(!showPortalDropdown)}
-            className="w-full px-3 py-2 rounded text-xs text-left"
+            className="w-full px-3 py-2.5 rounded text-sm text-left min-h-[44px] flex items-center justify-between"
             style={{
               backgroundColor: '#252525',
               color: '#F0EDE8',
@@ -272,28 +274,31 @@ export default function PortalFilters({
               fontFamily: 'DM Sans',
             }}
           >
-            {filters.portales.length === 0
-              ? 'Seleccionar...'
-              : `${filters.portales.length} seleccionado(s)`}
+            <span>
+              {filters.portales.length === 0
+                ? 'Seleccionar...'
+                : `${filters.portales.length} seleccionado(s)`}
+            </span>
+            <span className="text-xs text-[#6B6B6B]">{showPortalDropdown ? '▲' : '▼'}</span>
           </button>
           {showPortalDropdown && (
             <div
-              className="absolute top-full left-0 right-0 mt-1 rounded shadow-lg z-10"
+              className={isMobileDrawer ? "mt-2 rounded z-50 w-full" : "absolute top-full left-0 right-0 mt-1 rounded shadow-lg z-50"}
               style={{ backgroundColor: '#252525', border: '1px solid #2A2A2A' }}
             >
               {PORTALES_OPCIONES.map((portal) => (
                 <label
                   key={portal}
-                  className="flex items-center gap-2 px-3 py-2 hover:bg-black/30 cursor-pointer"
+                  className="flex items-center gap-3 px-4 py-3 hover:bg-black/30 cursor-pointer min-h-[44px]"
                   style={{ fontFamily: 'DM Sans', fontSize: '0.875rem' }}
                 >
                   <input
                     type="checkbox"
                     checked={filters.portales.includes(portal)}
                     onChange={() => handlePortalToggle(portal)}
-                    style={{ accentColor: '#C9A96E' }}
+                    className="w-5 h-5 cursor-pointer accent-[#C9A96E]"
                   />
-                  {portal}
+                  <span>{portal}</span>
                 </label>
               ))}
             </div>
@@ -316,7 +321,7 @@ export default function PortalFilters({
               <button
                 key={mon}
                 onClick={() => handleMonedaChange(mon as 'PEN' | 'USD')}
-                className="flex-1 px-2 py-1 rounded text-xs font-medium transition"
+                className="flex-1 px-3 py-2.5 rounded text-sm font-medium transition min-h-[44px] flex items-center justify-center"
                 style={{
                   backgroundColor:
                     filters.moneda === mon ? '#C9A96E' : 'transparent',
@@ -345,7 +350,7 @@ export default function PortalFilters({
             onChange={(e) => handlePrecioChange('precioMin', e.target.value)}
             placeholder="0"
             className="input-underline w-full"
-            style={{ fontSize: '0.875rem' }}
+            style={{ fontSize: '1rem', height: '44px', padding: '8px 0' }}
           />
         </div>
 
@@ -363,7 +368,7 @@ export default function PortalFilters({
             onChange={(e) => handlePrecioChange('precioMax', e.target.value)}
             placeholder="∞"
             className="input-underline w-full"
-            style={{ fontSize: '0.875rem' }}
+            style={{ fontSize: '1rem', height: '44px', padding: '8px 0' }}
           />
         </div>
 
@@ -382,7 +387,7 @@ export default function PortalFilters({
                 onClick={() =>
                   handleDormitoriosChange(dorm as FilterState['dormitorios'])
                 }
-                className="flex-1 px-2 py-1 rounded text-xs font-medium transition"
+                className="flex-1 px-2 py-2.5 rounded text-sm font-medium transition min-h-[44px] flex items-center justify-center"
                 style={{
                   backgroundColor:
                     filters.dormitorios === dorm ? '#C9A96E' : 'transparent',
@@ -398,31 +403,30 @@ export default function PortalFilters({
         </div>
 
         {/* Acciones */}
-        <div className="flex items-end gap-2">
+        <div className="flex items-end gap-2 w-full pt-2 md:pt-0">
           <button
             onClick={onSearch}
-            className="flex-1 px-4 py-2 rounded font-medium transition"
+            className="flex-grow h-11 rounded font-semibold transition hover:opacity-90 flex items-center justify-center"
             style={{
               backgroundColor: '#C9A96E',
               color: '#0F0F0F',
               fontFamily: 'DM Sans',
-              fontSize: '0.875rem',
+              fontSize: '0.9rem',
             }}
           >
             Buscar
           </button>
           <button
             onClick={handleClear}
-            className="px-3 py-2 rounded transition"
+            className="px-4 h-11 rounded transition hover:bg-white/5 flex items-center justify-center"
             style={{
               backgroundColor: 'transparent',
               border: '1px solid #2A2A2A',
               color: '#6B6B6B',
               fontFamily: 'DM Sans',
-              fontSize: '0.875rem',
             }}
           >
-            <X size={16} />
+            <X size={18} />
           </button>
         </div>
       </div>

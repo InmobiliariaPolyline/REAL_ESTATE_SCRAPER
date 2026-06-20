@@ -72,7 +72,8 @@ export default function AdminSidebar({
       {/* Hamburger button (mobile) */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="fixed top-4 left-4 z-50 md:hidden p-2 rounded"
+        aria-label={isOpen ? "Cerrar menú de administración" : "Abrir menú de administración"}
+        className="fixed top-4 right-4 z-50 md:hidden p-2 rounded min-w-[44px] min-h-[44px] flex items-center justify-center"
         style={{ backgroundColor: '#1A1A1A', color: '#C9A96E' }}
       >
         {isOpen ? <X size={24} /> : <Menu size={24} />}
@@ -99,12 +100,20 @@ export default function AdminSidebar({
       >
         {/* Header */}
         <div className="px-6 py-6 border-b" style={{ borderColor: '#1F1F1F' }}>
-          <h1
-            className="text-lg font-bold"
-            style={{ fontFamily: 'Cormorant Garamond', color: '#C9A96E' }}
-          >
-            INMODAPERU
-          </h1>
+          <div className="flex items-center gap-3">
+            <img
+              src="/logo.png"
+              alt="REAL ESTATE SCRAPER Logo"
+              className="w-8 h-8 object-contain"
+              decoding="async"
+            />
+            <h1
+              className="text-lg font-bold"
+              style={{ fontFamily: 'Cormorant Garamond', color: '#C9A96E' }}
+            >
+              REAL ESTATE SCRAPER
+            </h1>
+          </div>
           <p
             className="text-xs"
             style={{ color: '#6B6B6B' }}

@@ -45,10 +45,10 @@ export default function AdminPropiedades() {
         query = query.ilike('distrito', `%${filterDistrito}%`)
       }
       if (filterOperacion && filterOperacion !== 'todos') {
-        query = query.eq('operacion', filterOperacion)
+        query = query.eq('operacion', filterOperacion.toLowerCase().trim())
       }
       if (filterPortal && filterPortal !== 'todos') {
-        query = query.eq('portal', filterPortal)
+        query = query.ilike('portal', `%${filterPortal.toLowerCase().trim()}%`)
       }
 
       const { data, count, error } = await query.range(
@@ -162,6 +162,8 @@ export default function AdminPropiedades() {
             <option value="Properati">Properati</option>
             <option value="Infocasas">Infocasas</option>
             <option value="Babilonia">Babilonia</option>
+            <option value="Urbania">Urbania</option>
+            <option value="Adondevivir">Adondevivir</option>
           </select>
         </div>
         <div className="flex items-end gap-2">

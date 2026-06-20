@@ -74,7 +74,7 @@ export default function PropertyTable({
               className="px-4 py-3 text-left font-semibold"
               style={{ color: '#C9A96E' }}
             >
-              Precio USD
+              Precio {moneda}
             </th>
             <th
               className="px-4 py-3 text-left font-semibold"
@@ -124,6 +124,8 @@ export default function PropertyTable({
                     src={prop.imagen}
                     alt={prop.titulo}
                     className="w-12 h-12 object-cover rounded"
+                    loading="lazy"
+                    decoding="async"
                   />
                 ) : (
                   <div
@@ -166,7 +168,7 @@ export default function PropertyTable({
                 {prop.titulo}
               </td>
 
-              {/* Precio USD */}
+              {/* Precio */}
               <td
                 className="px-4 py-3 font-semibold"
                 style={{
@@ -174,7 +176,27 @@ export default function PropertyTable({
                   fontFamily: 'JetBrains Mono',
                 }}
               >
-                ${prop.precioUsd.toLocaleString('es-PE')}
+                {(() => {
+                  let displayPrice = 0
+                  let isApprox = false
+                  if (moneda === 'USD') {
+                    if (prop.precioUsd && prop.precioUsd > 0) {
+                      displayPrice = prop.precioUsd
+                    } else if (prop.precio && prop.precio > 0) {
+                      displayPrice = Math.round(prop.precio / 3.75)
+                      isApprox = true
+                    } else {
+                      displayPrice = 0
+                    }
+                  } else {
+                    displayPrice = prop.precio || 0
+                  }
+                  return displayPrice > 0 ? (
+                    `${moneda} ${isApprox ? '~' : ''}${displayPrice.toLocaleString('es-PE')}`
+                  ) : (
+                    `${moneda} 0`
+                  )
+                })()}
               </td>
 
               {/* Distrito */}

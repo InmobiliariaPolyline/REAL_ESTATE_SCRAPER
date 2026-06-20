@@ -32,7 +32,7 @@ export default function Vencido({ onLogout }: VencidoProps) {
 
         {/* Botón WhatsApp */}
         <a
-          href={`https://wa.me/${ADMIN_WHATSAPP}?text=Hola, quiero renovar mi suscripción en InmodaPeru`}
+          href={`https://wa.me/${ADMIN_WHATSAPP}?text=Hola, quiero renovar mi suscripción en Real Estate Scraper`}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-block px-8 py-3 rounded text-white font-semibold mb-6"
@@ -57,7 +57,7 @@ export default function Vencido({ onLogout }: VencidoProps) {
 
       {/* Botón WhatsApp flotante */}
       <a
-        href={`https://wa.me/${ADMIN_WHATSAPP}?text=Hola, quiero información sobre InmodaPeru`}
+        href={`https://wa.me/${ADMIN_WHATSAPP}?text=Hola, quiero información sobre Real Estate Scraper`}
         target="_blank"
         rel="noopener noreferrer"
         className="wa-button"

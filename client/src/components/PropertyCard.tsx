@@ -50,7 +50,23 @@ export default function PropertyCard({
   url,
   index,
 }: PropertyCardProps) {
-  const displayPrice = moneda === 'USD' ? precioUsd : precio
+  let displayMoneda = moneda
+  let displayPrice = 0
+  let isApprox = false
+
+  if (moneda === 'USD') {
+    if (precioUsd && precioUsd > 0) {
+      displayPrice = precioUsd
+    } else if (precio && precio > 0) {
+      displayPrice = Math.round(precio / 3.75)
+      isApprox = true
+    } else {
+      displayPrice = 0
+    }
+  } else {
+    displayPrice = precio || 0
+  }
+
   const formattedPrice = displayPrice.toLocaleString('es-PE')
 
   return (
@@ -80,6 +96,8 @@ export default function PropertyCard({
             src={imagen}
             alt={titulo}
             className="w-full h-full object-cover"
+            loading="lazy"
+            decoding="async"
           />
         ) : (
           <div
@@ -102,7 +120,7 @@ export default function PropertyCard({
         )}
 
         {/* Badges */}
-        <div className="absolute top-3 left-3 flex gap-2">
+        <div className="absolute top-3 left-3 flex gap-2" style={{ zIndex: 10 }}>
           <span
             className="badge-portal"
             style={{ backgroundColor: getPortalBadgeColor(portal) }}
@@ -110,7 +128,7 @@ export default function PropertyCard({
             {portal}
           </span>
         </div>
-        <div className="absolute top-3 right-3">
+        <div className="absolute top-3 right-3" style={{ zIndex: 10 }}>
           <span
             className="badge-operacion"
             style={{
@@ -132,7 +150,13 @@ export default function PropertyCard({
             color: '#C9A96E',
           }}
         >
-          {moneda} {formattedPrice}
+          {displayPrice > 0 ? (
+            <>
+              {displayMoneda} {isApprox && '~'}{formattedPrice}
+            </>
+          ) : (
+            `${displayMoneda} 0`
+          )}
         </div>
 
         {/* Título */}
@@ -169,7 +193,8 @@ export default function PropertyCard({
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className="btn-outline-gold w-full text-center flex items-center justify-center gap-2"
+          className="btn-outline-gold w-full flex items-center justify-center gap-2 h-11 md:h-10 text-sm"
+          style={{ padding: 0 }} // Reset vertical padding to allow height utility to take effect
         >
           <Eye size={16} />
           Ver anuncio
@@ -178,3 +203,4 @@ export default function PropertyCard({
     </div>
   )
 }
+

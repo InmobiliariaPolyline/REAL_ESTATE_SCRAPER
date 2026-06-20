@@ -57,9 +57,17 @@ export default function AdminDashboard() {
   const [chartData, setChartData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const { addToast } = useToast()
+  const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
     loadMetricas()
+    
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
   const loadMetricas = async () => {
@@ -67,13 +75,14 @@ export default function AdminDashboard() {
       setLoading(true)
 
       const hoy = new Date().toISOString().split('T')[0]
+      const portals = ['properati', 'infocasas', 'babilonia', 'urbania', 'adondevivir']
 
       const [
         { count: totalProps },
         { count: totalUsers },
         { count: subsActivas },
         { count: addedHoy },
-        { data: porPortal },
+        ...portalResults
       ] = await Promise.all([
         supabase
           .from('propiedades')
@@ -89,7 +98,12 @@ export default function AdminDashboard() {
           .from('propiedades')
           .select('*', { count: 'exact', head: true })
           .gte('creado_en', hoy),
-        supabase.from('propiedades').select('portal'),
+        ...portals.map((portal) =>
+          supabase
+            .from('propiedades')
+            .select('*', { count: 'exact', head: true })
+            .eq('portal', portal)
+        ),
       ])
 
       setMetricas({
@@ -100,19 +114,14 @@ export default function AdminDashboard() {
       })
 
       // Procesar datos para gráfico
-      if (porPortal) {
-        const grouped: { [key: string]: number } = {}
-        porPortal.forEach((item: any) => {
-          grouped[item.portal] = (grouped[item.portal] || 0) + 1
-        })
-
-        const chartDataProcessed = Object.entries(grouped).map(([portal, count]) => ({
-          name: portal,
-          value: count,
+      const chartDataProcessed = portals
+        .map((portal, idx) => ({
+          name: portal.charAt(0).toUpperCase() + portal.slice(1),
+          value: portalResults[idx]?.count || 0,
         }))
+        .filter((item) => item.value > 0)
 
-        setChartData(chartDataProcessed)
-      }
+      setChartData(chartDataProcessed)
     } catch (err) {
       addToast('Error al cargar métricas', 'error')
       console.error(err)
@@ -121,10 +130,17 @@ export default function AdminDashboard() {
     }
   }
 
-  const COLORS = {
+  const COLORS: { [key: string]: string } = {
     Properati: '#3B82F6',
+    properati: '#3B82F6',
     Infocasas: '#8B5CF6',
+    infocasas: '#8B5CF6',
     Babilonia: '#F59E0B',
+    babilonia: '#F59E0B',
+    urbania: '#EC4899',
+    Urbania: '#EC4899',
+    adondevivir: '#10B981',
+    Adondevivir: '#10B981',
   }
 
   return (
@@ -161,7 +177,7 @@ export default function AdminDashboard() {
 
       {/* Gráfico */}
       <div
-        className="p-6 rounded"
+        className="p-4 sm:p-6 rounded overflow-hidden w-full"
         style={{ backgroundColor: '#111111', border: '1px solid #2A2A2A' }}
       >
         <h3
@@ -177,40 +193,44 @@ export default function AdminDashboard() {
         </h3>
 
         {chartData.length > 0 ? (
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={chartData}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, value }) => `${name}: ${value}`}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="value"
-              >
-                {chartData.map((entry, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={COLORS[entry.name as keyof typeof COLORS] || '#60A5FA'}
-                  />
-                ))}
-              </Pie>
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#1A1A1A',
-                  border: '1px solid #2A2A2A',
-                  color: '#F0EDE8',
-                }}
-              />
-              <Legend
-                wrapperStyle={{
-                  color: '#F0EDE8',
-                  fontFamily: 'DM Sans',
-                }}
-              />
-            </PieChart>
-          </ResponsiveContainer>
+          <div className="w-full h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={chartData}
+                  cx="50%"
+                  cy="50%"
+                  minAngle={15}
+                  outerRadius={isMobile ? 60 : 80}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {chartData.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={COLORS[entry.name as keyof typeof COLORS] || '#60A5FA'}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#2a2a2a',
+                    borderColor: '#444',
+                  }}
+                  itemStyle={{
+                    color: '#ffffff',
+                  }}
+                />
+                <Legend
+                  wrapperStyle={{
+                    color: '#F0EDE8',
+                    fontFamily: 'DM Sans',
+                    fontSize: '12px',
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
         ) : (
           <div
             className="h-80 flex items-center justify-center"

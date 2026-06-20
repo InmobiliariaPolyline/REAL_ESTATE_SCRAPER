@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Grid3X3, List } from 'lucide-react'
+import { Grid3X3, List, Filter } from 'lucide-react'
 import PortalHeader from '@/components/PortalHeader'
 import PortalFilters, { FilterState } from '@/components/PortalFilters'
 import PropertyCard from '@/components/PropertyCard'
@@ -7,6 +7,7 @@ import PropertyTable from '@/components/PropertyTable'
 import Pagination from '@/components/Pagination'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/contexts/ToastContext'
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 
 interface PortalProps {
   usuario: string
@@ -60,6 +61,7 @@ export default function Portal({
   const [currentPage, setCurrentPage] = useState(0)
   const [totalCount, setTotalCount] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false)
   const [filters, setFilters] = useState<FilterState>({
     distrito: '',
     operacion: 'todos',
@@ -98,15 +100,67 @@ export default function Portal({
       if (activePortals.length > 0) {
         query = query.in('portal', activePortals)
       }
-      if (filters.precioMin !== '') {
-        const priceField =
-          filters.moneda === 'USD' ? 'precio_usd' : 'precio'
-        query = query.gte(priceField, Number(filters.precioMin))
-      }
-      if (filters.precioMax !== '') {
-        const priceField =
-          filters.moneda === 'USD' ? 'precio_usd' : 'precio'
-        query = query.lte(priceField, Number(filters.precioMax))
+      if (filters.moneda === 'USD') {
+        const minUsd = filters.precioMin !== '' ? Number(filters.precioMin) : 0
+        const maxUsd = filters.precioMax !== '' ? Number(filters.precioMax) : null
+
+        if (minUsd > 0 || maxUsd !== null) {
+          const conditions: string[] = []
+
+          // Case A: precio_usd is set (>0) and in range
+          let condA = `precio_usd.gt.0`
+          if (minUsd > 0) condA += `,precio_usd.gte.${minUsd}`
+          if (maxUsd !== null) condA += `,precio_usd.lte.${maxUsd}`
+          conditions.push(`and(${condA})`)
+
+          // Case B: precio_usd is 0, convert PEN to USD
+          const minPen = minUsd * 3.75
+          const maxPen = maxUsd !== null ? maxUsd * 3.75 : null
+          
+          let condB = `precio_usd.eq.0`
+          if (minPen > 0) condB += `,precio.gte.${minPen}`
+          if (maxPen !== null) condB += `,precio.lte.${maxPen}`
+          conditions.push(`and(${condB})`)
+
+          // Case C: precio_usd is null, convert PEN to USD
+          let condC = `precio_usd.is.null`
+          if (minPen > 0) condC += `,precio.gte.${minPen}`
+          if (maxPen !== null) condC += `,precio.lte.${maxPen}`
+          conditions.push(`and(${condC})`)
+
+          query = query.or(conditions.join(','))
+        }
+      } else {
+        // PEN moneda
+        const minPen = filters.precioMin !== '' ? Number(filters.precioMin) : 0
+        const maxPen = filters.precioMax !== '' ? Number(filters.precioMax) : null
+
+        if (minPen > 0 || maxPen !== null) {
+          const conditions: string[] = []
+
+          // Case A: precio is set (>0) and in range
+          let condA = `precio.gt.0`
+          if (minPen > 0) condA += `,precio.gte.${minPen}`
+          if (maxPen !== null) condA += `,precio.lte.${maxPen}`
+          conditions.push(`and(${condA})`)
+
+          // Case B: precio is 0, convert USD to PEN
+          const minUsd = minPen / 3.75
+          const maxUsd = maxPen !== null ? maxPen / 3.75 : null
+
+          let condB = `precio.eq.0`
+          if (minUsd > 0) condB += `,precio_usd.gte.${minUsd}`
+          if (maxUsd !== null) condB += `,precio_usd.lte.${maxUsd}`
+          conditions.push(`and(${condB})`)
+
+          // Case C: precio is null, convert USD to PEN
+          let condC = `precio.is.null`
+          if (minUsd > 0) condC += `,precio_usd.gte.${minUsd}`
+          if (maxUsd !== null) condC += `,precio_usd.lte.${maxUsd}`
+          conditions.push(`and(${condC})`)
+
+          query = query.or(conditions.join(','))
+        }
       }
       if (filters.dormitorios && filters.dormitorios.toLowerCase() !== 'todos') {
         query = query.ilike('dormitorios', `%${filters.dormitorios}%`)
@@ -126,12 +180,24 @@ export default function Portal({
 
       // Ordenar: precios en cero al final (conversión estricta)
       const sortedData = ((data as PropertyData[]) || []).sort((a, b) => {
-        const precioA = Number(a.precio) || 0
-        const precioB = Number(b.precio) || 0
+        const getEffectivePrice = (p: PropertyData) => {
+          if (filters.moneda === 'USD') {
+            if (p.precio_usd && p.precio_usd > 0) return p.precio_usd
+            if (p.precio && p.precio > 0) return p.precio / 3.75
+            return 0
+          } else {
+            if (p.precio && p.precio > 0) return p.precio
+            if (p.precio_usd && p.precio_usd > 0) return p.precio_usd * 3.75
+            return 0
+          }
+        }
+
+        const priceA = getEffectivePrice(a)
+        const priceB = getEffectivePrice(b)
 
         // Regla de oro: Si uno es 0 y el otro no, el 0 se va al fondo
-        if (precioA === 0 && precioB > 0) return 1
-        if (precioB === 0 && precioA > 0) return -1
+        if (priceA === 0 && priceB > 0) return 1
+        if (priceB === 0 && priceA > 0) return -1
 
         // Si ambos tienen precio real (o ambos son 0), ordenar por fecha más reciente
         const fechaA = new Date(a.creado_en || 0).getTime()
@@ -187,7 +253,10 @@ export default function Portal({
   const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE)
 
   return (
-    <div style={{ backgroundColor: '#0F0F0F', minHeight: '100vh', paddingTop: '64px' }}>
+    <div
+      className="overflow-x-hidden max-w-full"
+      style={{ backgroundColor: '#0F0F0F', minHeight: '100vh', paddingTop: '64px' }}
+    >
       {/* Header */}
       <PortalHeader
         usuario={usuario}
@@ -196,15 +265,72 @@ export default function Portal({
         onLogout={onLogout}
       />
 
-      {/* Filtros */}
-      <PortalFilters
-        onFilterChange={handleFilterChange}
-        onSearch={handleSearch}
-        onClear={handleClear}
-      />
+      {/* Mobile Sticky Filter Trigger (below navigation header) */}
+      <div
+        className="sticky top-16 md:hidden z-30 px-6 py-3 flex items-center justify-between border-b"
+        style={{ backgroundColor: '#1A1A1A', borderColor: '#2A2A2A', fontFamily: 'DM Sans' }}
+      >
+        <span style={{ color: '#6B6B6B', fontSize: '0.875rem' }}>
+          Mostrando <strong style={{ color: '#C9A96E' }}>{totalCount}</strong> propiedades
+        </span>
+        <button
+          onClick={() => setIsFilterDrawerOpen(true)}
+          className="flex items-center gap-2 px-4 py-2 rounded font-semibold text-sm transition hover:opacity-90 cursor-pointer"
+          style={{
+            backgroundColor: '#C9A96E',
+            color: '#0F0F0F',
+            height: '44px',
+            minHeight: '44px',
+          }}
+        >
+          <Filter size={16} />
+          Filtrar
+        </button>
+      </div>
+
+      {/* Filtros (Desktop) */}
+      <div className="hidden md:block relative z-40">
+        <PortalFilters
+          onFilterChange={handleFilterChange}
+          onSearch={handleSearch}
+          onClear={handleClear}
+        />
+      </div>
+
+      {/* Filtros (Mobile Drawer) */}
+      <Sheet open={isFilterDrawerOpen} onOpenChange={setIsFilterDrawerOpen}>
+        <SheetContent
+          side="right"
+          className="w-full sm:max-w-md border-l border-[#2A2A2A] p-0 flex flex-col h-full"
+          style={{ backgroundColor: '#1A1A1A' }}
+        >
+          <SheetHeader className="px-6 py-4 border-b border-[#2A2A2A] flex flex-row items-center justify-between text-left">
+            <SheetTitle
+              className="text-xl font-bold"
+              style={{ fontFamily: 'Cormorant Garamond', color: '#C9A96E' }}
+            >
+              Filtros
+            </SheetTitle>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto">
+            <PortalFilters
+              onFilterChange={handleFilterChange}
+              onSearch={() => {
+                setIsFilterDrawerOpen(false)
+                handleSearch()
+              }}
+              onClear={() => {
+                setIsFilterDrawerOpen(false)
+                handleClear()
+              }}
+              isMobileDrawer={true}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {/* Contenido principal */}
-      <main className="pt-4 pb-8">
+      <main className="pt-4 pb-8 overflow-x-hidden max-w-full">
         {/* Controles de vista */}
         <div
           className="flex items-center justify-between px-6 mb-6"
