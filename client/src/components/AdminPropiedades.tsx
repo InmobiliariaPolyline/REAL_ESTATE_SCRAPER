@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Eye, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useToast } from '@/contexts/ToastContext'
+import Pagination from '@/components/Pagination'
 
 interface Propiedad {
   id: string
@@ -321,30 +322,14 @@ export default function AdminPropiedades() {
 
       {/* Paginación */}
       {!loading && propiedades.length > 0 && (
-        <div className="flex items-center justify-between px-4 py-3" style={{ backgroundColor: '#111111', border: '1px solid #2A2A2A', borderTop: 'none' }}>
-          <span style={{ color: '#6B6B6B', fontSize: '0.875rem' }}>
-            Mostrando <strong style={{ color: '#C9A96E' }}>{page * 20 + 1}</strong>–
-            <strong style={{ color: '#C9A96E' }}>{Math.min((page + 1) * 20, totalCount)}</strong> de{' '}
-            <strong style={{ color: '#C9A96E' }}>{totalCount}</strong> propiedades
-          </span>
-          <div className="flex gap-2">
-            <button
-              onClick={() => loadPropiedades(page - 1)}
-              disabled={page === 0}
-              className="px-3 py-1 rounded text-xs transition disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ backgroundColor: 'transparent', border: '1px solid #2A2A2A', color: '#C9A96E' }}
-            >
-              Anterior
-            </button>
-            <button
-              onClick={() => loadPropiedades(page + 1)}
-              disabled={(page + 1) * 20 >= totalCount}
-              className="px-3 py-1 rounded text-xs transition disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ backgroundColor: 'transparent', border: '1px solid #2A2A2A', color: '#C9A96E' }}
-            >
-              Siguiente
-            </button>
-          </div>
+        <div style={{ border: '1px solid #2A2A2A', borderTop: 'none' }}>
+          <Pagination
+            currentPage={page}
+            totalPages={Math.ceil(totalCount / 20)}
+            onPageChange={loadPropiedades}
+            totalItems={totalCount}
+            itemsPerPage={20}
+          />
         </div>
       )}
 
