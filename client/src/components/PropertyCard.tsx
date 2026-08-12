@@ -1,4 +1,4 @@
-import { Eye } from 'lucide-react'
+import { Eye, Heart, Trash2 } from 'lucide-react'
 
 interface PropertyCardProps {
   id: string
@@ -15,6 +15,9 @@ interface PropertyCardProps {
   imagen: string | null
   url: string
   index: number
+  isFavorite?: boolean
+  onToggleFavorite?: (id: string) => void
+  onDelete?: (id: string) => void
 }
 
 function getPortalBadgeColor(portal: string) {
@@ -49,6 +52,9 @@ export default function PropertyCard({
   imagen,
   url,
   index,
+  isFavorite,
+  onToggleFavorite,
+  onDelete,
 }: PropertyCardProps) {
   let displayMoneda = moneda
   let displayPrice = 0
@@ -128,7 +134,27 @@ export default function PropertyCard({
             {portal}
           </span>
         </div>
-        <div className="absolute top-3 right-3" style={{ zIndex: 10 }}>
+        <div className="absolute top-3 right-3 flex flex-col items-end gap-2" style={{ zIndex: 10 }}>
+          {onToggleFavorite && (
+            <button
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                onToggleFavorite(id)
+              }}
+              className="w-8 h-8 rounded-full flex items-center justify-center transition"
+              style={{ backgroundColor: 'rgba(15,15,15,0.7)' }}
+              title={isFavorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}
+            >
+              <Heart
+                size={16}
+                style={{
+                  color: isFavorite ? '#EF4444' : '#F0EDE8',
+                  fill: isFavorite ? '#EF4444' : 'none',
+                }}
+              />
+            </button>
+          )}
           <span
             className="badge-operacion"
             style={{
@@ -188,19 +214,30 @@ export default function PropertyCard({
           📍 {distrito}
         </div>
 
-        {/* Botón Ver */}
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="btn-outline-gold w-full flex items-center justify-center gap-2 h-11 md:h-10 text-sm"
-          style={{ padding: 0 }} // Reset vertical padding to allow height utility to take effect
-        >
-          <Eye size={16} />
-          Ver anuncio
-        </a>
+        {/* Botones */}
+        <div className="flex gap-2">
+          
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-outline-gold flex-1 flex items-center justify-center gap-2 h-11 md:h-10 text-sm"
+            style={{ padding: 0 }}
+          >
+            <Eye size={16} />
+            Ver anuncio
+          </a>
+          {onDelete && (
+            <button
+              onClick={() => onDelete(id)}
+              className="flex items-center justify-center h-11 md:h-10 w-11 md:w-10 rounded transition"
+              style={{ border: '1px solid #2A2A2A', color: '#EF4444' }}
+              title="Ocultar/Eliminar"
+            >
+              <Trash2 size={16} />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )
 }
-
