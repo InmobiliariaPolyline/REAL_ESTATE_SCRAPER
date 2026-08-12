@@ -124,7 +124,6 @@ export default function PropertyCard({
             </svg>
           </div>
         )}
-
         {/* Badges */}
         <div className="absolute top-3 left-3 flex gap-2" style={{ zIndex: 10 }}>
           <span
@@ -165,7 +164,6 @@ export default function PropertyCard({
           </span>
         </div>
       </div>
-
       {/* Contenido */}
       <div className="p-4">
         {/* Precio */}
@@ -184,7 +182,6 @@ export default function PropertyCard({
             `${displayMoneda} 0`
           )}
         </div>
-
         {/* Título */}
         <h3
           className="text-sm font-medium mb-3 truncate"
@@ -195,14 +192,12 @@ export default function PropertyCard({
         >
           {titulo}
         </h3>
-
         {/* Pills */}
         <div className="flex gap-2 mb-3 flex-wrap">
           <span className="pill">🛏 {dormitorios}</span>
           <span className="pill">🚿 {banios}</span>
           <span className="pill">📐 {area}</span>
         </div>
-
         {/* Distrito */}
         <div
           className="text-xs mb-4"
@@ -213,10 +208,8 @@ export default function PropertyCard({
         >
           📍 {distrito}
         </div>
-
         {/* Botones */}
         <div className="flex gap-2">
-          
             href={url}
             target="_blank"
             rel="noopener noreferrer"
