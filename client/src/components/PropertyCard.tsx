@@ -69,6 +69,7 @@ export default function PropertyCard({
   } else {
     displayPrice = precio || 0
   }
+  const displayLabel = moneda === 'PEN' ? 'S/' : displayMoneda
   const formattedPrice = displayPrice.toLocaleString('es-PE')
   return (
     <div
@@ -171,10 +172,10 @@ export default function PropertyCard({
         >
           {displayPrice > 0 ? (
             <>
-              {displayMoneda} {isApprox && '~'}{formattedPrice}
+              {displayLabel} {isApprox && '~'}{formattedPrice}
             </>
           ) : (
-            `${displayMoneda} 0`
+            `${displayLabel} 0`
           )}
         </div>
         {/* Título */}
@@ -205,7 +206,7 @@ export default function PropertyCard({
         </div>
         {/* Botones */}
         <div className="flex gap-2">
-          <a
+          
             href={url}
             target="_blank"
             rel="noopener noreferrer"
