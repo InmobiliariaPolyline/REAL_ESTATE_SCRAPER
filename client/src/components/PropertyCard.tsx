@@ -1,5 +1,4 @@
 import { Eye, Heart, Trash2 } from 'lucide-react'
-
 interface PropertyCardProps {
   id: string
   portal: string
@@ -19,7 +18,6 @@ interface PropertyCardProps {
   onToggleFavorite?: (id: string) => void
   onDelete?: (id: string) => void
 }
-
 function getPortalBadgeColor(portal: string) {
   switch (portal) {
     case 'Properati':
@@ -32,11 +30,9 @@ function getPortalBadgeColor(portal: string) {
       return '#60A5FA'
   }
 }
-
 function getOperacionBadgeColor(operacion: string) {
   return operacion === 'ALQUILER' ? '#22C55E' : '#EF4444'
 }
-
 export default function PropertyCard({
   id,
   portal,
@@ -59,7 +55,6 @@ export default function PropertyCard({
   let displayMoneda = moneda
   let displayPrice = 0
   let isApprox = false
-
   if (moneda === 'USD') {
     if (precioUsd && precioUsd > 0) {
       displayPrice = precioUsd
@@ -72,9 +67,7 @@ export default function PropertyCard({
   } else {
     displayPrice = precio || 0
   }
-
   const formattedPrice = displayPrice.toLocaleString('es-PE')
-
   return (
     <div
       className="rounded overflow-hidden transition-all hover:shadow-lg"
