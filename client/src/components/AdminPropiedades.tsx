@@ -11,6 +11,7 @@ interface Propiedad {
   titulo: string
   precio: number
   precio_usd: number
+  moneda: string
   distrito: string
   dormitorios: string
   banios: string
@@ -51,6 +52,7 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
   const [portal, setPortal] = useState('todos')
   const [precioMin, setPrecioMin] = useState('')
   const [precioMax, setPrecioMax] = useState('')
+  const [monedaFiltro, setMonedaFiltro] = useState<'USD' | 'PEN'>('USD')
   const [page, setPage] = useState(0)
   const [totalCount, setTotalCount] = useState(0)
 
@@ -66,7 +68,10 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
   const { addToast } = useToast()
 
   const COLUMNS =
-    'id, portal, operacion, titulo, precio, precio_usd, distrito, dormitorios, banios, area, imagen, url'
+    'id, portal, operacion, titulo, precio, precio_usd, moneda, distrito, dormitorios, banios, area, imagen, url'
+
+  // Misma tasa usada en PropertyCard.tsx para mantener consistencia
+  const EXCHANGE_RATE_PEN_USD = 3.75
 
   const loadFavoritosIds = async () => {
     const { data, error } = await supabase
@@ -108,6 +113,7 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
     filterPortal: string,
     filterPrecioMin: string,
     filterPrecioMax: string,
+    filterMoneda: 'USD' | 'PEN',
     targetPage: number
   ) => {
     try {
@@ -127,10 +133,18 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
         query = query.ilike('portal', `%${filterPortal.toLowerCase().trim()}%`)
       }
       if (filterPrecioMin) {
-        query = query.gte('precio_usd', Number(filterPrecioMin))
+        const minUsd =
+          filterMoneda === 'PEN'
+            ? Math.round(Number(filterPrecioMin) / EXCHANGE_RATE_PEN_USD)
+            : Number(filterPrecioMin)
+        query = query.gte('precio_usd', minUsd)
       }
       if (filterPrecioMax) {
-        query = query.lte('precio_usd', Number(filterPrecioMax))
+        const maxUsd =
+          filterMoneda === 'PEN'
+            ? Math.round(Number(filterPrecioMax) / EXCHANGE_RATE_PEN_USD)
+            : Number(filterPrecioMax)
+        query = query.lte('precio_usd', maxUsd)
       }
 
       const { data, count, error } = await query.range(
@@ -232,7 +246,7 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
 
   const loadPropiedades = (targetPage: number = page) => {
     if (tab === 'buscar') {
-      loadPropiedadesFiltered(distrito, operacion, portal, precioMin, precioMax, targetPage)
+      loadPropiedadesFiltered(distrito, operacion, portal, precioMin, precioMax, monedaFiltro, targetPage)
     }
   }
 
@@ -240,7 +254,7 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
     loadFavoritosIds()
     loadHistorialIds()
     loadBusquedasGuardadas()
-    loadPropiedadesFiltered('', 'todos', 'todos', '', '', 0)
+    loadPropiedadesFiltered('', 'todos', 'todos', '', '', 'USD', 0)
   }, [])
 
   useEffect(() => {
@@ -331,7 +345,7 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
   const handleBuscarManual = () => {
     setActiveSavedSearch(false)
     setShowHidden(false)
-    loadPropiedadesFiltered(distrito, operacion, portal, precioMin, precioMax, 0)
+    loadPropiedadesFiltered(distrito, operacion, portal, precioMin, precioMax, monedaFiltro, 0)
   }
 
   const handleLimpiarFiltros = () => {
@@ -340,9 +354,10 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
     setPortal('todos')
     setPrecioMin('')
     setPrecioMax('')
+    setMonedaFiltro('USD')
     setActiveSavedSearch(false)
     setShowHidden(false)
-    loadPropiedadesFiltered('', 'todos', 'todos', '', '', 0)
+    loadPropiedadesFiltered('', 'todos', 'todos', '', '', 'USD', 0)
   }
 
   const handleGuardarBusqueda = async () => {
@@ -351,14 +366,25 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
       return
     }
     try {
+      const precioMinUsd = precioMin
+        ? monedaFiltro === 'PEN'
+          ? Math.round(Number(precioMin) / EXCHANGE_RATE_PEN_USD)
+          : Number(precioMin)
+        : null
+      const precioMaxUsd = precioMax
+        ? monedaFiltro === 'PEN'
+          ? Math.round(Number(precioMax) / EXCHANGE_RATE_PEN_USD)
+          : Number(precioMax)
+        : null
+
       const { error } = await supabase.from('busquedas_guardadas').insert({
         admin_id: adminId,
         nombre: nombreBusqueda.trim(),
         distrito,
         operacion,
         portal,
-        precio_min: precioMin ? Number(precioMin) : null,
-        precio_max: precioMax ? Number(precioMax) : null,
+        precio_min: precioMinUsd,
+        precio_max: precioMaxUsd,
       })
       if (error) throw error
       addToast('Búsqueda guardada', 'success')
@@ -377,6 +403,7 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
     setPortal(busqueda.portal || 'todos')
     setPrecioMin(busqueda.precio_min !== null ? String(busqueda.precio_min) : '')
     setPrecioMax(busqueda.precio_max !== null ? String(busqueda.precio_max) : '')
+    setMonedaFiltro('USD')
     setActiveSavedSearch(true)
     setShowHidden(false)
     setTab('buscar')
@@ -387,6 +414,7 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
       busqueda.portal || 'todos',
       busqueda.precio_min !== null ? String(busqueda.precio_min) : '',
       busqueda.precio_max !== null ? String(busqueda.precio_max) : '',
+      'USD',
       0
     )
   }
@@ -499,7 +527,7 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
 
       {/* Filtros (solo en tab Buscar) */}
       {tab === 'buscar' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4 p-4 rounded" style={{ backgroundColor: '#111111', border: '1px solid #2A2A2A' }}>
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4 p-4 rounded" style={{ backgroundColor: '#111111', border: '1px solid #2A2A2A' }}>
           <div>
             <label className="block text-xs font-semibold mb-2" style={{ color: '#C9A96E', fontFamily: 'DM Sans' }}>
               Distrito
@@ -547,7 +575,21 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
           </div>
           <div>
             <label className="block text-xs font-semibold mb-2" style={{ color: '#C9A96E', fontFamily: 'DM Sans' }}>
-              Precio min. (USD)
+              Moneda
+            </label>
+            <select
+              value={monedaFiltro}
+              onChange={(e) => setMonedaFiltro(e.target.value as 'USD' | 'PEN')}
+              className="w-full px-3 py-2 rounded text-xs"
+              style={{ backgroundColor: '#252525', color: '#F0EDE8', border: '1px solid #2A2A2A', fontFamily: 'DM Sans', height: '38px' }}
+            >
+              <option value="USD">USD ($)</option>
+              <option value="PEN">Soles (S/)</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold mb-2" style={{ color: '#C9A96E', fontFamily: 'DM Sans' }}>
+              Precio mín. ({monedaFiltro === 'PEN' ? 'S/' : 'USD'})
             </label>
             <input
               type="number"
@@ -559,7 +601,7 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
           </div>
           <div>
             <label className="block text-xs font-semibold mb-2" style={{ color: '#C9A96E', fontFamily: 'DM Sans' }}>
-              Precio máx. (USD)
+              Precio máx. ({monedaFiltro === 'PEN' ? 'S/' : 'USD'})
             </label>
             <input
               type="number"
@@ -694,7 +736,7 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
                   titulo={prop.titulo}
                   precio={prop.precio}
                   precioUsd={prop.precio_usd}
-                  moneda="USD"
+                  moneda={prop.moneda || 'USD'}
                   distrito={prop.distrito}
                   dormitorios={prop.dormitorios}
                   banios={prop.banios}
