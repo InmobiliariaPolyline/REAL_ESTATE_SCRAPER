@@ -1,243 +1,501 @@
-import { Eye, Heart, Trash2 } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabase'
+import { useToast } from '@/contexts/ToastContext'
+import Pagination from '@/components/Pagination'
+import PropertyCard from '@/components/PropertyCard'
 
-interface PropertyCardProps {
+interface Propiedad {
   id: string
   portal: string
   operacion: string
   titulo: string
   precio: number
-  precioUsd: number
-  moneda: string
+  precio_usd: number
   distrito: string
   dormitorios: string
   banios: string
   area: string
   imagen: string | null
   url: string
-  index: number
-  isFavorite?: boolean
-  onToggleFavorite?: (id: string) => void
-  onDelete?: (id: string) => void
 }
 
-function getPortalBadgeColor(portal: string) {
-  switch (portal) {
-    case 'Properati':
-      return '#3B82F6'
-    case 'Infocasas':
-      return '#8B5CF6'
-    case 'Babilonia':
-      return '#F59E0B'
-    default:
-      return '#60A5FA'
-  }
+interface AdminPropiedadesProps {
+  adminId: number
 }
 
-function getOperacionBadgeColor(operacion: string) {
-  return operacion === 'ALQUILER' ? '#22C55E' : '#EF4444'
-}
+const ITEMS_PER_PAGE = 20
 
-export default function PropertyCard({
-  id,
-  portal,
-  operacion,
-  titulo,
-  precio,
-  precioUsd,
-  moneda,
-  distrito,
-  dormitorios,
-  banios,
-  area,
-  imagen,
-  url,
-  index,
-  isFavorite,
-  onToggleFavorite,
-  onDelete,
-}: PropertyCardProps) {
-  let displayMoneda = moneda
-  let displayPrice = 0
-  let isApprox = false
+export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
+  const [tab, setTab] = useState<'buscar' | 'favoritos'>('buscar')
+  const [propiedades, setPropiedades] = useState<Propiedad[]>([])
+  const [loading, setLoading] = useState(true)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showModalLimpieza, setShowModalLimpieza] = useState(false)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [favoritos, setFavoritos] = useState<Set<string>>(new Set())
 
-  if (moneda === 'USD') {
-    if (precioUsd && precioUsd > 0) {
-      displayPrice = precioUsd
-    } else if (precio && precio > 0) {
-      displayPrice = Math.round(precio / 3.75)
-      isApprox = true
-    } else {
-      displayPrice = 0
+  // Estados de filtros y paginación
+  const [distrito, setDistrito] = useState('')
+  const [operacion, setOperacion] = useState('todos')
+  const [portal, setPortal] = useState('todos')
+  const [page, setPage] = useState(0)
+  const [totalCount, setTotalCount] = useState(0)
+
+  const { addToast } = useToast()
+
+  const COLUMNS =
+    'id, portal, operacion, titulo, precio, precio_usd, distrito, dormitorios, banios, area, imagen, url'
+
+  const loadFavoritosIds = async () => {
+    const { data, error } = await supabase
+      .from('favoritos')
+      .select('propiedad_id')
+      .eq('admin_id', adminId)
+
+    if (!error && data) {
+      setFavoritos(new Set(data.map((f: any) => f.propiedad_id)))
     }
-  } else {
-    displayPrice = precio || 0
   }
 
-  const formattedPrice = displayPrice.toLocaleString('es-PE')
+  const loadPropiedadesFiltered = async (
+    filterDistrito: string,
+    filterOperacion: string,
+    filterPortal: string,
+    targetPage: number
+  ) => {
+    try {
+      setLoading(true)
+      let query = supabase
+        .from('propiedades')
+        .select(COLUMNS, { count: 'exact' })
+        .order('creado_en', { ascending: false })
+
+      if (filterDistrito) {
+        query = query.ilike('distrito', `%${filterDistrito}%`)
+      }
+      if (filterOperacion && filterOperacion !== 'todos') {
+        query = query.eq('operacion', filterOperacion.toLowerCase().trim())
+      }
+      if (filterPortal && filterPortal !== 'todos') {
+        query = query.ilike('portal', `%${filterPortal.toLowerCase().trim()}%`)
+      }
+
+      const { data, count, error } = await query.range(
+        targetPage * ITEMS_PER_PAGE,
+        (targetPage + 1) * ITEMS_PER_PAGE - 1
+      )
+
+      if (error) throw error
+      setPropiedades((data as any) || [])
+      setTotalCount(count || 0)
+      setPage(targetPage)
+    } catch (err) {
+      addToast('Error al cargar propiedades', 'error')
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadFavoritosPropiedades = async () => {
+    try {
+      setLoading(true)
+      const { data: favData, error: favError } = await supabase
+        .from('favoritos')
+        .select('propiedad_id')
+        .eq('admin_id', adminId)
+        .order('creado_en', { ascending: false })
+
+      if (favError) throw favError
+
+      const ids = (favData || []).map((f: any) => f.propiedad_id)
+      setFavoritos(new Set(ids))
+
+      if (ids.length === 0) {
+        setPropiedades([])
+        setTotalCount(0)
+        return
+      }
+
+      const { data, error } = await supabase
+        .from('propiedades')
+        .select(COLUMNS)
+        .in('id', ids)
+
+      if (error) throw error
+      setPropiedades((data as any) || [])
+      setTotalCount(ids.length)
+      setPage(0)
+    } catch (err) {
+      addToast('Error al cargar favoritos', 'error')
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadPropiedades = (targetPage: number = page) => {
+    if (tab === 'buscar') {
+      loadPropiedadesFiltered(distrito, operacion, portal, targetPage)
+    }
+  }
+
+  useEffect(() => {
+    loadFavoritosIds()
+    loadPropiedadesFiltered('', 'todos', 'todos', 0)
+  }, [])
+
+  useEffect(() => {
+    if (tab === 'buscar') {
+      loadPropiedadesFiltered(distrito, operacion, portal, 0)
+    } else {
+      loadFavoritosPropiedades()
+    }
+  }, [tab])
+
+  const handleToggleFavorite = async (propiedadId: string) => {
+    const isFav = favoritos.has(propiedadId)
+    try {
+      if (isFav) {
+        const { error } = await supabase
+          .from('favoritos')
+          .delete()
+          .eq('admin_id', adminId)
+          .eq('propiedad_id', propiedadId)
+        if (error) throw error
+
+        const newSet = new Set(favoritos)
+        newSet.delete(propiedadId)
+        setFavoritos(newSet)
+
+        if (tab === 'favoritos') {
+          setPropiedades(propiedades.filter((p) => p.id !== propiedadId))
+        }
+        addToast('Quitado de favoritos', 'info')
+      } else {
+        const { error } = await supabase
+          .from('favoritos')
+          .insert({ admin_id: adminId, propiedad_id: propiedadId })
+        if (error) throw error
+
+        const newSet = new Set(favoritos)
+        newSet.add(propiedadId)
+        setFavoritos(newSet)
+        addToast('Agregado a favoritos', 'success')
+      }
+    } catch (err) {
+      addToast('Error al actualizar favorito', 'error')
+      console.error(err)
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!selectedId) return
+
+    try {
+      const { error } = await supabase
+        .from('propiedades')
+        .delete()
+        .eq('id', selectedId)
+
+      if (error) throw error
+
+      setPropiedades(propiedades.filter((p) => p.id !== selectedId))
+      addToast('Propiedad eliminada', 'success')
+      setShowDeleteModal(false)
+      setSelectedId(null)
+    } catch (err) {
+      addToast('Error al eliminar propiedad', 'error')
+      console.error(err)
+    }
+  }
+
+  const handleCleanup = () => {
+    addToast('Proceso registrado — se ejecutará en la próxima corrida.', 'info')
+  }
 
   return (
-    <div
-      className="rounded overflow-hidden transition-all hover:shadow-lg"
-      style={{
-        backgroundColor: '#111111',
-        animation: `slideInUp 0.5s ease forwards`,
-        animationDelay: `${index * 40}ms`,
-        opacity: 0,
-        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'translateY(-3px)'
-        e.currentTarget.style.boxShadow =
-          '0 8px 32px rgba(201, 169, 110, 0.18)'
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'translateY(0)'
-        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)'
-      }}
-    >
-      {/* Imagen */}
-      <div className="relative w-full h-48 bg-gray-800 overflow-hidden">
-        {imagen ? (
-          <img
-            src={imagen}
-            alt={titulo}
-            className="w-full h-full object-cover"
-            loading="lazy"
-            decoding="async"
-          />
-        ) : (
-          <div
-            className="w-full h-full flex items-center justify-center"
-            style={{ backgroundColor: '#252525' }}
-          >
-            <svg
-              width="48"
-              height="48"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1"
-              style={{ color: '#6B6B6B' }}
-            >
-              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-              <polyline points="9 22 9 12 15 12 15 22"></polyline>
-            </svg>
-          </div>
-        )}
+    <div className="space-y-6">
+      {/* Tabs */}
+      <div className="flex gap-2 border-b" style={{ borderColor: '#2A2A2A' }}>
+        <button
+          onClick={() => setTab('buscar')}
+          className="px-4 py-2 text-sm font-medium transition"
+          style={{
+            color: tab === 'buscar' ? '#C9A96E' : '#6B6B6B',
+            borderBottom: tab === 'buscar' ? '2px solid #C9A96E' : '2px solid transparent',
+            fontFamily: 'DM Sans',
+          }}
+        >
+          🔍 Buscar propiedades
+        </button>
+        <button
+          onClick={() => setTab('favoritos')}
+          className="px-4 py-2 text-sm font-medium transition"
+          style={{
+            color: tab === 'favoritos' ? '#C9A96E' : '#6B6B6B',
+            borderBottom: tab === 'favoritos' ? '2px solid #C9A96E' : '2px solid transparent',
+            fontFamily: 'DM Sans',
+          }}
+        >
+          ❤️ Mis favoritos {favoritos.size > 0 && `(${favoritos.size})`}
+        </button>
+      </div>
 
-        {/* Badges */}
-        <div className="absolute top-3 left-3 flex gap-2" style={{ zIndex: 10 }}>
-          <span
-            className="badge-portal"
-            style={{ backgroundColor: getPortalBadgeColor(portal) }}
-          >
-            {portal}
-          </span>
-        </div>
-        <div className="absolute top-3 right-3 flex flex-col items-end gap-2" style={{ zIndex: 10 }}>
-          {onToggleFavorite && (
-            <button
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                onToggleFavorite(id)
-              }}
-              className="w-8 h-8 rounded-full flex items-center justify-center transition"
-              style={{ backgroundColor: 'rgba(15,15,15,0.7)' }}
-              title={isFavorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}
-            >
-              <Heart
-                size={16}
-                style={{
-                  color: isFavorite ? '#EF4444' : '#F0EDE8',
-                  fill: isFavorite ? '#EF4444' : 'none',
-                }}
-              />
-            </button>
-          )}
-          <span
-            className="badge-operacion"
+      {/* Fila superior: Limpieza de inactivos (solo en tab Buscar) */}
+      {tab === 'buscar' && (
+        <div className="flex justify-between items-center">
+          <button
+            onClick={() => setShowModalLimpieza(true)}
+            className="px-4 py-2 rounded text-sm font-medium transition"
             style={{
-              backgroundColor: getOperacionBadgeColor(operacion),
+              backgroundColor: '#450a0a',
+              border: '1px solid #7f1d1d',
+              color: '#fca5a5',
+              fontFamily: 'DM Sans',
             }}
           >
-            {operacion}
-          </span>
+            ⚠️ Ejecutar Limpieza de Inactivos
+          </button>
         </div>
-      </div>
+      )}
 
-      {/* Contenido */}
-      <div className="p-4">
-        {/* Precio */}
-        <div
-          className="text-2xl font-bold mb-2"
-          style={{
-            fontFamily: 'JetBrains Mono',
-            color: '#C9A96E',
-          }}
-        >
-          {displayPrice > 0 ? (
-            <>
-              {displayMoneda} {isApprox && '~'}{formattedPrice}
-            </>
-          ) : (
-            `${displayMoneda} 0`
-          )}
-        </div>
-
-        {/* Título */}
-        <h3
-          className="text-sm font-medium mb-3 truncate"
-          style={{
-            color: '#F0EDE8',
-            fontFamily: 'DM Sans',
-          }}
-        >
-          {titulo}
-        </h3>
-
-        {/* Pills */}
-        <div className="flex gap-2 mb-3 flex-wrap">
-          <span className="pill">🛏 {dormitorios}</span>
-          <span className="pill">🚿 {banios}</span>
-          <span className="pill">📐 {area}</span>
-        </div>
-
-        {/* Distrito */}
-        <div
-          className="text-xs mb-4"
-          style={{
-            color: '#6B6B6B',
-            fontFamily: 'DM Sans',
-          }}
-        >
-          📍 {distrito}
-        </div>
-
-        {/* Botones */}
-        <div className="flex gap-2">
-          
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn-outline-gold flex-1 flex items-center justify-center gap-2 h-11 md:h-10 text-sm"
-            style={{ padding: 0 }}
-          >
-            <Eye size={16} />
-            Ver anuncio
-          </a>
-          {onDelete && (
-            <button
-              onClick={() => onDelete(id)}
-              className="flex items-center justify-center h-11 md:h-10 w-11 md:w-10 rounded transition"
-              style={{ border: '1px solid #2A2A2A', color: '#EF4444' }}
-              title="Ocultar/Eliminar"
+      {/* Filtros (solo en tab Buscar) */}
+      {tab === 'buscar' && (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 rounded" style={{ backgroundColor: '#111111', border: '1px solid #2A2A2A' }}>
+          <div>
+            <label className="block text-xs font-semibold mb-2" style={{ color: '#C9A96E', fontFamily: 'DM Sans' }}>
+              Distrito
+            </label>
+            <input
+              type="text"
+              value={distrito}
+              onChange={(e) => setDistrito(e.target.value)}
+              placeholder="Buscar distrito..."
+              className="input-underline w-full text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold mb-2" style={{ color: '#C9A96E', fontFamily: 'DM Sans' }}>
+              Operación
+            </label>
+            <select
+              value={operacion}
+              onChange={(e) => setOperacion(e.target.value)}
+              className="w-full px-3 py-2 rounded text-xs"
+              style={{ backgroundColor: '#252525', color: '#F0EDE8', border: '1px solid #2A2A2A', fontFamily: 'DM Sans', height: '38px' }}
             >
-              <Trash2 size={16} />
+              <option value="todos">Todos</option>
+              <option value="ALQUILER">Alquiler</option>
+              <option value="VENTA">Venta</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold mb-2" style={{ color: '#C9A96E', fontFamily: 'DM Sans' }}>
+              Portal
+            </label>
+            <select
+              value={portal}
+              onChange={(e) => setPortal(e.target.value)}
+              className="w-full px-3 py-2 rounded text-xs"
+              style={{ backgroundColor: '#252525', color: '#F0EDE8', border: '1px solid #2A2A2A', fontFamily: 'DM Sans', height: '38px' }}
+            >
+              <option value="todos">Todos</option>
+              <option value="Properati">Properati</option>
+              <option value="Infocasas">Infocasas</option>
+              <option value="Babilonia">Babilonia</option>
+              <option value="Urbania">Urbania</option>
+              <option value="Adondevivir">Adondevivir</option>
+            </select>
+          </div>
+          <div className="flex items-end gap-2">
+            <button
+              onClick={() => loadPropiedadesFiltered(distrito, operacion, portal, 0)}
+              className="flex-1 px-4 py-2 rounded font-medium transition"
+              style={{ backgroundColor: '#C9A96E', color: '#0F0F0F', fontFamily: 'DM Sans', fontSize: '0.875rem', height: '38px' }}
+            >
+              Buscar
             </button>
-          )}
+            <button
+              onClick={() => {
+                setDistrito('')
+                setOperacion('todos')
+                setPortal('todos')
+                loadPropiedadesFiltered('', 'todos', 'todos', 0)
+              }}
+              className="px-3 py-2 rounded transition flex items-center justify-center"
+              style={{ backgroundColor: 'transparent', border: '1px solid #2A2A2A', color: '#6B6B6B', fontFamily: 'DM Sans', height: '38px', width: '38px' }}
+              title="Limpiar filtros"
+            >
+              X
+            </button>
+          </div>
         </div>
+      )}
+
+      {/* Contador */}
+      <div style={{ color: '#6B6B6B', fontFamily: 'DM Sans', fontSize: '0.875rem' }}>
+        {!loading && `Mostrando ${propiedades.length} de ${totalCount} propiedades`}
       </div>
+
+      {/* Cuadrícula de tarjetas */}
+      {loading ? (
+        <div className="text-center py-12" style={{ color: '#6B6B6B', fontFamily: 'DM Sans' }}>
+          Cargando propiedades...
+        </div>
+      ) : propiedades.length === 0 ? (
+        <div className="text-center py-12" style={{ color: '#6B6B6B', fontFamily: 'DM Sans' }}>
+          {tab === 'favoritos'
+            ? 'Aún no marcaste ninguna propiedad como favorita'
+            : 'Sin propiedades para estos filtros'}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {propiedades.map((prop, idx) => (
+            <PropertyCard
+              key={prop.id}
+              id={prop.id}
+              portal={prop.portal}
+              operacion={prop.operacion}
+              titulo={prop.titulo}
+              precio={prop.precio}
+              precioUsd={prop.precio_usd}
+              moneda="USD"
+              distrito={prop.distrito}
+              dormitorios={prop.dormitorios}
+              banios={prop.banios}
+              area={prop.area}
+              imagen={prop.imagen}
+              url={prop.url}
+              index={idx}
+              isFavorite={favoritos.has(prop.id)}
+              onToggleFavorite={handleToggleFavorite}
+              onDelete={(id) => {
+                setSelectedId(id)
+                setShowDeleteModal(true)
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Paginación (solo en tab Buscar) */}
+      {tab === 'buscar' && !loading && propiedades.length > 0 && (
+        <Pagination
+          currentPage={page}
+          totalPages={Math.ceil(totalCount / ITEMS_PER_PAGE)}
+          onPageChange={loadPropiedades}
+          totalItems={totalCount}
+          itemsPerPage={ITEMS_PER_PAGE}
+        />
+      )}
+
+      {/* Modal de confirmación eliminar */}
+      {showDeleteModal && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50"
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+          onClick={() => setShowDeleteModal(false)}
+        >
+          <div
+            className="p-6 rounded max-w-sm"
+            style={{ backgroundColor: '#111111', border: '1px solid #2A2A2A' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3
+              style={{
+                color: '#F0EDE8',
+                fontFamily: 'DM Sans',
+                fontSize: '1.125rem',
+                fontWeight: 'bold',
+                marginBottom: '1rem',
+              }}
+            >
+              ¿Confirmas eliminar esta propiedad?
+            </h3>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="flex-1 px-4 py-2 rounded text-sm font-medium"
+                style={{
+                  backgroundColor: 'transparent',
+                  border: '1px solid #2A2A2A',
+                  color: '#6B6B6B',
+                  fontFamily: 'DM Sans',
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleDelete}
+                className="flex-1 px-4 py-2 rounded text-sm font-medium"
+                style={{
+                  backgroundColor: '#EF4444',
+                  color: 'white',
+                  fontFamily: 'DM Sans',
+                }}
+              >
+                Eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmación limpieza */}
+      {showModalLimpieza && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50"
+          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+          onClick={() => setShowModalLimpieza(false)}
+        >
+          <div
+            className="p-6 rounded max-w-sm"
+            style={{ backgroundColor: '#111111', border: '1px solid #2A2A2A' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3
+              style={{
+                color: '#F0EDE8',
+                fontFamily: 'DM Sans',
+                fontSize: '1.125rem',
+                fontWeight: 'bold',
+                marginBottom: '1rem',
+              }}
+            >
+              ¿Confirmas eliminar todos los registros inactivos?
+            </h3>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowModalLimpieza(false)}
+                className="flex-1 px-4 py-2 rounded text-sm font-medium"
+                style={{
+                  backgroundColor: 'transparent',
+                  border: '1px solid #2A2A2A',
+                  color: '#6B6B6B',
+                  fontFamily: 'DM Sans',
+                }}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  setShowModalLimpieza(false)
+                  handleCleanup()
+                }}
+                className="flex-1 px-4 py-2 rounded text-sm font-medium"
+                style={{
+                  backgroundColor: '#EF4444',
+                  color: 'white',
+                  fontFamily: 'DM Sans',
+                }}
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
