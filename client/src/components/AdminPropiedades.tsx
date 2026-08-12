@@ -26,7 +26,7 @@ interface AdminPropiedadesProps {
 const ITEMS_PER_PAGE = 20
 
 export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
-  const [tab, setTab] = useState<'buscar' | 'favoritos'>('buscar')
+  const [tab, setTab] = useState<'buscar' | 'favoritos' | 'historial'>('buscar')
   const [propiedades, setPropiedades] = useState<Propiedad[]>([])
   const [loading, setLoading] = useState(true)
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -134,6 +134,50 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
     }
   }
 
+  const loadHistorialPropiedades = async () => {
+    try {
+      setLoading(true)
+      const { data: histData, error: histError } = await supabase
+        .from('historial')
+        .select('propiedad_id')
+        .eq('admin_id', adminId)
+        .order('visto_en', { ascending: false })
+        .limit(50)
+
+      if (histError) throw histError
+
+      const ids = (histData || []).map((h: any) => h.propiedad_id)
+
+      if (ids.length === 0) {
+        setPropiedades([])
+        setTotalCount(0)
+        return
+      }
+
+      const { data, error } = await supabase
+        .from('propiedades')
+        .select(COLUMNS)
+        .in('id', ids)
+
+      if (error) throw error
+
+      // Reordenar según el orden del historial (más reciente primero)
+      const dataById = new Map((data || []).map((p: any) => [p.id, p]))
+      const ordered = ids
+        .map((id: string) => dataById.get(id))
+        .filter((p: any) => p !== undefined)
+
+      setPropiedades(ordered as any)
+      setTotalCount(ordered.length)
+      setPage(0)
+    } catch (err) {
+      addToast('Error al cargar historial', 'error')
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const loadPropiedades = (targetPage: number = page) => {
     if (tab === 'buscar') {
       loadPropiedadesFiltered(distrito, operacion, portal, targetPage)
@@ -148,8 +192,10 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
   useEffect(() => {
     if (tab === 'buscar') {
       loadPropiedadesFiltered(distrito, operacion, portal, 0)
-    } else {
+    } else if (tab === 'favoritos') {
       loadFavoritosPropiedades()
+    } else if (tab === 'historial') {
+      loadHistorialPropiedades()
     }
   }, [tab])
 
@@ -186,6 +232,19 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
     } catch (err) {
       addToast('Error al actualizar favorito', 'error')
       console.error(err)
+    }
+  }
+
+  const handleView = async (propiedadId: string) => {
+    try {
+      await supabase
+        .from('historial')
+        .upsert(
+          { admin_id: adminId, propiedad_id: propiedadId, visto_en: new Date().toISOString() },
+          { onConflict: 'admin_id,propiedad_id' }
+        )
+    } catch (err) {
+      console.error('Error al registrar historial', err)
     }
   }
 
@@ -239,6 +298,17 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
           }}
         >
           ❤️ Mis favoritos {favoritos.size > 0 && `(${favoritos.size})`}
+        </button>
+        <button
+          onClick={() => setTab('historial')}
+          className="px-4 py-2 text-sm font-medium transition"
+          style={{
+            color: tab === 'historial' ? '#C9A96E' : '#6B6B6B',
+            borderBottom: tab === 'historial' ? '2px solid #C9A96E' : '2px solid transparent',
+            fontFamily: 'DM Sans',
+          }}
+        >
+          🕐 Historial
         </button>
       </div>
 
@@ -347,7 +417,9 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
         <div className="text-center py-12" style={{ color: '#6B6B6B', fontFamily: 'DM Sans' }}>
           {tab === 'favoritos'
             ? 'Aún no marcaste ninguna propiedad como favorita'
-            : 'Sin propiedades para estos filtros'}
+            : tab === 'historial'
+              ? 'Aún no has visto ninguna propiedad'
+              : 'Sin propiedades para estos filtros'}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -370,6 +442,7 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
               index={idx}
               isFavorite={favoritos.has(prop.id)}
               onToggleFavorite={handleToggleFavorite}
+              onView={handleView}
               onDelete={(id) => {
                 setSelectedId(id)
                 setShowDeleteModal(true)
