@@ -206,7 +206,7 @@ export default function PropertyCard({
         </div>
         {/* Botones */}
         <div className="flex gap-2">
-          
+          <a
             href={url}
             target="_blank"
             rel="noopener noreferrer"
