@@ -1,444 +1,243 @@
-import { useState, useEffect } from 'react'
-import { Eye, Trash2 } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
-import { useToast } from '@/contexts/ToastContext'
-import Pagination from '@/components/Pagination'
+import { Eye, Heart, Trash2 } from 'lucide-react'
 
-interface Propiedad {
+interface PropertyCardProps {
   id: string
   portal: string
+  operacion: string
   titulo: string
-  precio_usd: number
+  precio: number
+  precioUsd: number
+  moneda: string
   distrito: string
+  dormitorios: string
+  banios: string
+  area: string
+  imagen: string | null
   url: string
+  index: number
+  isFavorite?: boolean
+  onToggleFavorite?: (id: string) => void
+  onDelete?: (id: string) => void
 }
 
-export default function AdminPropiedades() {
-  const [propiedades, setPropiedades] = useState<Propiedad[]>([])
-  const [loading, setLoading] = useState(true)
-  const [showDeleteModal, setShowDeleteModal] = useState(false)
-  const [showModalLimpieza, setShowModalLimpieza] = useState(false)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  
-  // Estados de filtros y paginación
-  const [distrito, setDistrito] = useState('')
-  const [operacion, setOperacion] = useState('todos')
-  const [portal, setPortal] = useState('todos')
-  const [page, setPage] = useState(0)
-  const [totalCount, setTotalCount] = useState(0)
-  
-  const { addToast } = useToast()
+function getPortalBadgeColor(portal: string) {
+  switch (portal) {
+    case 'Properati':
+      return '#3B82F6'
+    case 'Infocasas':
+      return '#8B5CF6'
+    case 'Babilonia':
+      return '#F59E0B'
+    default:
+      return '#60A5FA'
+  }
+}
 
-  const loadPropiedadesFiltered = async (
-    filterDistrito: string,
-    filterOperacion: string,
-    filterPortal: string,
-    targetPage: number
-  ) => {
-    try {
-      setLoading(true)
-      let query = supabase
-        .from('propiedades')
-        .select('id, portal, titulo, precio_usd, distrito, url', { count: 'exact' })
-        .order('creado_en', { ascending: false })
+function getOperacionBadgeColor(operacion: string) {
+  return operacion === 'ALQUILER' ? '#22C55E' : '#EF4444'
+}
 
-      if (filterDistrito) {
-        query = query.ilike('distrito', `%${filterDistrito}%`)
-      }
-      if (filterOperacion && filterOperacion !== 'todos') {
-        query = query.eq('operacion', filterOperacion.toLowerCase().trim())
-      }
-      if (filterPortal && filterPortal !== 'todos') {
-        query = query.ilike('portal', `%${filterPortal.toLowerCase().trim()}%`)
-      }
+export default function PropertyCard({
+  id,
+  portal,
+  operacion,
+  titulo,
+  precio,
+  precioUsd,
+  moneda,
+  distrito,
+  dormitorios,
+  banios,
+  area,
+  imagen,
+  url,
+  index,
+  isFavorite,
+  onToggleFavorite,
+  onDelete,
+}: PropertyCardProps) {
+  let displayMoneda = moneda
+  let displayPrice = 0
+  let isApprox = false
 
-      const { data, count, error } = await query.range(
-        targetPage * 20,
-        (targetPage + 1) * 20 - 1
-      )
-
-      if (error) throw error
-      setPropiedades((data as Propiedad[]) || [])
-      setTotalCount(count || 0)
-      setPage(targetPage)
-    } catch (err) {
-      addToast('Error al cargar propiedades', 'error')
-      console.error(err)
-    } finally {
-      setLoading(false)
+  if (moneda === 'USD') {
+    if (precioUsd && precioUsd > 0) {
+      displayPrice = precioUsd
+    } else if (precio && precio > 0) {
+      displayPrice = Math.round(precio / 3.75)
+      isApprox = true
+    } else {
+      displayPrice = 0
     }
+  } else {
+    displayPrice = precio || 0
   }
 
-  const loadPropiedades = (targetPage: number = page) => {
-    loadPropiedadesFiltered(distrito, operacion, portal, targetPage)
-  }
-
-  useEffect(() => {
-    loadPropiedadesFiltered('', 'todos', 'todos', 0)
-  }, [])
-
-  const handleDelete = async () => {
-    if (!selectedId) return
-
-    try {
-      const { error } = await supabase
-        .from('propiedades')
-        .delete()
-        .eq('id', selectedId)
-
-      if (error) throw error
-
-      setPropiedades(propiedades.filter((p) => p.id !== selectedId))
-      addToast('Propiedad eliminada', 'success')
-      setShowDeleteModal(false)
-      setSelectedId(null)
-    } catch (err) {
-      addToast('Error al eliminar propiedad', 'error')
-      console.error(err)
-    }
-  }
-
-  const handleCleanup = () => {
-    addToast('Proceso registrado — se ejecutará en la próxima corrida.', 'info')
-  }
+  const formattedPrice = displayPrice.toLocaleString('es-PE')
 
   return (
-    <div className="space-y-6">
-      {/* Fila superior: Limpieza de inactivos */}
-      <div className="flex justify-between items-center">
-        <button
-          onClick={() => setShowModalLimpieza(true)}
-          className="px-4 py-2 rounded text-sm font-medium transition"
+    <div
+      className="rounded overflow-hidden transition-all hover:shadow-lg"
+      style={{
+        backgroundColor: '#111111',
+        animation: `slideInUp 0.5s ease forwards`,
+        animationDelay: `${index * 40}ms`,
+        opacity: 0,
+        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.transform = 'translateY(-3px)'
+        e.currentTarget.style.boxShadow =
+          '0 8px 32px rgba(201, 169, 110, 0.18)'
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = 'translateY(0)'
+        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)'
+      }}
+    >
+      {/* Imagen */}
+      <div className="relative w-full h-48 bg-gray-800 overflow-hidden">
+        {imagen ? (
+          <img
+            src={imagen}
+            alt={titulo}
+            className="w-full h-full object-cover"
+            loading="lazy"
+            decoding="async"
+          />
+        ) : (
+          <div
+            className="w-full h-full flex items-center justify-center"
+            style={{ backgroundColor: '#252525' }}
+          >
+            <svg
+              width="48"
+              height="48"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1"
+              style={{ color: '#6B6B6B' }}
+            >
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+              <polyline points="9 22 9 12 15 12 15 22"></polyline>
+            </svg>
+          </div>
+        )}
+
+        {/* Badges */}
+        <div className="absolute top-3 left-3 flex gap-2" style={{ zIndex: 10 }}>
+          <span
+            className="badge-portal"
+            style={{ backgroundColor: getPortalBadgeColor(portal) }}
+          >
+            {portal}
+          </span>
+        </div>
+        <div className="absolute top-3 right-3 flex flex-col items-end gap-2" style={{ zIndex: 10 }}>
+          {onToggleFavorite && (
+            <button
+              onClick={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                onToggleFavorite(id)
+              }}
+              className="w-8 h-8 rounded-full flex items-center justify-center transition"
+              style={{ backgroundColor: 'rgba(15,15,15,0.7)' }}
+              title={isFavorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}
+            >
+              <Heart
+                size={16}
+                style={{
+                  color: isFavorite ? '#EF4444' : '#F0EDE8',
+                  fill: isFavorite ? '#EF4444' : 'none',
+                }}
+              />
+            </button>
+          )}
+          <span
+            className="badge-operacion"
+            style={{
+              backgroundColor: getOperacionBadgeColor(operacion),
+            }}
+          >
+            {operacion}
+          </span>
+        </div>
+      </div>
+
+      {/* Contenido */}
+      <div className="p-4">
+        {/* Precio */}
+        <div
+          className="text-2xl font-bold mb-2"
           style={{
-            backgroundColor: '#450a0a',
-            border: '1px solid #7f1d1d',
-            color: '#fca5a5',
+            fontFamily: 'JetBrains Mono',
+            color: '#C9A96E',
+          }}
+        >
+          {displayPrice > 0 ? (
+            <>
+              {displayMoneda} {isApprox && '~'}{formattedPrice}
+            </>
+          ) : (
+            `${displayMoneda} 0`
+          )}
+        </div>
+
+        {/* Título */}
+        <h3
+          className="text-sm font-medium mb-3 truncate"
+          style={{
+            color: '#F0EDE8',
             fontFamily: 'DM Sans',
           }}
         >
-          ⚠️ Ejecutar Limpieza de Inactivos
-        </button>
-      </div>
+          {titulo}
+        </h3>
 
-      {/* Filtros */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 rounded" style={{ backgroundColor: '#111111', border: '1px solid #2A2A2A' }}>
-        <div>
-          <label className="block text-xs font-semibold mb-2" style={{ color: '#C9A96E', fontFamily: 'DM Sans' }}>
-            Distrito
-          </label>
-          <input
-            type="text"
-            value={distrito}
-            onChange={(e) => setDistrito(e.target.value)}
-            placeholder="Buscar distrito..."
-            className="input-underline w-full text-sm"
-          />
+        {/* Pills */}
+        <div className="flex gap-2 mb-3 flex-wrap">
+          <span className="pill">🛏 {dormitorios}</span>
+          <span className="pill">🚿 {banios}</span>
+          <span className="pill">📐 {area}</span>
         </div>
-        <div>
-          <label className="block text-xs font-semibold mb-2" style={{ color: '#C9A96E', fontFamily: 'DM Sans' }}>
-            Operación
-          </label>
-          <select
-            value={operacion}
-            onChange={(e) => setOperacion(e.target.value)}
-            className="w-full px-3 py-2 rounded text-xs"
-            style={{ backgroundColor: '#252525', color: '#F0EDE8', border: '1px solid #2A2A2A', fontFamily: 'DM Sans', height: '38px' }}
-          >
-            <option value="todos">Todos</option>
-            <option value="ALQUILER">Alquiler</option>
-            <option value="VENTA">Venta</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-semibold mb-2" style={{ color: '#C9A96E', fontFamily: 'DM Sans' }}>
-            Portal
-          </label>
-          <select
-            value={portal}
-            onChange={(e) => setPortal(e.target.value)}
-            className="w-full px-3 py-2 rounded text-xs"
-            style={{ backgroundColor: '#252525', color: '#F0EDE8', border: '1px solid #2A2A2A', fontFamily: 'DM Sans', height: '38px' }}
-          >
-            <option value="todos">Todos</option>
-            <option value="Properati">Properati</option>
-            <option value="Infocasas">Infocasas</option>
-            <option value="Babilonia">Babilonia</option>
-            <option value="Urbania">Urbania</option>
-            <option value="Adondevivir">Adondevivir</option>
-          </select>
-        </div>
-        <div className="flex items-end gap-2">
-          <button
-            onClick={() => loadPropiedadesFiltered(distrito, operacion, portal, 0)}
-            className="flex-1 px-4 py-2 rounded font-medium transition"
-            style={{ backgroundColor: '#C9A96E', color: '#0F0F0F', fontFamily: 'DM Sans', fontSize: '0.875rem', height: '38px' }}
-          >
-            Buscar
-          </button>
-          <button
-            onClick={() => {
-              setDistrito('')
-              setOperacion('todos')
-              setPortal('todos')
-              loadPropiedadesFiltered('', 'todos', 'todos', 0)
-            }}
-            className="px-3 py-2 rounded transition flex items-center justify-center"
-            style={{ backgroundColor: 'transparent', border: '1px solid #2A2A2A', color: '#6B6B6B', fontFamily: 'DM Sans', height: '38px', width: '38px' }}
-            title="Limpiar filtros"
-          >
-            X
-          </button>
-        </div>
-      </div>
 
-      {/* Tabla */}
-      <div
-        className="rounded overflow-x-auto"
-        style={{ backgroundColor: '#111111', border: '1px solid #2A2A2A' }}
-      >
-        <table className="w-full text-sm" style={{ fontFamily: 'DM Sans' }}>
-          <thead>
-            <tr
-              style={{
-                backgroundColor: '#1A1A1A',
-                borderBottom: '1px solid #2A2A2A',
-              }}
-            >
-              <th
-                className="px-4 py-3 text-left font-semibold"
-                style={{ color: '#C9A96E' }}
-              >
-                ID (8 chars)
-              </th>
-              <th
-                className="px-4 py-3 text-left font-semibold"
-                style={{ color: '#C9A96E' }}
-              >
-                Portal
-              </th>
-              <th
-                className="px-4 py-3 text-left font-semibold"
-                style={{ color: '#C9A96E' }}
-              >
-                Título
-              </th>
-              <th
-                className="px-4 py-3 text-left font-semibold"
-                style={{ color: '#C9A96E' }}
-              >
-                Precio USD
-              </th>
-              <th
-                className="px-4 py-3 text-left font-semibold"
-                style={{ color: '#C9A96E' }}
-              >
-                Distrito
-              </th>
-              <th
-                className="px-4 py-3 text-center font-semibold"
-                style={{ color: '#C9A96E' }}
-              >
-                Acciones
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center" style={{ color: '#6B6B6B' }}>
-                  Cargando propiedades...
-                </td>
-              </tr>
-            ) : propiedades.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center" style={{ color: '#6B6B6B' }}>
-                  Sin propiedades para estos filtros
-                </td>
-              </tr>
-            ) : (
-              propiedades.map((prop, idx) => (
-                <tr
-                  key={prop.id}
-                  style={{
-                    borderBottom: '1px solid #2A2A2A',
-                    backgroundColor: idx % 2 === 0 ? '#0F0F0F' : '#111111',
-                  }}
-                >
-                  <td
-                    className="px-4 py-3 font-mono text-xs"
-                    style={{ color: '#6B6B6B' }}
-                  >
-                    {prop.id.substring(0, 8)}
-                  </td>
-                  <td className="px-4 py-3" style={{ color: '#F0EDE8' }}>
-                    {prop.portal}
-                  </td>
-                  <td
-                    className="px-4 py-3 truncate max-w-xs"
-                    style={{ color: '#F0EDE8' }}
-                  >
-                    {prop.titulo}
-                  </td>
-                  <td
-                    className="px-4 py-3 font-mono"
-                    style={{ color: '#C9A96E', fontFamily: 'JetBrains Mono' }}
-                  >
-                    ${prop.precio_usd ? prop.precio_usd.toLocaleString('es-PE') : '0'}
-                  </td>
-                  <td className="px-4 py-3" style={{ color: '#6B6B6B' }}>
-                    {prop.distrito}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <div className="flex items-center justify-center gap-3">
-                      <a
-                        href={prop.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-1 hover:opacity-70 transition flex items-center justify-center"
-                        style={{ color: '#C9A96E' }}
-                        title="Ver anuncio original"
-                      >
-                        <Eye size={16} />
-                      </a>
-                      <button
-                        onClick={() => {
-                          setSelectedId(prop.id)
-                          setShowDeleteModal(true)
-                        }}
-                        className="p-1 hover:opacity-70 transition flex items-center justify-center"
-                        style={{ color: '#EF4444' }}
-                        title="Ocultar/Eliminar"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Paginación */}
-      {!loading && propiedades.length > 0 && (
-        <div style={{ border: '1px solid #2A2A2A', borderTop: 'none' }}>
-          <Pagination
-            currentPage={page}
-            totalPages={Math.ceil(totalCount / 20)}
-            onPageChange={loadPropiedades}
-            totalItems={totalCount}
-            itemsPerPage={20}
-          />
-        </div>
-      )}
-
-      {/* Modal de confirmación eliminar */}
-      {showDeleteModal && (
+        {/* Distrito */}
         <div
-          className="fixed inset-0 flex items-center justify-center z-50"
-          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
-          onClick={() => setShowDeleteModal(false)}
+          className="text-xs mb-4"
+          style={{
+            color: '#6B6B6B',
+            fontFamily: 'DM Sans',
+          }}
         >
-          <div
-            className="p-6 rounded max-w-sm"
-            style={{ backgroundColor: '#111111', border: '1px solid #2A2A2A' }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3
-              style={{
-                color: '#F0EDE8',
-                fontFamily: 'DM Sans',
-                fontSize: '1.125rem',
-                fontWeight: 'bold',
-                marginBottom: '1rem',
-              }}
-            >
-              ¿Confirmas eliminar esta propiedad?
-            </h3>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowDeleteModal(false)}
-                className="flex-1 px-4 py-2 rounded text-sm font-medium"
-                style={{
-                  backgroundColor: 'transparent',
-                  border: '1px solid #2A2A2A',
-                  color: '#6B6B6B',
-                  fontFamily: 'DM Sans',
-                }}
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleDelete}
-                className="flex-1 px-4 py-2 rounded text-sm font-medium"
-                style={{
-                  backgroundColor: '#EF4444',
-                  color: 'white',
-                  fontFamily: 'DM Sans',
-                }}
-              >
-                Eliminar
-              </button>
-            </div>
-          </div>
+          📍 {distrito}
         </div>
-      )}
 
-      {/* Modal de confirmación limpieza */}
-      {showModalLimpieza && (
-        <div
-          className="fixed inset-0 flex items-center justify-center z-50"
-          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
-          onClick={() => setShowModalLimpieza(false)}
-        >
-          <div
-            className="p-6 rounded max-w-sm"
-            style={{ backgroundColor: '#111111', border: '1px solid #2A2A2A' }}
-            onClick={(e) => e.stopPropagation()}
+        {/* Botones */}
+        <div className="flex gap-2">
+          
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn-outline-gold flex-1 flex items-center justify-center gap-2 h-11 md:h-10 text-sm"
+            style={{ padding: 0 }}
           >
-            <h3
-              style={{
-                color: '#F0EDE8',
-                fontFamily: 'DM Sans',
-                fontSize: '1.125rem',
-                fontWeight: 'bold',
-                marginBottom: '1rem',
-              }}
+            <Eye size={16} />
+            Ver anuncio
+          </a>
+          {onDelete && (
+            <button
+              onClick={() => onDelete(id)}
+              className="flex items-center justify-center h-11 md:h-10 w-11 md:w-10 rounded transition"
+              style={{ border: '1px solid #2A2A2A', color: '#EF4444' }}
+              title="Ocultar/Eliminar"
             >
-              ¿Confirmas eliminar todos los registros inactivos?
-            </h3>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowModalLimpieza(false)}
-                className="flex-1 px-4 py-2 rounded text-sm font-medium"
-                style={{
-                  backgroundColor: 'transparent',
-                  border: '1px solid #2A2A2A',
-                  color: '#6B6B6B',
-                  fontFamily: 'DM Sans',
-                }}
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={() => {
-                  setShowModalLimpieza(false)
-                  handleCleanup()
-                }}
-                className="flex-1 px-4 py-2 rounded text-sm font-medium"
-                style={{
-                  backgroundColor: '#EF4444',
-                  color: 'white',
-                  fontFamily: 'DM Sans',
-                }}
-              >
-                Confirmar
-              </button>
-            </div>
-          </div>
+              <Trash2 size={16} />
+            </button>
+          )}
         </div>
-      )}
+      </div>
     </div>
   )
 }
