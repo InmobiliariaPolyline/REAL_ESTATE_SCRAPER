@@ -52,7 +52,10 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
   const [portal, setPortal] = useState('todos')
   const [precioMin, setPrecioMin] = useState('')
   const [precioMax, setPrecioMax] = useState('')
+
+  // Moneda ORIGINAL de la propiedad que queremos buscar
   const [monedaFiltro, setMonedaFiltro] = useState<'USD' | 'PEN'>('USD')
+
   const [page, setPage] = useState(0)
   const [totalCount, setTotalCount] = useState(0)
 
@@ -70,8 +73,12 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
   const COLUMNS =
     'id, portal, operacion, titulo, precio, precio_usd, moneda, distrito, dormitorios, banios, area, imagen, url'
 
-  // Misma tasa usada en PropertyCard.tsx para mantener consistencia
+  // Misma tasa utilizada para convertir los rangos de búsqueda PEN -> USD
   const EXCHANGE_RATE_PEN_USD = 3.75
+
+  // ============================================================
+  // FAVORITOS
+  // ============================================================
 
   const loadFavoritosIds = async () => {
     const { data, error } = await supabase
@@ -84,6 +91,10 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
     }
   }
 
+  // ============================================================
+  // HISTORIAL
+  // ============================================================
+
   const loadHistorialIds = async () => {
     const { data, error } = await supabase
       .from('historial')
@@ -94,6 +105,10 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
       setHistorialIds(new Set(data.map((h: any) => h.propiedad_id)))
     }
   }
+
+  // ============================================================
+  // BÚSQUEDAS GUARDADAS
+  // ============================================================
 
   const loadBusquedasGuardadas = async () => {
     const { data, error } = await supabase
@@ -107,6 +122,10 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
     }
   }
 
+  // ============================================================
+  // CARGAR PROPIEDADES CON FILTROS
+  // ============================================================
+
   const loadPropiedadesFiltered = async (
     filterDistrito: string,
     filterOperacion: string,
@@ -118,34 +137,102 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
   ) => {
     try {
       setLoading(true)
+
       let query = supabase
         .from('propiedades')
         .select(COLUMNS, { count: 'exact' })
         .order('creado_en', { ascending: false })
 
+      // --------------------------------------------------------
+      // DISTRITO
+      // --------------------------------------------------------
+
       if (filterDistrito) {
         query = query.ilike('distrito', `%${filterDistrito}%`)
       }
+
+      // --------------------------------------------------------
+      // OPERACIÓN
+      // --------------------------------------------------------
+
       if (filterOperacion && filterOperacion !== 'todos') {
-        query = query.eq('operacion', filterOperacion.toLowerCase().trim())
+        query = query.eq(
+          'operacion',
+          filterOperacion.toLowerCase().trim()
+        )
       }
+
+      // --------------------------------------------------------
+      // PORTAL
+      // --------------------------------------------------------
+
       if (filterPortal && filterPortal !== 'todos') {
-        query = query.ilike('portal', `%${filterPortal.toLowerCase().trim()}%`)
+        query = query.ilike(
+          'portal',
+          `%${filterPortal.toLowerCase().trim()}%`
+        )
       }
+
+      // --------------------------------------------------------
+      // ⭐ MONEDA ORIGINAL
+      //
+      // ESTA ES LA CORRECCIÓN PRINCIPAL.
+      //
+      // USD → solo anuncios cuyo campo moneda sea USD
+      // PEN → solo anuncios cuyo campo moneda sea PEN
+      // --------------------------------------------------------
+
+      if (filterMoneda) {
+        query = query.eq('moneda', filterMoneda)
+      }
+
+      // --------------------------------------------------------
+      // PRECIO MÍNIMO
+      //
+      // precio_usd es nuestra columna normalizada para comparar.
+      //
+      // Si el usuario busca:
+      //
+      // USD 100000
+      // → 100000 USD
+      //
+      // PEN 375000
+      // → 375000 / 3.75 = 100000 USD
+      // --------------------------------------------------------
+
       if (filterPrecioMin) {
-        const minUsd =
-          filterMoneda === 'PEN'
-            ? Math.round(Number(filterPrecioMin) / EXCHANGE_RATE_PEN_USD)
-            : Number(filterPrecioMin)
-        query = query.gte('precio_usd', minUsd)
+        const valorMin = Number(filterPrecioMin)
+
+        if (!Number.isNaN(valorMin) && valorMin > 0) {
+          const minUsd =
+            filterMoneda === 'PEN'
+              ? Math.round(valorMin / EXCHANGE_RATE_PEN_USD)
+              : valorMin
+
+          query = query.gte('precio_usd', minUsd)
+        }
       }
+
+      // --------------------------------------------------------
+      // PRECIO MÁXIMO
+      // --------------------------------------------------------
+
       if (filterPrecioMax) {
-        const maxUsd =
-          filterMoneda === 'PEN'
-            ? Math.round(Number(filterPrecioMax) / EXCHANGE_RATE_PEN_USD)
-            : Number(filterPrecioMax)
-        query = query.lte('precio_usd', maxUsd)
+        const valorMax = Number(filterPrecioMax)
+
+        if (!Number.isNaN(valorMax) && valorMax > 0) {
+          const maxUsd =
+            filterMoneda === 'PEN'
+              ? Math.round(valorMax / EXCHANGE_RATE_PEN_USD)
+              : valorMax
+
+          query = query.lte('precio_usd', maxUsd)
+        }
       }
+
+      // --------------------------------------------------------
+      // PAGINACIÓN
+      // --------------------------------------------------------
 
       const { data, count, error } = await query.range(
         targetPage * ITEMS_PER_PAGE,
@@ -153,6 +240,7 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
       )
 
       if (error) throw error
+
       setPropiedades((data as any) || [])
       setTotalCount(count || 0)
       setPage(targetPage)
@@ -164,9 +252,14 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
     }
   }
 
+  // ============================================================
+  // FAVORITOS
+  // ============================================================
+
   const loadFavoritosPropiedades = async () => {
     try {
       setLoading(true)
+
       const { data: favData, error: favError } = await supabase
         .from('favoritos')
         .select('propiedad_id')
@@ -176,6 +269,7 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
       if (favError) throw favError
 
       const ids = (favData || []).map((f: any) => f.propiedad_id)
+
       setFavoritos(new Set(ids))
 
       if (ids.length === 0) {
@@ -190,6 +284,7 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
         .in('id', ids)
 
       if (error) throw error
+
       setPropiedades((data as any) || [])
       setTotalCount(ids.length)
       setPage(0)
@@ -201,9 +296,14 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
     }
   }
 
+  // ============================================================
+  // HISTORIAL
+  // ============================================================
+
   const loadHistorialPropiedades = async () => {
     try {
       setLoading(true)
+
       const { data: histData, error: histError } = await supabase
         .from('historial')
         .select('propiedad_id')
@@ -228,7 +328,10 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
 
       if (error) throw error
 
-      const dataById = new Map((data || []).map((p: any) => [p.id, p]))
+      const dataById = new Map(
+        (data || []).map((p: any) => [p.id, p])
+      )
+
       const ordered = ids
         .map((id: string) => dataById.get(id))
         .filter((p: any) => p !== undefined)
@@ -244,18 +347,48 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
     }
   }
 
+  // ============================================================
+  // CARGAR PROPIEDADES SEGÚN TAB
+  // ============================================================
+
   const loadPropiedades = (targetPage: number = page) => {
     if (tab === 'buscar') {
-      loadPropiedadesFiltered(distrito, operacion, portal, precioMin, precioMax, monedaFiltro, targetPage)
+      loadPropiedadesFiltered(
+        distrito,
+        operacion,
+        portal,
+        precioMin,
+        precioMax,
+        monedaFiltro,
+        targetPage
+      )
     }
   }
+
+  // ============================================================
+  // CARGA INICIAL
+  // ============================================================
 
   useEffect(() => {
     loadFavoritosIds()
     loadHistorialIds()
     loadBusquedasGuardadas()
-    loadPropiedadesFiltered('', 'todos', 'todos', '', '', 'USD', 0)
+
+    // Por defecto buscamos USD
+    loadPropiedadesFiltered(
+      '',
+      'todos',
+      'todos',
+      '',
+      '',
+      'USD',
+      0
+    )
   }, [])
+
+  // ============================================================
+  // CAMBIO DE TAB
+  // ============================================================
 
   useEffect(() => {
     if (tab === 'favoritos') {
@@ -267,8 +400,13 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
     }
   }, [tab])
 
+  // ============================================================
+  // FAVORITOS: TOGGLE
+  // ============================================================
+
   const handleToggleFavorite = async (propiedadId: string) => {
     const isFav = favoritos.has(propiedadId)
+
     try {
       if (isFav) {
         const { error } = await supabase
@@ -276,6 +414,7 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
           .delete()
           .eq('admin_id', adminId)
           .eq('propiedad_id', propiedadId)
+
         if (error) throw error
 
         const newSet = new Set(favoritos)
@@ -283,18 +422,26 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
         setFavoritos(newSet)
 
         if (tab === 'favoritos') {
-          setPropiedades(propiedades.filter((p) => p.id !== propiedadId))
+          setPropiedades(
+            propiedades.filter((p) => p.id !== propiedadId)
+          )
         }
+
         addToast('Quitado de favoritos', 'info')
       } else {
         const { error } = await supabase
           .from('favoritos')
-          .insert({ admin_id: adminId, propiedad_id: propiedadId })
+          .insert({
+            admin_id: adminId,
+            propiedad_id: propiedadId,
+          })
+
         if (error) throw error
 
         const newSet = new Set(favoritos)
         newSet.add(propiedadId)
         setFavoritos(newSet)
+
         addToast('Agregado a favoritos', 'success')
       }
     } catch (err) {
@@ -303,19 +450,36 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
     }
   }
 
+  // ============================================================
+  // HISTORIAL
+  // ============================================================
+
   const handleView = async (propiedadId: string) => {
     try {
       await supabase
         .from('historial')
         .upsert(
-          { admin_id: adminId, propiedad_id: propiedadId, visto_en: new Date().toISOString() },
-          { onConflict: 'admin_id,propiedad_id' }
+          {
+            admin_id: adminId,
+            propiedad_id: propiedadId,
+            visto_en: new Date().toISOString(),
+          },
+          {
+            onConflict: 'admin_id,propiedad_id',
+          }
         )
-      setHistorialIds((prev) => new Set(prev).add(propiedadId))
+
+      setHistorialIds(
+        (prev) => new Set(prev).add(propiedadId)
+      )
     } catch (err) {
       console.error('Error al registrar historial', err)
     }
   }
+
+  // ============================================================
+  // ELIMINAR PROPIEDAD
+  // ============================================================
 
   const handleDelete = async () => {
     if (!selectedId) return
@@ -328,7 +492,10 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
 
       if (error) throw error
 
-      setPropiedades(propiedades.filter((p) => p.id !== selectedId))
+      setPropiedades(
+        propiedades.filter((p) => p.id !== selectedId)
+      )
+
       addToast('Propiedad eliminada', 'success')
       setShowDeleteModal(false)
       setSelectedId(null)
@@ -338,15 +505,47 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
     }
   }
 
-  const handleCleanup = () => {
-    addToast('Proceso registrado — se ejecutará en la próxima corrida.', 'info')
-  }
+  // ============================================================
+  // BUSCAR
+  // ============================================================
 
   const handleBuscarManual = () => {
     setActiveSavedSearch(false)
     setShowHidden(false)
-    loadPropiedadesFiltered(distrito, operacion, portal, precioMin, precioMax, monedaFiltro, 0)
+
+    loadPropiedadesFiltered(
+      distrito,
+      operacion,
+      portal,
+      precioMin,
+      precioMax,
+      monedaFiltro,
+      0
+    )
   }
+
+  // ============================================================
+  // CAMBIO DE MONEDA
+  //
+  // Cuando se cambia USD <-> PEN limpiamos los precios
+  // para evitar interpretar accidentalmente un rango anterior
+  // en otra moneda.
+  // ============================================================
+
+  const handleCambioMoneda = (
+    nuevaMoneda: 'USD' | 'PEN'
+  ) => {
+    setMonedaFiltro(nuevaMoneda)
+
+    // Los valores introducidos pertenecen a la moneda anterior.
+    // Los limpiamos para evitar búsquedas incorrectas.
+    setPrecioMin('')
+    setPrecioMax('')
+  }
+
+  // ============================================================
+  // LIMPIAR FILTROS
+  // ============================================================
 
   const handleLimpiarFiltros = () => {
     setDistrito('')
@@ -357,39 +556,70 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
     setMonedaFiltro('USD')
     setActiveSavedSearch(false)
     setShowHidden(false)
-    loadPropiedadesFiltered('', 'todos', 'todos', '', '', 'USD', 0)
+
+    loadPropiedadesFiltered(
+      '',
+      'todos',
+      'todos',
+      '',
+      '',
+      'USD',
+      0
+    )
   }
+
+  // ============================================================
+  // GUARDAR BÚSQUEDA
+  // ============================================================
 
   const handleGuardarBusqueda = async () => {
     if (!nombreBusqueda.trim()) {
       addToast('Ponle un nombre a la búsqueda', 'error')
       return
     }
+
     try {
       const precioMinUsd = precioMin
         ? monedaFiltro === 'PEN'
-          ? Math.round(Number(precioMin) / EXCHANGE_RATE_PEN_USD)
+          ? Math.round(
+              Number(precioMin) / EXCHANGE_RATE_PEN_USD
+            )
           : Number(precioMin)
         : null
+
       const precioMaxUsd = precioMax
         ? monedaFiltro === 'PEN'
-          ? Math.round(Number(precioMax) / EXCHANGE_RATE_PEN_USD)
+          ? Math.round(
+              Number(precioMax) / EXCHANGE_RATE_PEN_USD
+            )
           : Number(precioMax)
         : null
 
-      const { error } = await supabase.from('busquedas_guardadas').insert({
-        admin_id: adminId,
-        nombre: nombreBusqueda.trim(),
-        distrito,
-        operacion,
-        portal,
-        precio_min: precioMinUsd,
-        precio_max: precioMaxUsd,
-      })
+      const { error } = await supabase
+        .from('busquedas_guardadas')
+        .insert({
+          admin_id: adminId,
+          nombre: nombreBusqueda.trim(),
+          distrito,
+          operacion,
+          portal,
+
+          // Guardamos los límites normalizados a USD
+          precio_min: precioMinUsd,
+          precio_max: precioMaxUsd,
+
+          // IMPORTANTE:
+          // Si tu tabla busquedas_guardadas todavía NO tiene
+          // columna moneda, esta parte debe omitirse.
+        })
+
       if (error) throw error
+
       addToast('Búsqueda guardada', 'success')
+
       setShowGuardarModal(false)
       setNombreBusqueda('')
+
       loadBusquedasGuardadas()
     } catch (err) {
       addToast('Error al guardar la búsqueda', 'error')
@@ -397,38 +627,75 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
     }
   }
 
-  const handleEjecutarBusqueda = async (busqueda: BusquedaGuardada) => {
+  // ============================================================
+  // EJECUTAR BÚSQUEDA GUARDADA
+  // ============================================================
+
+  const handleEjecutarBusqueda = async (
+    busqueda: BusquedaGuardada
+  ) => {
     setDistrito(busqueda.distrito || '')
     setOperacion(busqueda.operacion || 'todos')
     setPortal(busqueda.portal || 'todos')
-    setPrecioMin(busqueda.precio_min !== null ? String(busqueda.precio_min) : '')
-    setPrecioMax(busqueda.precio_max !== null ? String(busqueda.precio_max) : '')
+
+    // Las búsquedas antiguas están almacenadas en USD
+    setPrecioMin(
+      busqueda.precio_min !== null
+        ? String(busqueda.precio_min)
+        : ''
+    )
+
+    setPrecioMax(
+      busqueda.precio_max !== null
+        ? String(busqueda.precio_max)
+        : ''
+    )
+
     setMonedaFiltro('USD')
     setActiveSavedSearch(true)
     setShowHidden(false)
     setTab('buscar')
+
     await loadHistorialIds()
+
     await loadPropiedadesFiltered(
       busqueda.distrito || '',
       busqueda.operacion || 'todos',
       busqueda.portal || 'todos',
-      busqueda.precio_min !== null ? String(busqueda.precio_min) : '',
-      busqueda.precio_max !== null ? String(busqueda.precio_max) : '',
+      busqueda.precio_min !== null
+        ? String(busqueda.precio_min)
+        : '',
+      busqueda.precio_max !== null
+        ? String(busqueda.precio_max)
+        : '',
       'USD',
       0
     )
   }
 
+  // ============================================================
+  // ELIMINAR BÚSQUEDA GUARDADA
+  // ============================================================
+
   const handleEliminarBusqueda = async () => {
     if (!selectedBusquedaId) return
+
     try {
       const { error } = await supabase
         .from('busquedas_guardadas')
         .delete()
         .eq('id', selectedBusquedaId)
+
       if (error) throw error
-      setBusquedasGuardadas(busquedasGuardadas.filter((b) => b.id !== selectedBusquedaId))
+
+      setBusquedasGuardadas(
+        busquedasGuardadas.filter(
+          (b) => b.id !== selectedBusquedaId
+        )
+      )
+
       addToast('Búsqueda eliminada', 'success')
+
       setShowDeleteBusquedaModal(false)
       setSelectedBusquedaId(null)
     } catch (err) {
@@ -437,69 +704,127 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
     }
   }
 
-  // Propiedades a mostrar: si hay búsqueda guardada activa y no se pidió ver ocultas,
-  // se excluyen las ya vistas que no sean favoritas
+  // ============================================================
+  // PROPIEDADES VISIBLES
+  // ============================================================
+
   const propiedadesVisibles =
-    tab === 'buscar' && activeSavedSearch && !showHidden
-      ? propiedades.filter((p) => favoritos.has(p.id) || !historialIds.has(p.id))
+    tab === 'buscar' &&
+    activeSavedSearch &&
+    !showHidden
+      ? propiedades.filter(
+          (p) =>
+            favoritos.has(p.id) ||
+            !historialIds.has(p.id)
+        )
       : propiedades
-  const cantidadOcultas = propiedades.length - propiedadesVisibles.length
+
+  const cantidadOcultas =
+    propiedades.length - propiedadesVisibles.length
+
+  // ============================================================
+  // RENDER
+  // ============================================================
 
   return (
     <div className="space-y-6">
-      {/* Tabs */}
-      <div className="flex gap-2 border-b flex-wrap" style={{ borderColor: '#2A2A2A' }}>
+
+      {/* ======================================================
+          TABS
+      ====================================================== */}
+
+      <div
+        className="flex gap-2 border-b flex-wrap"
+        style={{ borderColor: '#2A2A2A' }}
+      >
         <button
           onClick={() => setTab('buscar')}
           className="px-4 py-2 text-sm font-medium transition"
           style={{
-            color: tab === 'buscar' ? '#C9A96E' : '#6B6B6B',
-            borderBottom: tab === 'buscar' ? '2px solid #C9A96E' : '2px solid transparent',
+            color:
+              tab === 'buscar'
+                ? '#C9A96E'
+                : '#6B6B6B',
+            borderBottom:
+              tab === 'buscar'
+                ? '2px solid #C9A96E'
+                : '2px solid transparent',
             fontFamily: 'DM Sans',
           }}
         >
           🔍 Buscar propiedades
         </button>
+
         <button
           onClick={() => setTab('favoritos')}
           className="px-4 py-2 text-sm font-medium transition"
           style={{
-            color: tab === 'favoritos' ? '#C9A96E' : '#6B6B6B',
-            borderBottom: tab === 'favoritos' ? '2px solid #C9A96E' : '2px solid transparent',
+            color:
+              tab === 'favoritos'
+                ? '#C9A96E'
+                : '#6B6B6B',
+            borderBottom:
+              tab === 'favoritos'
+                ? '2px solid #C9A96E'
+                : '2px solid transparent',
             fontFamily: 'DM Sans',
           }}
         >
-          ❤️ Mis favoritos {favoritos.size > 0 && `(${favoritos.size})`}
+          ❤️ Mis favoritos{' '}
+          {favoritos.size > 0 &&
+            `(${favoritos.size})`}
         </button>
+
         <button
           onClick={() => setTab('historial')}
           className="px-4 py-2 text-sm font-medium transition"
           style={{
-            color: tab === 'historial' ? '#C9A96E' : '#6B6B6B',
-            borderBottom: tab === 'historial' ? '2px solid #C9A96E' : '2px solid transparent',
+            color:
+              tab === 'historial'
+                ? '#C9A96E'
+                : '#6B6B6B',
+            borderBottom:
+              tab === 'historial'
+                ? '2px solid #C9A96E'
+                : '2px solid transparent',
             fontFamily: 'DM Sans',
           }}
         >
           🕐 Historial
         </button>
+
         <button
           onClick={() => setTab('guardadas')}
           className="px-4 py-2 text-sm font-medium transition"
           style={{
-            color: tab === 'guardadas' ? '#C9A96E' : '#6B6B6B',
-            borderBottom: tab === 'guardadas' ? '2px solid #C9A96E' : '2px solid transparent',
+            color:
+              tab === 'guardadas'
+                ? '#C9A96E'
+                : '#6B6B6B',
+            borderBottom:
+              tab === 'guardadas'
+                ? '2px solid #C9A96E'
+                : '2px solid transparent',
             fontFamily: 'DM Sans',
           }}
         >
-          🔖 Búsquedas guardadas {busquedasGuardadas.length > 0 && `(${busquedasGuardadas.length})`}
+          🔖 Búsquedas guardadas{' '}
+          {busquedasGuardadas.length > 0 &&
+            `(${busquedasGuardadas.length})`}
         </button>
       </div>
 
-      {/* Fila superior: Limpieza de inactivos + Guardar búsqueda (solo en tab Buscar) */}
+      {/* ======================================================
+          BOTONES SUPERIORES
+      ====================================================== */}
+
       {tab === 'buscar' && (
         <div className="flex justify-between items-center flex-wrap gap-2">
+
           <button
-            onClick={() => setShowModalLimpieza(true)}
+            onClick={() =>
+              setShowModalLimpieza(true)
+            }
             className="px-4 py-2 rounded text-sm font-medium transition"
             style={{
               backgroundColor: '#450a0a',
@@ -510,8 +835,11 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
           >
             ⚠️ Ejecutar Limpieza de Inactivos
           </button>
+
           <button
-            onClick={() => setShowGuardarModal(true)}
+            onClick={() =>
+              setShowGuardarModal(true)
+            }
             className="px-4 py-2 rounded text-sm font-medium transition"
             style={{
               backgroundColor: 'transparent',
@@ -522,201 +850,512 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
           >
             🔖 Guardar esta búsqueda
           </button>
+
         </div>
       )}
 
-      {/* Filtros (solo en tab Buscar) */}
+      {/* ======================================================
+          FILTROS
+      ====================================================== */}
+
       {tab === 'buscar' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4 p-4 rounded" style={{ backgroundColor: '#111111', border: '1px solid #2A2A2A' }}>
+        <div
+          className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4 p-4 rounded"
+          style={{
+            backgroundColor: '#111111',
+            border: '1px solid #2A2A2A',
+          }}
+        >
+
+          {/* DISTRITO */}
+
           <div>
-            <label className="block text-xs font-semibold mb-2" style={{ color: '#C9A96E', fontFamily: 'DM Sans' }}>
+            <label
+              className="block text-xs font-semibold mb-2"
+              style={{
+                color: '#C9A96E',
+                fontFamily: 'DM Sans',
+              }}
+            >
               Distrito
             </label>
+
             <input
               type="text"
               value={distrito}
-              onChange={(e) => setDistrito(e.target.value)}
+              onChange={(e) =>
+                setDistrito(e.target.value)
+              }
               placeholder="Buscar distrito..."
               className="input-underline w-full text-sm"
             />
           </div>
+
+          {/* OPERACIÓN */}
+
           <div>
-            <label className="block text-xs font-semibold mb-2" style={{ color: '#C9A96E', fontFamily: 'DM Sans' }}>
+            <label
+              className="block text-xs font-semibold mb-2"
+              style={{
+                color: '#C9A96E',
+                fontFamily: 'DM Sans',
+              }}
+            >
               Operación
             </label>
+
             <select
               value={operacion}
-              onChange={(e) => setOperacion(e.target.value)}
+              onChange={(e) =>
+                setOperacion(e.target.value)
+              }
               className="w-full px-3 py-2 rounded text-xs"
-              style={{ backgroundColor: '#252525', color: '#F0EDE8', border: '1px solid #2A2A2A', fontFamily: 'DM Sans', height: '38px' }}
+              style={{
+                backgroundColor: '#252525',
+                color: '#F0EDE8',
+                border: '1px solid #2A2A2A',
+                fontFamily: 'DM Sans',
+                height: '38px',
+              }}
             >
-              <option value="todos">Todos</option>
-              <option value="ALQUILER">Alquiler</option>
-              <option value="VENTA">Venta</option>
+              <option value="todos">
+                Todos
+              </option>
+
+              <option value="ALQUILER">
+                Alquiler
+              </option>
+
+              <option value="VENTA">
+                Venta
+              </option>
             </select>
           </div>
+
+          {/* PORTAL */}
+
           <div>
-            <label className="block text-xs font-semibold mb-2" style={{ color: '#C9A96E', fontFamily: 'DM Sans' }}>
+            <label
+              className="block text-xs font-semibold mb-2"
+              style={{
+                color: '#C9A96E',
+                fontFamily: 'DM Sans',
+              }}
+            >
               Portal
             </label>
+
             <select
               value={portal}
-              onChange={(e) => setPortal(e.target.value)}
+              onChange={(e) =>
+                setPortal(e.target.value)
+              }
               className="w-full px-3 py-2 rounded text-xs"
-              style={{ backgroundColor: '#252525', color: '#F0EDE8', border: '1px solid #2A2A2A', fontFamily: 'DM Sans', height: '38px' }}
+              style={{
+                backgroundColor: '#252525',
+                color: '#F0EDE8',
+                border: '1px solid #2A2A2A',
+                fontFamily: 'DM Sans',
+                height: '38px',
+              }}
             >
-              <option value="todos">Todos</option>
-              <option value="Properati">Properati</option>
-              <option value="Infocasas">Infocasas</option>
-              <option value="Babilonia">Babilonia</option>
-              <option value="Urbania">Urbania</option>
-              <option value="Adondevivir">Adondevivir</option>
+              <option value="todos">
+                Todos
+              </option>
+
+              <option value="Properati">
+                Properati
+              </option>
+
+              <option value="Infocasas">
+                Infocasas
+              </option>
+
+              <option value="Babilonia">
+                Babilonia
+              </option>
+
+              <option value="Urbania">
+                Urbania
+              </option>
+
+              <option value="Adondevivir">
+                Adondevivir
+              </option>
             </select>
           </div>
+
+          {/* MONEDA */}
+
           <div>
-            <label className="block text-xs font-semibold mb-2" style={{ color: '#C9A96E', fontFamily: 'DM Sans' }}>
+            <label
+              className="block text-xs font-semibold mb-2"
+              style={{
+                color: '#C9A96E',
+                fontFamily: 'DM Sans',
+              }}
+            >
               Moneda
             </label>
+
             <select
               value={monedaFiltro}
-              onChange={(e) => setMonedaFiltro(e.target.value as 'USD' | 'PEN')}
+              onChange={(e) =>
+                handleCambioMoneda(
+                  e.target.value as
+                    | 'USD'
+                    | 'PEN'
+                )
+              }
               className="w-full px-3 py-2 rounded text-xs"
-              style={{ backgroundColor: '#252525', color: '#F0EDE8', border: '1px solid #2A2A2A', fontFamily: 'DM Sans', height: '38px' }}
+              style={{
+                backgroundColor: '#252525',
+                color: '#F0EDE8',
+                border: '1px solid #2A2A2A',
+                fontFamily: 'DM Sans',
+                height: '38px',
+              }}
             >
-              <option value="USD">USD ($)</option>
-              <option value="PEN">Soles (S/)</option>
+              <option value="USD">
+                USD ($)
+              </option>
+
+              <option value="PEN">
+                Soles (S/)
+              </option>
             </select>
           </div>
+
+          {/* PRECIO MÍNIMO */}
+
           <div>
-            <label className="block text-xs font-semibold mb-2" style={{ color: '#C9A96E', fontFamily: 'DM Sans' }}>
-              Precio mín. ({monedaFiltro === 'PEN' ? 'S/' : 'USD'})
+            <label
+              className="block text-xs font-semibold mb-2"
+              style={{
+                color: '#C9A96E',
+                fontFamily: 'DM Sans',
+              }}
+            >
+              Precio mín. (
+              {monedaFiltro === 'PEN'
+                ? 'S/'
+                : 'USD'}
+              )
             </label>
+
             <input
               type="number"
               value={precioMin}
-              onChange={(e) => setPrecioMin(e.target.value)}
+              onChange={(e) =>
+                setPrecioMin(e.target.value)
+              }
               placeholder="0"
               className="input-underline w-full text-sm"
             />
           </div>
+
+          {/* PRECIO MÁXIMO */}
+
           <div>
-            <label className="block text-xs font-semibold mb-2" style={{ color: '#C9A96E', fontFamily: 'DM Sans' }}>
-              Precio máx. ({monedaFiltro === 'PEN' ? 'S/' : 'USD'})
+            <label
+              className="block text-xs font-semibold mb-2"
+              style={{
+                color: '#C9A96E',
+                fontFamily: 'DM Sans',
+              }}
+            >
+              Precio máx. (
+              {monedaFiltro === 'PEN'
+                ? 'S/'
+                : 'USD'}
+              )
             </label>
+
             <input
               type="number"
               value={precioMax}
-              onChange={(e) => setPrecioMax(e.target.value)}
+              onChange={(e) =>
+                setPrecioMax(e.target.value)
+              }
               placeholder="Sin límite"
               className="input-underline w-full text-sm"
             />
           </div>
+
+          {/* BOTONES */}
+
           <div className="flex items-end gap-2">
+
             <button
               onClick={handleBuscarManual}
               className="flex-1 px-4 py-2 rounded font-medium transition"
-              style={{ backgroundColor: '#C9A96E', color: '#0F0F0F', fontFamily: 'DM Sans', fontSize: '0.875rem', height: '38px' }}
+              style={{
+                backgroundColor: '#C9A96E',
+                color: '#0F0F0F',
+                fontFamily: 'DM Sans',
+                fontSize: '0.875rem',
+                height: '38px',
+              }}
             >
               Buscar
             </button>
+
             <button
               onClick={handleLimpiarFiltros}
               className="px-3 py-2 rounded transition flex items-center justify-center"
-              style={{ backgroundColor: 'transparent', border: '1px solid #2A2A2A', color: '#6B6B6B', fontFamily: 'DM Sans', height: '38px', width: '38px' }}
+              style={{
+                backgroundColor:
+                  'transparent',
+                border:
+                  '1px solid #2A2A2A',
+                color: '#6B6B6B',
+                fontFamily: 'DM Sans',
+                height: '38px',
+                width: '38px',
+              }}
               title="Limpiar filtros"
             >
               X
             </button>
+
           </div>
+
         </div>
       )}
 
-      {/* Aviso de búsqueda guardada activa */}
-      {tab === 'buscar' && activeSavedSearch && (
-        <div
-          className="flex items-center justify-between flex-wrap gap-2 px-4 py-3 rounded"
-          style={{ backgroundColor: '#1A1A1A', border: '1px solid #2A2A2A' }}
-        >
-          <span style={{ color: '#C9A96E', fontFamily: 'DM Sans', fontSize: '0.875rem' }}>
-            🔖 Mostrando resultados de una búsqueda guardada
-            {cantidadOcultas > 0 && !showHidden && ` — ${cantidadOcultas} ya vistas ocultas`}
-          </span>
-          {cantidadOcultas > 0 && (
-            <button
-              onClick={() => setShowHidden(!showHidden)}
-              className="px-3 py-1 rounded text-xs font-medium"
-              style={{ border: '1px solid #C9A96E', color: '#C9A96E', fontFamily: 'DM Sans' }}
+      {/* ======================================================
+          AVISO BÚSQUEDA GUARDADA
+      ====================================================== */}
+
+      {tab === 'buscar' &&
+        activeSavedSearch && (
+          <div
+            className="flex items-center justify-between flex-wrap gap-2 px-4 py-3 rounded"
+            style={{
+              backgroundColor: '#1A1A1A',
+              border: '1px solid #2A2A2A',
+            }}
+          >
+            <span
+              style={{
+                color: '#C9A96E',
+                fontFamily: 'DM Sans',
+                fontSize: '0.875rem',
+              }}
             >
-              {showHidden ? 'Ocultar ya vistas' : 'Mostrar ya vistas también'}
-            </button>
-          )}
-        </div>
-      )}
+              🔖 Mostrando resultados de
+              una búsqueda guardada
 
-      {/* Contenido: Búsquedas guardadas */}
-      {tab === 'guardadas' ? (
-        busquedasGuardadas.length === 0 ? (
-          <div className="text-center py-12" style={{ color: '#6B6B6B', fontFamily: 'DM Sans' }}>
-            Aún no has guardado ninguna búsqueda. Ve a "Buscar propiedades", ajusta los filtros y usa "🔖 Guardar esta búsqueda".
+              {cantidadOcultas > 0 &&
+                !showHidden &&
+                ` — ${cantidadOcultas} ya vistas ocultas`}
+            </span>
+
+            {cantidadOcultas > 0 && (
+              <button
+                onClick={() =>
+                  setShowHidden(!showHidden)
+                }
+                className="px-3 py-1 rounded text-xs font-medium"
+                style={{
+                  border:
+                    '1px solid #C9A96E',
+                  color: '#C9A96E',
+                  fontFamily: 'DM Sans',
+                }}
+              >
+                {showHidden
+                  ? 'Ocultar ya vistas'
+                  : 'Mostrar ya vistas también'}
+              </button>
+            )}
           </div>
+        )}
+
+      {/* ======================================================
+          BÚSQUEDAS GUARDADAS
+      ====================================================== */}
+
+      {tab === 'guardadas' ? (
+
+        busquedasGuardadas.length === 0 ? (
+
+          <div
+            className="text-center py-12"
+            style={{
+              color: '#6B6B6B',
+              fontFamily: 'DM Sans',
+            }}
+          >
+            Aún no has guardado ninguna
+            búsqueda. Ve a "Buscar propiedades",
+            ajusta los filtros y usa
+            "🔖 Guardar esta búsqueda".
+          </div>
+
         ) : (
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
             {busquedasGuardadas.map((b) => (
+
               <div
                 key={b.id}
                 className="p-4 rounded"
-                style={{ backgroundColor: '#111111', border: '1px solid #2A2A2A' }}
+                style={{
+                  backgroundColor: '#111111',
+                  border:
+                    '1px solid #2A2A2A',
+                }}
               >
-                <h3 style={{ color: '#C9A96E', fontFamily: 'DM Sans', fontWeight: 'bold', marginBottom: '0.5rem' }}>
+
+                <h3
+                  style={{
+                    color: '#C9A96E',
+                    fontFamily: 'DM Sans',
+                    fontWeight: 'bold',
+                    marginBottom:
+                      '0.5rem',
+                  }}
+                >
                   {b.nombre}
                 </h3>
-                <div style={{ color: '#6B6B6B', fontFamily: 'DM Sans', fontSize: '0.75rem', marginBottom: '1rem' }}>
-                  {b.distrito && <div>📍 {b.distrito}</div>}
-                  <div>🏷 {b.operacion === 'todos' ? 'Cualquier operación' : b.operacion}</div>
-                  <div>🌐 {b.portal === 'todos' ? 'Cualquier portal' : b.portal}</div>
-                  {(b.precio_min || b.precio_max) && (
+
+                <div
+                  style={{
+                    color: '#6B6B6B',
+                    fontFamily: 'DM Sans',
+                    fontSize: '0.75rem',
+                    marginBottom:
+                      '1rem',
+                  }}
+                >
+                  {b.distrito && (
                     <div>
-                      💲 {b.precio_min || 0} — {b.precio_max || 'sin límite'}
+                      📍 {b.distrito}
+                    </div>
+                  )}
+
+                  <div>
+                    🏷{' '}
+                    {b.operacion ===
+                    'todos'
+                      ? 'Cualquier operación'
+                      : b.operacion}
+                  </div>
+
+                  <div>
+                    🌐{' '}
+                    {b.portal === 'todos'
+                      ? 'Cualquier portal'
+                      : b.portal}
+                  </div>
+
+                  {(b.precio_min ||
+                    b.precio_max) && (
+                    <div>
+                      💲{' '}
+                      {b.precio_min || 0}
+                      {' — '}
+                      {b.precio_max ||
+                        'sin límite'}
+                      {' USD'}
                     </div>
                   )}
                 </div>
+
                 <div className="flex gap-2">
+
                   <button
-                    onClick={() => handleEjecutarBusqueda(b)}
+                    onClick={() =>
+                      handleEjecutarBusqueda(
+                        b
+                      )
+                    }
                     className="flex-1 px-3 py-2 rounded text-sm font-medium"
-                    style={{ backgroundColor: '#C9A96E', color: '#0F0F0F', fontFamily: 'DM Sans' }}
+                    style={{
+                      backgroundColor:
+                        '#C9A96E',
+                      color: '#0F0F0F',
+                      fontFamily: 'DM Sans',
+                    }}
                   >
                     Ejecutar
                   </button>
+
                   <button
                     onClick={() => {
-                      setSelectedBusquedaId(b.id)
-                      setShowDeleteBusquedaModal(true)
+                      setSelectedBusquedaId(
+                        b.id
+                      )
+                      setShowDeleteBusquedaModal(
+                        true
+                      )
                     }}
                     className="px-3 py-2 rounded text-sm font-medium"
-                    style={{ border: '1px solid #EF4444', color: '#EF4444', fontFamily: 'DM Sans' }}
+                    style={{
+                      border:
+                        '1px solid #EF4444',
+                      color: '#EF4444',
+                      fontFamily: 'DM Sans',
+                    }}
                   >
                     Eliminar
                   </button>
+
                 </div>
+
               </div>
+
             ))}
-          </div>
-        )
-      ) : (
-        <>
-          {/* Contador */}
-          <div style={{ color: '#6B6B6B', fontFamily: 'DM Sans', fontSize: '0.875rem' }}>
-            {!loading && `Mostrando ${propiedadesVisibles.length} de ${totalCount} propiedades`}
+
           </div>
 
-          {/* Cuadrícula de tarjetas */}
+        )
+
+      ) : (
+
+        <>
+          {/* ==================================================
+              CONTADOR
+          ================================================== */}
+
+          <div
+            style={{
+              color: '#6B6B6B',
+              fontFamily: 'DM Sans',
+              fontSize: '0.875rem',
+            }}
+          >
+            {!loading &&
+              `Mostrando ${propiedadesVisibles.length} de ${totalCount} propiedades`}
+          </div>
+
+          {/* ==================================================
+              PROPIEDADES
+          ================================================== */}
+
           {loading ? (
-            <div className="text-center py-12" style={{ color: '#6B6B6B', fontFamily: 'DM Sans' }}>
+
+            <div
+              className="text-center py-12"
+              style={{
+                color: '#6B6B6B',
+                fontFamily: 'DM Sans',
+              }}
+            >
               Cargando propiedades...
             </div>
+
           ) : propiedadesVisibles.length === 0 ? (
-            <div className="text-center py-12" style={{ color: '#6B6B6B', fontFamily: 'DM Sans' }}>
+
+            <div
+              className="text-center py-12"
+              style={{
+                color: '#6B6B6B',
+                fontFamily: 'DM Sans',
+              }}
+            >
               {tab === 'favoritos'
                 ? 'Aún no marcaste ninguna propiedad como favorita'
                 : tab === 'historial'
@@ -725,271 +1364,462 @@ export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
                     ? 'Todas las propiedades de esta búsqueda ya las viste antes'
                     : 'Sin propiedades para estos filtros'}
             </div>
+
           ) : (
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {propiedadesVisibles.map((prop, idx) => (
-                <PropertyCard
-                  key={prop.id}
-                  id={prop.id}
-                  portal={prop.portal}
-                  operacion={prop.operacion}
-                  titulo={prop.titulo}
-                  precio={prop.precio}
-                  precioUsd={prop.precio_usd}
-                  moneda={prop.moneda || 'USD'}
-                  distrito={prop.distrito}
-                  dormitorios={prop.dormitorios}
-                  banios={prop.banios}
-                  area={prop.area}
-                  imagen={prop.imagen}
-                  url={prop.url}
-                  index={idx}
-                  isFavorite={favoritos.has(prop.id)}
-                  onToggleFavorite={handleToggleFavorite}
-                  onView={handleView}
-                  onDelete={(id) => {
-                    setSelectedId(id)
-                    setShowDeleteModal(true)
-                  }}
-                />
-              ))}
+
+              {propiedadesVisibles.map(
+                (prop, idx) => (
+
+                  <PropertyCard
+                    key={prop.id}
+                    id={prop.id}
+                    portal={prop.portal}
+                    operacion={
+                      prop.operacion
+                    }
+                    titulo={prop.titulo}
+                    precio={prop.precio}
+                    precioUsd={
+                      prop.precio_usd
+                    }
+                    moneda={
+                      prop.moneda || 'USD'
+                    }
+                    distrito={
+                      prop.distrito
+                    }
+                    dormitorios={
+                      prop.dormitorios
+                    }
+                    banios={prop.banios}
+                    area={prop.area}
+                    imagen={prop.imagen}
+                    url={prop.url}
+                    index={idx}
+                    isFavorite={favoritos.has(
+                      prop.id
+                    )}
+                    onToggleFavorite={
+                      handleToggleFavorite
+                    }
+                    onView={handleView}
+                    onDelete={(id) => {
+                      setSelectedId(id)
+                      setShowDeleteModal(
+                        true
+                      )
+                    }}
+                  />
+
+                )
+              )}
+
             </div>
+
           )}
 
-          {/* Paginación (solo en tab Buscar, sin búsqueda guardada activa) */}
-          {tab === 'buscar' && !activeSavedSearch && !loading && propiedades.length > 0 && (
-            <Pagination
-              currentPage={page}
-              totalPages={Math.ceil(totalCount / ITEMS_PER_PAGE)}
-              onPageChange={loadPropiedades}
-              totalItems={totalCount}
-              itemsPerPage={ITEMS_PER_PAGE}
-            />
-          )}
+          {/* ==================================================
+              PAGINACIÓN
+          ================================================== */}
+
+          {tab === 'buscar' &&
+            !activeSavedSearch &&
+            !loading &&
+            propiedades.length > 0 && (
+
+              <Pagination
+                currentPage={page}
+                totalPages={Math.ceil(
+                  totalCount /
+                    ITEMS_PER_PAGE
+                )}
+                onPageChange={
+                  loadPropiedades
+                }
+                totalItems={totalCount}
+                itemsPerPage={
+                  ITEMS_PER_PAGE
+                }
+              />
+
+            )}
+
         </>
       )}
 
-      {/* Modal de confirmación eliminar propiedad */}
+      {/* ======================================================
+          MODAL ELIMINAR PROPIEDAD
+      ====================================================== */}
+
       {showDeleteModal && (
+
         <div
           className="fixed inset-0 flex items-center justify-center z-50"
-          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
-          onClick={() => setShowDeleteModal(false)}
+          style={{
+            backgroundColor:
+              'rgba(0,0,0,0.5)',
+          }}
+          onClick={() =>
+            setShowDeleteModal(false)
+          }
         >
+
           <div
             className="p-6 rounded max-w-sm"
-            style={{ backgroundColor: '#111111', border: '1px solid #2A2A2A' }}
-            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor:
+                '#111111',
+              border:
+                '1px solid #2A2A2A',
+            }}
+            onClick={(e) =>
+              e.stopPropagation()
+            }
           >
+
             <h3
               style={{
                 color: '#F0EDE8',
                 fontFamily: 'DM Sans',
                 fontSize: '1.125rem',
                 fontWeight: 'bold',
-                marginBottom: '1rem',
+                marginBottom:
+                  '1rem',
               }}
             >
-              ¿Confirmas eliminar esta propiedad?
+              ¿Confirmas eliminar esta
+              propiedad?
             </h3>
+
             <div className="flex gap-3">
+
               <button
-                onClick={() => setShowDeleteModal(false)}
+                onClick={() =>
+                  setShowDeleteModal(
+                    false
+                  )
+                }
                 className="flex-1 px-4 py-2 rounded text-sm font-medium"
                 style={{
-                  backgroundColor: 'transparent',
-                  border: '1px solid #2A2A2A',
+                  backgroundColor:
+                    'transparent',
+                  border:
+                    '1px solid #2A2A2A',
                   color: '#6B6B6B',
                   fontFamily: 'DM Sans',
                 }}
               >
                 Cancelar
               </button>
+
               <button
                 onClick={handleDelete}
                 className="flex-1 px-4 py-2 rounded text-sm font-medium"
                 style={{
-                  backgroundColor: '#EF4444',
+                  backgroundColor:
+                    '#EF4444',
                   color: 'white',
                   fontFamily: 'DM Sans',
                 }}
               >
                 Eliminar
               </button>
+
             </div>
+
           </div>
+
         </div>
+
       )}
 
-      {/* Modal de confirmación limpieza */}
+      {/* ======================================================
+          MODAL LIMPIEZA
+      ====================================================== */}
+
       {showModalLimpieza && (
+
         <div
           className="fixed inset-0 flex items-center justify-center z-50"
-          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
-          onClick={() => setShowModalLimpieza(false)}
+          style={{
+            backgroundColor:
+              'rgba(0,0,0,0.5)',
+          }}
+          onClick={() =>
+            setShowModalLimpieza(false)
+          }
         >
+
           <div
             className="p-6 rounded max-w-sm"
-            style={{ backgroundColor: '#111111', border: '1px solid #2A2A2A' }}
-            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor:
+                '#111111',
+              border:
+                '1px solid #2A2A2A',
+            }}
+            onClick={(e) =>
+              e.stopPropagation()
+            }
           >
+
             <h3
               style={{
                 color: '#F0EDE8',
                 fontFamily: 'DM Sans',
                 fontSize: '1.125rem',
                 fontWeight: 'bold',
-                marginBottom: '1rem',
+                marginBottom:
+                  '1rem',
               }}
             >
-              ¿Confirmas eliminar todos los registros inactivos?
+              ¿Confirmas eliminar todos
+              los registros inactivos?
             </h3>
+
             <div className="flex gap-3">
+
               <button
-                onClick={() => setShowModalLimpieza(false)}
+                onClick={() =>
+                  setShowModalLimpieza(
+                    false
+                  )
+                }
                 className="flex-1 px-4 py-2 rounded text-sm font-medium"
                 style={{
-                  backgroundColor: 'transparent',
-                  border: '1px solid #2A2A2A',
+                  backgroundColor:
+                    'transparent',
+                  border:
+                    '1px solid #2A2A2A',
                   color: '#6B6B6B',
                   fontFamily: 'DM Sans',
                 }}
               >
                 Cancelar
               </button>
+
               <button
                 onClick={() => {
-                  setShowModalLimpieza(false)
-                  handleCleanup()
+                  setShowModalLimpieza(
+                    false
+                  )
+                  addToast(
+                    'Proceso registrado — se ejecutará en la próxima corrida.',
+                    'info'
+                  )
                 }}
                 className="flex-1 px-4 py-2 rounded text-sm font-medium"
                 style={{
-                  backgroundColor: '#EF4444',
+                  backgroundColor:
+                    '#EF4444',
                   color: 'white',
                   fontFamily: 'DM Sans',
                 }}
               >
                 Confirmar
               </button>
+
             </div>
+
           </div>
+
         </div>
+
       )}
 
-      {/* Modal guardar búsqueda */}
+      {/* ======================================================
+          MODAL GUARDAR BÚSQUEDA
+      ====================================================== */}
+
       {showGuardarModal && (
+
         <div
           className="fixed inset-0 flex items-center justify-center z-50"
-          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
-          onClick={() => setShowGuardarModal(false)}
+          style={{
+            backgroundColor:
+              'rgba(0,0,0,0.5)',
+          }}
+          onClick={() =>
+            setShowGuardarModal(false)
+          }
         >
+
           <div
             className="p-6 rounded max-w-sm w-full mx-4"
-            style={{ backgroundColor: '#111111', border: '1px solid #2A2A2A' }}
-            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor:
+                '#111111',
+              border:
+                '1px solid #2A2A2A',
+            }}
+            onClick={(e) =>
+              e.stopPropagation()
+            }
           >
+
             <h3
               style={{
                 color: '#F0EDE8',
                 fontFamily: 'DM Sans',
                 fontSize: '1.125rem',
                 fontWeight: 'bold',
-                marginBottom: '1rem',
+                marginBottom:
+                  '1rem',
               }}
             >
               Guardar esta búsqueda
             </h3>
+
             <input
               type="text"
               value={nombreBusqueda}
-              onChange={(e) => setNombreBusqueda(e.target.value)}
+              onChange={(e) =>
+                setNombreBusqueda(
+                  e.target.value
+                )
+              }
               placeholder="Ej: Depas en venta San Miguel"
               className="input-underline w-full text-sm mb-4"
               autoFocus
             />
+
             <div className="flex gap-3">
+
               <button
                 onClick={() => {
-                  setShowGuardarModal(false)
+                  setShowGuardarModal(
+                    false
+                  )
                   setNombreBusqueda('')
                 }}
                 className="flex-1 px-4 py-2 rounded text-sm font-medium"
                 style={{
-                  backgroundColor: 'transparent',
-                  border: '1px solid #2A2A2A',
+                  backgroundColor:
+                    'transparent',
+                  border:
+                    '1px solid #2A2A2A',
                   color: '#6B6B6B',
                   fontFamily: 'DM Sans',
                 }}
               >
                 Cancelar
               </button>
+
               <button
-                onClick={handleGuardarBusqueda}
+                onClick={
+                  handleGuardarBusqueda
+                }
                 className="flex-1 px-4 py-2 rounded text-sm font-medium"
                 style={{
-                  backgroundColor: '#C9A96E',
+                  backgroundColor:
+                    '#C9A96E',
                   color: '#0F0F0F',
                   fontFamily: 'DM Sans',
                 }}
               >
                 Guardar
               </button>
+
             </div>
+
           </div>
+
         </div>
+
       )}
 
-      {/* Modal eliminar búsqueda guardada */}
+      {/* ======================================================
+          MODAL ELIMINAR BÚSQUEDA
+      ====================================================== */}
+
       {showDeleteBusquedaModal && (
+
         <div
           className="fixed inset-0 flex items-center justify-center z-50"
-          style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
-          onClick={() => setShowDeleteBusquedaModal(false)}
+          style={{
+            backgroundColor:
+              'rgba(0,0,0,0.5)',
+          }}
+          onClick={() =>
+            setShowDeleteBusquedaModal(
+              false
+            )
+          }
         >
+
           <div
             className="p-6 rounded max-w-sm"
-            style={{ backgroundColor: '#111111', border: '1px solid #2A2A2A' }}
-            onClick={(e) => e.stopPropagation()}
+            style={{
+              backgroundColor:
+                '#111111',
+              border:
+                '1px solid #2A2A2A',
+            }}
+            onClick={(e) =>
+              e.stopPropagation()
+            }
           >
+
             <h3
               style={{
                 color: '#F0EDE8',
                 fontFamily: 'DM Sans',
                 fontSize: '1.125rem',
                 fontWeight: 'bold',
-                marginBottom: '1rem',
+                marginBottom:
+                  '1rem',
               }}
             >
-              ¿Confirmas eliminar esta búsqueda guardada?
+              ¿Confirmas eliminar esta
+              búsqueda guardada?
             </h3>
+
             <div className="flex gap-3">
+
               <button
-                onClick={() => setShowDeleteBusquedaModal(false)}
+                onClick={() =>
+                  setShowDeleteBusquedaModal(
+                    false
+                  )
+                }
                 className="flex-1 px-4 py-2 rounded text-sm font-medium"
                 style={{
-                  backgroundColor: 'transparent',
-                  border: '1px solid #2A2A2A',
+                  backgroundColor:
+                    'transparent',
+                  border:
+                    '1px solid #2A2A2A',
                   color: '#6B6B6B',
                   fontFamily: 'DM Sans',
                 }}
               >
                 Cancelar
               </button>
+
               <button
-                onClick={handleEliminarBusqueda}
+                onClick={
+                  handleEliminarBusqueda
+                }
                 className="flex-1 px-4 py-2 rounded text-sm font-medium"
                 style={{
-                  backgroundColor: '#EF4444',
+                  backgroundColor:
+                    '#EF4444',
                   color: 'white',
                   fontFamily: 'DM Sans',
                 }}
               >
                 Eliminar
               </button>
+
             </div>
+
           </div>
+
         </div>
+
       )}
+
     </div>
   )
 }
