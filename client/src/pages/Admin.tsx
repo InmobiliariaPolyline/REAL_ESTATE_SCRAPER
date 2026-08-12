@@ -21,7 +21,7 @@ export default function Admin({ usuario, usuarioId, onLogout }: AdminProps) {
       case 'dashboard':
         return <AdminDashboard />
       case 'propiedades':
-        return <AdminPropiedades />
+        return <AdminPropiedades adminId={usuarioId} />
       case 'usuarios':
         return <AdminUsuarios />
       case 'scraper':
