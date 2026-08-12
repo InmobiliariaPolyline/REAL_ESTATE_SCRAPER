@@ -2,6 +2,7 @@ import { useState } from 'react'
 import AdminSidebar from '@/components/AdminSidebar'
 import AdminDashboard from '@/components/AdminDashboard'
 import AdminPropiedades from '@/components/AdminPropiedades'
+import AdminEnlaces from '@/components/AdminEnlaces'
 import AdminUsuarios from '@/components/AdminUsuarios'
 import AdminScraper from '@/components/AdminScraper'
 
@@ -11,28 +12,42 @@ interface AdminProps {
   onLogout: () => void
 }
 
-export default function Admin({ usuario, usuarioId, onLogout }: AdminProps) {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'propiedades' | 'usuarios' | 'scraper'>(
-    'dashboard'
-  )
+export default function Admin({
+  usuario,
+  usuarioId,
+  onLogout,
+}: AdminProps) {
+  const [activeTab, setActiveTab] = useState<
+    'dashboard' | 'propiedades' | 'enlaces' | 'usuarios' | 'scraper'
+  >('dashboard')
 
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
         return <AdminDashboard />
+
       case 'propiedades':
         return <AdminPropiedades adminId={usuarioId} />
+
+      case 'enlaces':
+        return <AdminEnlaces />
+
       case 'usuarios':
         return <AdminUsuarios />
+
       case 'scraper':
         return <AdminScraper />
+
       default:
         return <AdminDashboard />
     }
   }
 
   return (
-    <div className="flex h-screen" style={{ backgroundColor: '#0F0F0F' }}>
+    <div
+      className="flex h-screen"
+      style={{ backgroundColor: '#0F0F0F' }}
+    >
       {/* Sidebar */}
       <AdminSidebar
         activeTab={activeTab}
@@ -56,9 +71,11 @@ export default function Admin({ usuario, usuarioId, onLogout }: AdminProps) {
               ? 'Dashboard'
               : activeTab === 'propiedades'
                 ? 'Propiedades'
-                : activeTab === 'usuarios'
-                  ? 'Usuarios y Suscripciones'
-                  : 'Estado Scraper'}
+                : activeTab === 'enlaces'
+                  ? 'Enlaces'
+                  : activeTab === 'usuarios'
+                    ? 'Usuarios y Suscripciones'
+                    : 'Estado Scraper'}
           </h1>
 
           {/* Contenido */}
