@@ -17,6 +17,7 @@ interface PropertyCardProps {
   isFavorite?: boolean
   onToggleFavorite?: (id: string) => void
   onDelete?: (id: string) => void
+  onView?: (id: string) => void
 }
 function getPortalBadgeColor(portal: string) {
   switch (portal) {
@@ -51,6 +52,7 @@ export default function PropertyCard({
   isFavorite,
   onToggleFavorite,
   onDelete,
+  onView,
 }: PropertyCardProps) {
   let displayMoneda = moneda
   let displayPrice = 0
@@ -207,6 +209,7 @@ export default function PropertyCard({
             href={url}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => onView && onView(id)}
             className="btn-outline-gold flex-1 flex items-center justify-center gap-2 h-11 md:h-10 text-sm"
             style={{ padding: 0 }}
           >
