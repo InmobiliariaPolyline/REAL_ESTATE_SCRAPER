@@ -1,6 +1,7 @@
-import { KeyRound, LogOut, Menu, X } from "lucide-react"
-import { useState } from "react"
+import { KeyRound, LogOut, Menu, Search, X } from "lucide-react"
+import { useEffect, useState } from "react"
 import Avatar from "@/components/common/Avatar"
+import { openCommandPalette } from "@/components/common/CommandPalette"
 import Logo from "@/components/common/Logo"
 import ThemeToggle from "@/components/common/ThemeToggle"
 import AccountModal from "@/components/common/AccountModal"
@@ -22,6 +23,13 @@ export default function AdminSidebar({
 }: AdminSidebarProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+
+  // El buscador global (Ctrl+K) abre "Mi cuenta" mediante este evento.
+  useEffect(() => {
+    const open = () => setShowPassword(true)
+    window.addEventListener("open-account", open)
+    return () => window.removeEventListener("open-account", open)
+  }, [])
 
   const sections = ADMIN_TABS.reduce<Record<string, typeof ADMIN_TABS>>((acc, tab) => {
     ;(acc[tab.section] ??= []).push(tab)
@@ -71,6 +79,19 @@ export default function AdminSidebar({
             <p className="text-xs text-text-muted">Administrador</p>
           </div>
           <KeyRound className="size-4 shrink-0 text-text-faint transition group-hover:text-gold" />
+        </button>
+
+        <button
+          type="button"
+          onClick={openCommandPalette}
+          className="btn btn-secondary btn-sm mx-1 mb-1 justify-between"
+          aria-label="Abrir el buscador global"
+        >
+          <span className="flex items-center gap-2">
+            <Search className="size-3.5" aria-hidden="true" />
+            Buscar
+          </span>
+          <kbd className="mono rounded-md border border-line bg-surface-2 px-1.5 py-0.5 text-[0.6875rem] text-text-muted">Ctrl K</kbd>
         </button>
 
         <nav className="-mr-1 flex-1 overflow-y-auto pr-1" aria-label="Administración">

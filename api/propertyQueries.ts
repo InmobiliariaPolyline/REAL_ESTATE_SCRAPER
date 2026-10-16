@@ -178,6 +178,17 @@ export function buildPortalCount(f: PortalFilters, usdToPen: number): BuiltQuery
   }
 }
 
+/** Avisos creados en los últimos `dias` días que cumplen los filtros (búsquedas guardadas). */
+export function buildPortalNewCount(f: PortalFilters, usdToPen: number, dias: number): BuiltQuery {
+  const w = new Where()
+  applyPortalWhere(w, f, usdToPen)
+  w.add(`creado_en >= now() - ${w.p(dias)}::int * interval '1 day'`)
+  return {
+    text: `select count(*)::int as total from public.propiedades ${w.sql()}`,
+    params: w.params,
+  }
+}
+
 // ── Panel de administración ──────────────────────────────────────────────────
 
 export interface AdminFilters {

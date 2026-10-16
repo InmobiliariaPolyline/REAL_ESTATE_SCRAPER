@@ -1,10 +1,32 @@
-import { Bookmark, Download, Grid3X3, Heart, List, Loader2, SearchX, SlidersHorizontal } from "lucide-react"
+import {
+  Bookmark,
+  Calculator,
+  Download,
+  Grid3X3,
+  Heart,
+  Home,
+  KeyRound,
+  LayoutGrid,
+  List,
+  Loader2,
+  LogOut,
+  Moon,
+  SearchX,
+  SlidersHorizontal,
+  Sun,
+  TrendingUp,
+} from "lucide-react"
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react"
+import CommandPalette, { type CommandAction } from "@/components/common/CommandPalette"
 import EmptyState from "@/components/common/EmptyState"
 import PageHeader from "@/components/common/PageHeader"
 import CompareTray from "@/components/portal/CompareTray"
 import PortalFilters from "@/components/portal/PortalFilters"
+import PortalCalculadora from "@/components/portal/PortalCalculadora"
+import PortalEstadisticas from "@/components/portal/PortalEstadisticas"
 import PortalHeader from "@/components/portal/PortalHeader"
+import PortalInicio from "@/components/portal/PortalInicio"
+import PortalTabs, { type PortalView } from "@/components/portal/PortalTabs"
 import Pagination from "@/components/properties/Pagination"
 import PropertyCard from "@/components/properties/PropertyCard"
 import PropertyTable from "@/components/properties/PropertyTable"
@@ -14,6 +36,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
+import { useTheme } from "@/contexts/ThemeContext"
 import { useToast } from "@/contexts/ToastContext"
 import {
   ORDEN_OPTIONS,
@@ -79,7 +102,9 @@ export default function Portal({
   const [exporting, setExporting] = useState(false)
 
   const { addToast } = useToast()
+  const { theme, toggleTheme } = useTheme()
   const requestId = useRef(0)
+  const [view, setView] = useState<PortalView>("inicio")
 
   const loadProperties = useCallback(
     async (activeFilters: FilterState, page: number, activeOrden: Orden = ordenRef.current) => {
@@ -136,6 +161,12 @@ export default function Portal({
     setApplied(saved)
     loadProperties(saved, 0)
     addToast("Búsqueda aplicada", "info")
+  }
+
+  /** Aplica filtros y lleva al catálogo (desde Inicio y Estadísticas). */
+  const searchInCatalog = (next: FilterState) => {
+    setView("catalogo")
+    applySavedSearch(next)
   }
 
   // ── Favoritos ──────────────────────────────────────────────────────────
@@ -227,9 +258,24 @@ export default function Portal({
     />
   )
 
+  const paletteActions: CommandAction[] = [
+    { id: "v-inicio", label: "Ir a Inicio", group: "Secciones", icon: Home, keywords: ["resumen", "novedades"], run: () => setView("inicio") },
+    { id: "v-catalogo", label: "Ir al Catálogo", group: "Secciones", icon: LayoutGrid, keywords: ["propiedades", "avisos", "buscar"], run: () => setView("catalogo") },
+    { id: "v-estad", label: "Ir a Estadísticas", group: "Secciones", icon: TrendingUp, keywords: ["distritos", "precio m2", "mercado"], run: () => setView("estadisticas") },
+    { id: "v-calc", label: "Ir a la Calculadora", group: "Secciones", icon: Calculator, keywords: ["hipoteca", "rentabilidad", "cuota"], run: () => setView("calculadora") },
+    { id: "a-fav", label: "Ver mis favoritos", group: "Acciones", icon: Heart, run: () => { setView("catalogo"); if (!soloFavoritos) toggleSoloFavoritos() } },
+    { id: "a-busquedas", label: "Mis búsquedas guardadas", group: "Acciones", icon: Bookmark, run: () => setShowSaved(true) },
+    { id: "a-cuenta", label: "Mi cuenta: contraseña y sesiones", group: "Cuenta", icon: KeyRound, keywords: ["password", "clave", "dispositivos"], run: () => window.dispatchEvent(new Event("open-account")) },
+    ...(toggleTheme
+      ? [{ id: "a-tema", label: theme === "dark" ? "Cambiar a tema claro" : "Cambiar a tema oscuro", group: "Cuenta", icon: theme === "dark" ? Sun : Moon, run: toggleTheme }]
+      : []),
+    { id: "a-salir", label: "Cerrar sesión", group: "Cuenta", icon: LogOut, run: onLogout },
+  ]
+
   return (
     <div className="min-h-screen pt-16">
       <a href="#contenido" className="skip-link">Saltar al contenido</a>
+      <CommandPalette actions={paletteActions} />
       <PortalHeader
         usuario={usuario}
         planType={planType}
@@ -238,6 +284,54 @@ export default function Portal({
       />
 
       <main id="contenido" tabIndex={-1} className="mx-auto w-full max-w-[1500px] px-4 pb-28 pt-8 sm:px-8">
+        <PortalTabs view={view} onChange={setView} />
+
+        {view === "inicio" && (
+          <>
+            <PageHeader
+              eyebrow="Inicio"
+              title={
+                <>
+                  Hola, <span className="text-gold">{usuario}</span>
+                </>
+              }
+              description="Lo nuevo del mercado y lo que pasó con tus favoritos y búsquedas."
+            />
+            <PortalInicio
+              onOpenProperty={setDetailId}
+              onApplySearch={searchInCatalog}
+              onGoCatalog={() => setView("catalogo")}
+            />
+          </>
+        )}
+
+        {view === "estadisticas" && (
+          <>
+            <PageHeader
+              eyebrow="Mercado"
+              title="Estadísticas por distrito"
+              description="Compara zonas con la mediana del precio por m², que no se distorsiona por avisos con precios raros."
+            />
+            <PortalEstadisticas
+              onSelectDistrito={(distrito, operacion) =>
+                searchInCatalog({ ...freshFilters(), distrito, operacion })
+              }
+            />
+          </>
+        )}
+
+        {view === "calculadora" && (
+          <>
+            <PageHeader
+              eyebrow="Herramientas"
+              title="Calculadora"
+              description="Estima la cuota de una hipoteca y cuánto rinde un inmueble puesto en alquiler."
+            />
+            <PortalCalculadora />
+          </>
+        )}
+
+        <div hidden={view !== "catalogo"}>
         <PageHeader
           eyebrow="Catálogo"
           title={
@@ -436,6 +530,7 @@ export default function Portal({
             itemsPerPage={ITEMS_PER_PAGE}
           />
         )}
+        </div>
       </main>
 
       <CompareTray

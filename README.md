@@ -151,6 +151,15 @@ minúsculas y `moneda` como `PEN` o `USD`.
   funciona sin modificar el scraper.
 - **Exportar CSV:** descarga la búsqueda actual (hasta 5000 avisos, UTF-8 con BOM para Excel y con
   protección contra inyección de fórmulas).
+- **Inicio:** avisos nuevos de hoy, bajadas de precio en tus favoritos (`GET /api/inicio`, usa el
+  historial de precios), novedades de los últimos 7 días en cada búsqueda guardada y los últimos avisos.
+- **Estadísticas:** mediana del precio por m² por distrito y operación (`GET /api/estadisticas`;
+  mediana, no promedio, y solo distritos con 3 o más avisos). Pulsar un distrito abre el catálogo filtrado.
+- **Calculadora:** cuota de hipoteca (amortización francesa), rentabilidad bruta y neta por alquiler,
+  años de recuperación y flujo mensual. Se calcula en el navegador (`client/src/lib/finance.ts`).
+- **Buscador global:** `Ctrl+K` (o `⌘K`) salta a cualquier sección o ejecuta acciones; también está en el admin.
+- **Admin, Vencimientos:** el Dashboard lista las suscripciones que vencen en 7 días (o vencieron hace
+  menos de 7) con un botón que abre WhatsApp con el recordatorio de renovación ya escrito.
 
 ## Seguridad y operación
 

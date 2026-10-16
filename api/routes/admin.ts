@@ -355,7 +355,7 @@ export const adminRoutes: Route[] = [
     path: "/api/admin/stats",
     level: "admin",
     handler: async ({ db }) => {
-      const [totals, porPortal, porDia] = await Promise.all([
+      const [totals, porPortal, porDia, porVencer] = await Promise.all([
         db.query(
           `select
              (select count(*)::int from public.propiedades) as "totalProps",
@@ -384,8 +384,21 @@ export const adminRoutes: Route[] = [
             group by d.dia
             order by d.dia`
         ),
+        // Suscripciones que vencen en los próximos 7 días o vencieron en los últimos 7.
+        db.query(
+          `select u.id::int as id, u.usuario,
+                  to_char(max(s.fecha_vencimiento), 'YYYY-MM-DD') as fecha_vencimiento,
+                  (max(s.fecha_vencimiento) - (now() at time zone 'America/Lima')::date)::int as dias
+             from public.suscripciones s
+             join public.usuarios u on u.id = s.usuario_id
+            where u.rol = 'usuario' and u.estado = 'activo'
+            group by u.id, u.usuario
+           having max(s.fecha_vencimiento) between (now() at time zone 'America/Lima')::date - 7
+                                               and (now() at time zone 'America/Lima')::date + 7
+            order by max(s.fecha_vencimiento), u.usuario`
+        ),
       ])
-      return { ...totals[0], porPortal, porDia }
+      return { ...totals[0], porPortal, porDia, porVencer }
     },
   },
   {

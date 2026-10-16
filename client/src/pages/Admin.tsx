@@ -1,6 +1,9 @@
+import { KeyRound, LogOut, Moon, Sun } from "lucide-react"
 import { Suspense, lazy, useState } from "react"
 import AdminSidebar from "@/components/admin/AdminSidebar"
 import { ADMIN_TABS, type AdminTab } from "@/components/admin/tabs"
+import { useTheme } from "@/contexts/ThemeContext"
+import CommandPalette, { type CommandAction } from "@/components/common/CommandPalette"
 import PageHeader from "@/components/common/PageHeader"
 
 const AdminDashboard = lazy(() => import("@/components/admin/AdminDashboard"))
@@ -17,6 +20,23 @@ interface AdminProps {
 
 export default function Admin({ usuario, onLogout }: AdminProps) {
   const [activeTab, setActiveTab] = useState<AdminTab>("dashboard")
+  const { theme, toggleTheme } = useTheme()
+
+  const paletteActions: CommandAction[] = [
+    ...ADMIN_TABS.map(tab => ({
+      id: `tab-${tab.id}`,
+      label: `Ir a ${tab.label}`,
+      group: "Secciones",
+      icon: tab.icon,
+      keywords: [tab.title, tab.description],
+      run: () => setActiveTab(tab.id),
+    })),
+    { id: "cuenta", label: "Mi cuenta: contraseña y sesiones", group: "Cuenta", icon: KeyRound, keywords: ["password", "clave", "dispositivos"], run: () => window.dispatchEvent(new Event("open-account")) },
+    ...(toggleTheme
+      ? [{ id: "tema", label: theme === "dark" ? "Cambiar a tema claro" : "Cambiar a tema oscuro", group: "Cuenta", icon: theme === "dark" ? Sun : Moon, run: toggleTheme }]
+      : []),
+    { id: "salir", label: "Cerrar sesión", group: "Cuenta", icon: LogOut, run: onLogout },
+  ]
 
   const current = ADMIN_TABS.find(tab => tab.id === activeTab) ?? ADMIN_TABS[0]
   const isDashboard = activeTab === "dashboard"
@@ -42,6 +62,7 @@ export default function Admin({ usuario, onLogout }: AdminProps) {
   return (
     <div className="flex min-h-screen">
       <a href="#contenido" className="skip-link">Saltar al contenido</a>
+      <CommandPalette actions={paletteActions} />
       <AdminSidebar
         activeTab={activeTab}
         onTabChange={setActiveTab}

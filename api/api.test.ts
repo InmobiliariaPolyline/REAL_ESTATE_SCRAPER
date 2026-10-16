@@ -986,6 +986,66 @@ describe("sesiones activas", () => {
   })
 })
 
+describe("inicio, estadísticas y vencimientos", () => {
+  it("exigen sesión con plan vigente", async () => {
+    expect((await call("GET", "/api/inicio")).status).toBe(401)
+    expect((await call("GET", "/api/inicio", { token: noPlan })).status).toBe(403)
+    expect((await call("GET", "/api/estadisticas", { token: noPlan })).status).toBe(403)
+  })
+
+  it("inicio: nuevos de hoy, bajadas de precio de favoritos y novedades por búsqueda guardada", async () => {
+    await pg.exec(`insert into propiedades (id, portal, operacion, inmueble, titulo, precio, precio_usd, moneda, distrito, area, creado_en, ultima_vista_en)
+      values ('ini-1','urbania','VENTA','Departamento','Depa inicio',400000,400000,'USD','Zona Inicio','100 m2', now(), now())`)
+    const cliente = (await pg.query<{ id: number }>("select id::int from usuarios where usuario='cliente'")).rows[0].id
+    await pg.query("insert into favoritos (admin_id, propiedad_id) values ($1, 'ini-1')", [cliente])
+    // Pruebas anteriores pueden haber llenado el cupo de búsquedas guardadas.
+    await pg.query("delete from busquedas_guardadas where admin_id = $1", [cliente])
+    // El trigger registra el precio inicial y este cambio: 400000 -> 360000 (-10 %).
+    await pg.exec("update propiedades set precio_usd = 360000, precio = 360000 where id = 'ini-1'")
+    expect((await call("POST", "/api/busquedas", { token: member, body: { nombre: "Zona Inicio", filtros: { ...{ distrito: "Zona Inicio", operacion: "todos", inmueble: "todos", portales: [], moneda: "PEN", precioMin: "", precioMax: "", dormitorios: "todos" } } } })).status).toBe(200)
+
+    const r = await call("GET", "/api/inicio", { token: member })
+    expect(r.status).toBe(200)
+    expect(r.body.hoy).toBeGreaterThanOrEqual(1)
+    expect(r.body.recientes.length).toBeGreaterThan(0)
+    const bajada = r.body.bajadas.find((b: any) => b.id === "ini-1")
+    expect(bajada).toBeTruthy()
+    expect(bajada.baja_pct).toBe(10)
+    expect(bajada.precio_anterior_usd).toBe(400000)
+    const busqueda = r.body.busquedas.find((b: any) => b.nombre === "Zona Inicio")
+    expect(busqueda.nuevos).toBe(1)
+  })
+
+  it("inicio: un precio que sube no cuenta como bajada", async () => {
+    await pg.exec("update propiedades set precio_usd = 450000, precio = 450000 where id = 'ini-1'")
+    const r = await call("GET", "/api/inicio", { token: member })
+    expect(r.body.bajadas.find((b: any) => b.id === "ini-1")).toBeUndefined()
+  })
+
+  it("estadísticas: mediana por distrito y por m²", async () => {
+    await pg.exec(`insert into propiedades (id, portal, operacion, inmueble, precio, precio_usd, moneda, distrito, area, ultima_vista_en)
+      values ('es-1','urbania','VENTA','Departamento',100000,100000,'USD','Zona Estadística','100 m2', now()),
+             ('es-2','urbania','VENTA','Departamento',200000,200000,'USD','ZONA ESTADISTICA','100 m2', now()),
+             ('es-3','urbania','VENTA','Departamento',300000,300000,'USD','Zona Estadistica','100 m2', now())`)
+    const r = await call("GET", "/api/estadisticas", { token: member })
+    expect(r.status).toBe(200)
+    const d = r.body.distritos.find((x: any) => /zona estad/i.test(x.distrito) && x.operacion === "VENTA")
+    expect(d).toMatchObject({ avisos: 3, precioMediano: 200000, precioM2Mediano: 2000 })
+    expect(r.body.resumen.map((x: any) => x.operacion)).toEqual(["VENTA", "ALQUILER"])
+  })
+
+  it("admin: vencimientos de los próximos 7 días", async () => {
+    const prev = (await pg.query<{ id: number; f: string }>("select id::int, fecha_vencimiento::text as f from suscripciones where usuario_id = (select id from usuarios where usuario='cliente')")).rows
+    await pg.exec("update suscripciones set fecha_vencimiento = (now() at time zone 'America/Lima')::date + 3 where usuario_id = (select id from usuarios where usuario='cliente')")
+    const r = await call("GET", "/api/admin/stats", { token: admin })
+    const v = r.body.porVencer.find((x: any) => x.usuario === "cliente")
+    expect(v).toMatchObject({ dias: 3 })
+    expect(r.body.porVencer.every((x: any) => x.dias >= -7 && x.dias <= 7)).toBe(true)
+    for (const row of prev) await pg.query("update suscripciones set fecha_vencimiento = $1 where id = $2", [row.f, row.id])
+    expect((await call("GET", "/api/inicio", { token: member })).status).toBe(200)
+  })
+})
+
 describe("inactividad", () => {
   const rawId = async (usuario: string) =>
     (await pg.query<{ id: number }>("select id::int from usuarios where usuario=$1", [usuario])).rows[0].id

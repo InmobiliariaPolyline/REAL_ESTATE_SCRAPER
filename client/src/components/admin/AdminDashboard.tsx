@@ -1,4 +1,4 @@
-import { Activity, AlertTriangle, Building2, Crown, RefreshCw, Users } from 'lucide-react'
+import { Activity, AlertTriangle, Building2, CalendarClock, Crown, MessageCircle, RefreshCw, Users } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Area,
@@ -18,6 +18,7 @@ import StatCard from '@/components/common/StatCard'
 import { useToast } from '@/contexts/ToastContext'
 import { timeAgo } from '@/lib/account'
 import { api } from '@/lib/api'
+import { mensajeRenovacion, whatsappLink, type PorVencer } from '@/lib/insights'
 import { formatDateTime } from '@/lib/dates'
 import { PORTALS } from '@/lib/portals'
 import { cn } from '@/lib/utils'
@@ -38,6 +39,7 @@ interface Stats {
   ultimoAviso: string | null
   porPortal: { portal: string; count: number }[]
   porDia: { dia: string; total: number }[]
+  porVencer: PorVencer[]
 }
 
 const GOLD = 'var(--gold)'
@@ -359,6 +361,56 @@ export default function AdminDashboard({ onNavigate }: DashboardProps) {
                   ))}
                 </ul>
               </>
+            )}
+          </section>
+
+          {/* Suscripciones por vencer */}
+          <section className="card p-6">
+            <h2 className="flex items-center gap-2 text-base font-semibold text-text">
+              <CalendarClock className="size-4 text-amber" aria-hidden="true" />
+              Vencimientos
+            </h2>
+            <p className="text-sm text-text-muted">Próximos 7 días y vencidos recientes</p>
+
+            {loading ? (
+              <div className="skeleton mt-4 h-24" />
+            ) : !stats || stats.porVencer.length === 0 ? (
+              <p className="py-8 text-center text-sm text-text-faint">Nadie vence esta semana</p>
+            ) : (
+              <ul className="mt-3 divide-y divide-line">
+                {stats.porVencer.map(v => (
+                  <li key={v.id} className="flex items-center gap-3 py-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-text">{v.usuario}</p>
+                      <p className="mono text-xs text-text-muted">
+                        {v.fecha_vencimiento.split('-').reverse().join('/')}
+                      </p>
+                    </div>
+                    <span
+                      className={cn(
+                        'badge',
+                        v.dias < 0 ? 'badge-rose' : v.dias <= 2 ? 'badge-gold' : 'badge-muted'
+                      )}
+                    >
+                      {v.dias < 0
+                        ? `venció hace ${-v.dias} d`
+                        : v.dias === 0
+                          ? 'vence hoy'
+                          : `en ${v.dias} d`}
+                    </span>
+                    <a
+                      href={whatsappLink(mensajeRenovacion(v.usuario, v.fecha_vencimiento, v.dias))}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-ghost btn-icon btn-sm text-green"
+                      aria-label={`Recordar la renovación a ${v.usuario} por WhatsApp`}
+                      title="Recordar por WhatsApp"
+                    >
+                      <MessageCircle className="size-4" aria-hidden="true" />
+                    </a>
+                  </li>
+                ))}
+              </ul>
             )}
           </section>
 

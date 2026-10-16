@@ -4,9 +4,10 @@ import { HttpError, json } from "./http"
 import { createRouter } from "./router"
 import { adminRoutes } from "./routes/admin"
 import { authRoutes } from "./routes/auth"
+import { insightsRoutes } from "./routes/insights"
 import { portalRoutes } from "./routes/portal"
 
-const dispatch = createRouter([...authRoutes, ...portalRoutes, ...adminRoutes])
+const dispatch = createRouter([...authRoutes, ...portalRoutes, ...insightsRoutes, ...adminRoutes])
 
 /**
  * Handler Web estándar (Request → Response), independiente de la plataforma:

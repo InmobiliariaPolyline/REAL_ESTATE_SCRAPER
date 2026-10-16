@@ -1,5 +1,5 @@
 import { CalendarClock, Crown, KeyRound, LogOut, Menu, User } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Avatar from "@/components/common/Avatar"
 import Logo from "@/components/common/Logo"
 import AccountModal from "@/components/common/AccountModal"
@@ -37,6 +37,13 @@ export default function PortalHeader({
   onLogout,
 }: PortalHeaderProps) {
   const [showPassword, setShowPassword] = useState(false)
+
+  // El buscador global (Ctrl+K) abre "Mi cuenta" mediante este evento.
+  useEffect(() => {
+    const open = () => setShowPassword(true)
+    window.addEventListener("open-account", open)
+    return () => window.removeEventListener("open-account", open)
+  }, [])
 
   return (
     <>
