@@ -16,7 +16,7 @@ import {
   validateEnlace,
   type Enlace,
 } from '@/lib/enlaces'
-import { supabase } from '@/lib/supabase'
+import { ApiError, api } from '@/lib/api'
 
 interface Propiedad {
   id: string
@@ -38,12 +38,6 @@ const TIPO_LABELS: Record<(typeof TIPOS_ENLACE)[number], string> = {
   DOCUMENTACION: 'Documentación',
 }
 
-const PROP_COLUMNS = 'id, portal, operacion, inmueble, titulo, distrito'
-const ID_CHUNK = 200
-const MAX_PROPERTY_RESULTS = 20
-
-/** Quita caracteres que rompen la sintaxis de los filtros `or()` de PostgREST. */
-const sanitizeOrTerm = (term: string) => term.replace(/[,()*%\\]/g, ' ').trim()
 
 export default function AdminEnlaces() {
   const [enlaces, setEnlaces] = useState<EnlaceConPropiedad[]>([])
@@ -78,37 +72,10 @@ export default function AdminEnlaces() {
     setLoading(true)
 
     try {
-      const { data: enlacesData, error: enlacesError } = await supabase
-        .from('enlaces')
-        .select('*')
-        .order('creado_en', { ascending: false })
-
-      if (enlacesError) throw enlacesError
-
-      const lista = (enlacesData as Enlace[]) || []
-      const ids = Array.from(new Set(lista.map(e => e.propiedad_id)))
-
-      // Solo se traen las propiedades referenciadas (en lotes), no la tabla completa.
-      const propiedadesPorId = new Map<string, Propiedad>()
-      for (let i = 0; i < ids.length; i += ID_CHUNK) {
-        const { data, error } = await supabase
-          .from('propiedades')
-          .select(PROP_COLUMNS)
-          .in('id', ids.slice(i, i + ID_CHUNK))
-        if (error) {
-          console.error('Error cargando propiedades:', error)
-          break
-        }
-        for (const p of (data as Propiedad[]) || []) propiedadesPorId.set(p.id, p)
-      }
-
+      // El servidor ya devuelve cada enlace con los datos de su propiedad.
+      const lista = await api.get<EnlaceConPropiedad[]>('/admin/enlaces')
       if (current !== requestId.current) return
-      setEnlaces(
-        lista.map(enlace => ({
-          ...enlace,
-          propiedad: propiedadesPorId.get(enlace.propiedad_id),
-        }))
-      )
+      setEnlaces(lista.map(e => ({ ...e, propiedad: e.propiedad ?? undefined })))
     } catch (error) {
       if (current !== requestId.current) return
       console.error('Error cargando enlaces:', error)
@@ -126,22 +93,19 @@ export default function AdminEnlaces() {
   // Búsqueda de propiedades con debounce mientras el formulario está abierto.
   useEffect(() => {
     if (!showForm) return
-    const term = sanitizeOrTerm(propBusqueda)
+    const term = propBusqueda.trim()
     if (term.length < 2) {
       setPropResultados([])
       return
     }
     const handle = setTimeout(async () => {
-      const { data, error } = await supabase
-        .from('propiedades')
-        .select(PROP_COLUMNS)
-        .or(`titulo.ilike.%${term}%,distrito.ilike.%${term}%,id.eq.${term}`)
-        .limit(MAX_PROPERTY_RESULTS)
-      if (error) {
+      try {
+        setPropResultados(
+          await api.get<Propiedad[]>('/admin/propiedades-lookup', { q: term })
+        )
+      } catch (error) {
         console.error('Error buscando propiedades:', error)
-        return
       }
-      setPropResultados((data as Propiedad[]) || [])
     }, 300)
     return () => clearTimeout(handle)
   }, [propBusqueda, showForm])
@@ -173,7 +137,7 @@ export default function AdminEnlaces() {
 
     const payload = {
       titulo: valid.titulo,
-      descripcion: valid.descripcion,
+      descripcion: valid.descripcion ?? '',
       url: valid.url,
       tipo,
       propiedad_id: propiedadId,
@@ -181,28 +145,25 @@ export default function AdminEnlaces() {
 
     setSaving(true)
     try {
-      const { error } =
-        editingId !== null
-          ? await supabase.from('enlaces').update(payload).eq('id', editingId)
-          : await supabase.from('enlaces').insert(payload)
-
-      if (error) {
-        console.error('Error guardando enlace:', error)
-        addToast(
-          editingId !== null
-            ? 'No se pudo actualizar el enlace.'
-            : 'No se pudo crear el enlace.',
-          'error'
-        )
-        return
+      if (editingId !== null) {
+        await api.put(`/enlaces/${editingId}`, payload)
+      } else {
+        await api.post(`/propiedades/${encodeURIComponent(propiedadId)}/enlaces`, payload)
       }
 
       addToast('Enlace guardado', 'success')
       limpiarFormulario()
       await cargarDatos()
     } catch (error) {
-      console.error('Error inesperado:', error)
-      addToast('Ocurrió un error al guardar el enlace.', 'error')
+      console.error('Error guardando enlace:', error)
+      addToast(
+        error instanceof ApiError && error.status === 400
+          ? error.message
+          : editingId !== null
+            ? 'No se pudo actualizar el enlace.'
+            : 'No se pudo crear el enlace.',
+        'error'
+      )
     } finally {
       setSaving(false)
     }
@@ -230,20 +191,13 @@ export default function AdminEnlaces() {
     if (!enlaceAEliminar) return
     setDeleting(true)
     try {
-      const { error } = await supabase
-        .from('enlaces')
-        .delete()
-        .eq('id', enlaceAEliminar.id)
-
-      if (error) {
-        console.error('Error eliminando enlace:', error)
-        addToast('No se pudo eliminar el enlace.', 'error')
-        return
-      }
-
+      await api.delete(`/enlaces/${enlaceAEliminar.id}`)
       addToast('Enlace eliminado', 'success')
       setEnlaceAEliminar(null)
       await cargarDatos()
+    } catch (error) {
+      console.error('Error eliminando enlace:', error)
+      addToast('No se pudo eliminar el enlace.', 'error')
     } finally {
       setDeleting(false)
     }

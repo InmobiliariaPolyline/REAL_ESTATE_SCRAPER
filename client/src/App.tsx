@@ -119,7 +119,6 @@ function Router() {
       {auth?.vista === "admin" && (
         <Admin
           usuario={auth.user.usuario}
-          usuarioId={auth.user.id}
           onLogout={() => handleLogout()}
         />
       )}

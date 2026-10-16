@@ -3,10 +3,9 @@
 --
 -- Ecosistema (ver "Informe Técnico: Mantenimiento y Escalabilidad"):
 --
---   Portales ──► Scraper (Python, GitHub Actions) ──► PostgreSQL (Supabase) ──► Portal web (React)
+--   Portales ──► Scraper (Python, GitHub Actions) ──► PostgreSQL (Neon) ──► API ──► Portal web (React)
 --                      │ conexión directa/pooler            ▲       │
---                      │ (rol postgres: omite RLS)          │       └─► Panel admin
---                      └─ SUNAT: tipo de cambio             │
+--                      └─ SUNAT: tipo de cambio             │       └─► Panel admin
 --                                                           └──────── Inmodata (ETL / BI): lectura
 --
 -- Flujo de uso
@@ -20,21 +19,22 @@
 --      y enlaces de apoyo por propiedad (`enlaces`).
 --   5. Inmodata lee `propiedades` (con una conexión de solo lectura) para limpieza y BI.
 --
--- Orden de ejecución:  este archivo  →  20260101000000_secure_auth.sql
+-- Orden de ejecución:  este archivo  →  db/002_auth.sql
+-- Solo la API se conecta a esta base (la cadena de conexión nunca va al navegador).
 -- Es idempotente (`if not exists`): se puede ejecutar sobre una base que ya tenga tablas.
 -- Después de ejecutarlo, crea el primer administrador (ver la sección final).
 -- =============================================================================
 
 begin;
 
-create extension if not exists pgcrypto with schema extensions;
+create extension if not exists pgcrypto;
 
 -- ── Usuarios y suscripciones ─────────────────────────────────────────────────
 
 create table if not exists public.usuarios (
   id              bigint generated always as identity primary key,
   usuario         text not null unique,
-  password_hash   text not null,                 -- bcrypt (lo gestionan las RPC de la migración de seguridad)
+  password_hash   text not null,                 -- bcrypt (lo gestionan las funciones de db/002_auth.sql)
   rol             text not null default 'usuario' check (rol in ('admin', 'usuario')),
   estado          text not null default 'activo'  check (estado in ('activo', 'baneado')),
   creado_en       timestamptz not null default now(),
@@ -114,7 +114,7 @@ create table if not exists public.favoritos (
   unique (admin_id, propiedad_id)
 );
 
--- `unique (admin_id, propiedad_id)` es necesario para el upsert onConflict del cliente.
+-- `unique (admin_id, propiedad_id)` es necesario para el UPSERT de la API.
 create table if not exists public.historial (
   id           bigint generated always as identity primary key,
   admin_id     bigint not null references public.usuarios (id) on delete cascade,
@@ -143,5 +143,5 @@ commit;
 -- PRIMER ADMINISTRADOR  (ejecútalo UNA vez, con tu propia contraseña, y no lo subas al repo)
 --
 --   insert into public.usuarios (usuario, password_hash, rol)
---   values ('admin', extensions.crypt('TU_CONTRASEÑA_SEGURA', extensions.gen_salt('bf')), 'admin');
+--   values ('admin', crypt('TU_CONTRASEÑA_SEGURA', gen_salt('bf', 10)), 'admin');
 -- =============================================================================

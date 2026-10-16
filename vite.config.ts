@@ -8,6 +8,7 @@ export default defineConfig({
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),
+      "@shared": path.resolve(import.meta.dirname, "shared"),
     },
   },
   envDir: path.resolve(import.meta.dirname),
@@ -24,7 +25,6 @@ export default defineConfig({
           if (id.includes("react") || id.includes("scheduler")) {
             return "vendor-react";
           }
-          if (id.includes("@supabase")) return "vendor-supabase";
           if (id.includes("lucide-react")) return "vendor-icons";
           if (id.includes("recharts") || id.includes("d3")) {
             return "vendor-charts";
@@ -36,6 +36,8 @@ export default defineConfig({
   },
   server: {
     port: 3000,
+    // En desarrollo, /api se reenvía al servidor Express (`pnpm dev:api`).
+    proxy: { "/api": "http://localhost:3001" },
     strictPort: false, // Busca el siguiente puerto libre si el 3000 está ocupado
     host: true,
     fs: {

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ExternalLink, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { useToast } from '@/contexts/ToastContext'
 import { openEnlace, validateEnlace, type Enlace } from '@/lib/enlaces'
-import { supabase } from '@/lib/supabase'
+import { ApiError, api } from '@/lib/api'
 
 interface EnlacesPropiedadProps {
   propiedadId: string
@@ -32,20 +32,15 @@ export default function EnlacesPropiedad({
     const current = ++requestId.current
     setLoading(true)
 
-    const { data, error } = await supabase
-      .from('enlaces')
-      .select('*')
-      .eq('propiedad_id', propiedadId)
-      .order('creado_en', { ascending: false })
-
-    if (current !== requestId.current) return
-
-    if (error) {
+    try {
+      const data = await api.get<Enlace[]>(`/propiedades/${encodeURIComponent(propiedadId)}/enlaces`)
+      if (current !== requestId.current) return
+      setEnlaces(data)
+    } catch (error) {
+      if (current !== requestId.current) return
       console.error('Error cargando enlaces:', error)
       addToast('No se pudieron cargar los enlaces.', 'error')
       setEnlaces([])
-    } else {
-      setEnlaces((data as Enlace[]) || [])
     }
 
     setLoading(false)
@@ -82,34 +77,32 @@ export default function EnlacesPropiedad({
 
     const payload = {
       titulo: valid.titulo,
-      descripcion: valid.descripcion,
+      descripcion: valid.descripcion ?? '',
       url: valid.url,
       tipo,
     }
 
     setSaving(true)
     try {
-      const { error } =
-        editingId !== null
-          ? await supabase.from('enlaces').update(payload).eq('id', editingId)
-          : await supabase
-              .from('enlaces')
-              .insert({ propiedad_id: propiedadId, ...payload })
-
-      if (error) {
-        console.error('Error guardando enlace:', error)
-        addToast(
-          editingId !== null
-            ? 'No se pudo actualizar el enlace.'
-            : 'No se pudo crear el enlace.',
-          'error'
-        )
-        return
+      if (editingId !== null) {
+        await api.put(`/enlaces/${editingId}`, payload)
+      } else {
+        await api.post(`/propiedades/${encodeURIComponent(propiedadId)}/enlaces`, payload)
       }
 
       addToast('Enlace guardado', 'success')
       limpiarFormulario()
       await cargarEnlaces()
+    } catch (error) {
+      console.error('Error guardando enlace:', error)
+      addToast(
+        error instanceof ApiError && error.status === 400
+          ? error.message
+          : editingId !== null
+            ? 'No se pudo actualizar el enlace.'
+            : 'No se pudo crear el enlace.',
+        'error'
+      )
     } finally {
       setSaving(false)
     }
@@ -128,9 +121,9 @@ export default function EnlacesPropiedad({
     const confirmar = window.confirm('¿Seguro que deseas eliminar este enlace?')
     if (!confirmar) return
 
-    const { error } = await supabase.from('enlaces').delete().eq('id', id)
-
-    if (error) {
+    try {
+      await api.delete(`/enlaces/${id}`)
+    } catch (error) {
       console.error('Error eliminando enlace:', error)
       addToast('No se pudo eliminar el enlace.', 'error')
       return

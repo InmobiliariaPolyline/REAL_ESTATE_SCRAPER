@@ -13,14 +13,10 @@ import {
   type PropiedadesTab,
 } from './propiedades/useAdminPropiedades'
 
-interface AdminPropiedadesProps {
-  adminId: number
-}
-
 const muted = { color: '#6B6B6B', fontFamily: 'DM Sans' } as const
 
-export default function AdminPropiedades({ adminId }: AdminPropiedadesProps) {
-  const p = useAdminPropiedades(adminId)
+export default function AdminPropiedades() {
+  const p = useAdminPropiedades()
 
   const [propiedadAEliminar, setPropiedadAEliminar] = useState<string | null>(null)
   const [busquedaAEliminar, setBusquedaAEliminar] = useState<BusquedaGuardada | null>(null)

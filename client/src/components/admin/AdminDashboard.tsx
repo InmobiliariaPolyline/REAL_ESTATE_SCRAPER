@@ -1,15 +1,23 @@
 import { useCallback, useEffect, useState } from 'react'
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { useIsMobile } from '@/hooks/useMobile'
-import { supabase } from '@/lib/supabase'
+import { api } from '@/lib/api'
 import { useToast } from '@/contexts/ToastContext'
-import { formatDateTime, startOfTodayTimestamp, todayISO } from '@/lib/dates'
+import { formatDateTime } from '@/lib/dates'
 import { PORTALS } from '@/lib/portals'
 
 /** Horas sin avisos nuevos a partir de las cuales se considera inactivo al scraper. */
 const STALE_HOURS = 48
-const PAGE = 1000
-const MAX_PAGES = 20
+
+interface Stats {
+  totalProps: number
+  totalUsers: number
+  subsActivas: number
+  addedHoy: number
+  added24h: number
+  ultimoAviso: string | null
+  porPortal: { portal: string; count: number }[]
+}
 
 interface MetricaProps {
   icon: string
@@ -61,22 +69,6 @@ interface ChartPoint {
   color: string
 }
 
-/** Usuarios distintos con suscripción vigente (pagina para superar el límite por respuesta). */
-async function countActiveSubscribers(): Promise<number> {
-  const users = new Set<number>()
-  for (let page = 0; page < MAX_PAGES; page++) {
-    const { data, error } = await supabase
-      .from('suscripciones')
-      .select('usuario_id')
-      .gte('fecha_vencimiento', todayISO())
-      .range(page * PAGE, (page + 1) * PAGE - 1)
-    if (error) throw error
-    for (const row of data ?? []) users.add(row.usuario_id as number)
-    if ((data?.length ?? 0) < PAGE) break
-  }
-  return users.size
-}
-
 export default function AdminDashboard() {
   const [metricas, setMetricas] = useState({
     totalProps: 0,
@@ -92,53 +84,23 @@ export default function AdminDashboard() {
 
   const loadMetricas = useCallback(async () => {
     try {
-      const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
-      const count = (q: PromiseLike<{ count: number | null; error: unknown }>) =>
-        Promise.resolve(q).then(({ count, error }) => {
-          if (error) throw error
-          return count ?? 0
-        })
-      const head = () =>
-        supabase.from('propiedades').select('*', { count: 'exact', head: true })
-
-      const [
-        totalProps,
-        totalUsers,
-        subsActivas,
-        addedHoy,
-        added24h,
-        latest,
-        ...portalCounts
-      ] = await Promise.all([
-        count(head()),
-        count(supabase.from('usuarios').select('*', { count: 'exact', head: true })),
-        countActiveSubscribers(),
-        count(head().gte('creado_en', startOfTodayTimestamp())),
-        count(head().gte('creado_en', since24h)),
-        supabase
-          .from('propiedades')
-          .select('creado_en')
-          .order('creado_en', { ascending: false })
-          .limit(1)
-          .maybeSingle(),
-        ...PORTALS.map(portal => count(head().eq('portal', portal.key))),
-      ])
-
-      if (latest.error) throw latest.error
+      const stats = await api.get<Stats>('/admin/stats')
+      const countOf = (key: string) =>
+        stats.porPortal.find(p => p.portal.toLowerCase() === key)?.count ?? 0
 
       setMetricas({
-        totalProps,
-        totalUsers,
-        subsActivas,
-        addedHoy,
-        added24h,
-        ultimoAviso: (latest.data?.creado_en as string | undefined) ?? null,
+        totalProps: stats.totalProps,
+        totalUsers: stats.totalUsers,
+        subsActivas: stats.subsActivas,
+        addedHoy: stats.addedHoy,
+        added24h: stats.added24h,
+        ultimoAviso: stats.ultimoAviso,
       })
 
       setChartData(
-        PORTALS.map((portal, idx) => ({
+        PORTALS.map(portal => ({
           name: portal.label,
-          value: portalCounts[idx] as number,
+          value: countOf(portal.key),
           color: portal.color,
         })).filter(item => item.value > 0)
       )

@@ -5,19 +5,19 @@ const STORAGE_KEY = "inmoda_session"
 
 /**
  * Sesión persistida en el navegador.
- * Solo guarda identidad y el token opcional del servidor; la vista y la suscripción
+ * Solo guarda identidad y el token emitido por el servidor; la vista y la suscripción
  * NUNCA se confían desde aquí: se vuelven a calcular al restaurar la sesión.
  */
 export interface StoredSession {
   user: SessionUser
-  /** Token emitido por `login_usuario` (modo seguro). `null` en modo legado. */
+  /** Token emitido por `login_usuario` (se valida en el servidor en cada petición). */
   token: string | null
   savedAt: number
 }
 
 let memoryToken: string | null = null
 
-/** Token que `supabase.ts` adjunta como cabecera `x-session-token` en cada petición. */
+/** Token que `api.ts` adjunta como `Authorization: Bearer` en cada petición. */
 export const getSessionToken = () => memoryToken
 export const setSessionToken = (token: string | null) => {
   memoryToken = token

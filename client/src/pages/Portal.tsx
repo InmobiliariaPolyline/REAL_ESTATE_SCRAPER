@@ -12,7 +12,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet"
 import { useToast } from "@/contexts/ToastContext"
-import { fetchPortalPage } from "@/lib/propertyQuery"
+import { fetchPortalPage } from "@/lib/propertiesApi"
 import {
   DEFAULT_FILTERS,
   type FilterState,

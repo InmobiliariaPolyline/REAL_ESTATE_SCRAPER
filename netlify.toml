@@ -1,10 +1,22 @@
-# Despliegue del frontend en Netlify (el informe técnico indica que el SPA vive allí).
-# Variables requeridas en Site settings → Environment variables:
-#   VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY  (y opcionalmente VITE_ADMIN_WHATSAPP, VITE_USD_TO_PEN_RATE)
+# Despliegue en Netlify: frontend estático + API como Netlify Function (netlify/functions/api.ts).
+# Variables en Site settings → Environment variables:
+#   DATABASE_URL (Neon, solo servidor · marcar "Contains secret values"),
+#   opcionales: USD_TO_PEN_RATE, VITE_ADMIN_WHATSAPP, VITE_USD_TO_PEN_RATE,
+#   GITHUB_PAT, GITHUB_REPO, GITHUB_WORKFLOW, GITHUB_REF (botón "Forzar scraper").
 
 [build]
   command = "pnpm exec vite build"
   publish = "dist/public"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# La API (netlify/functions/api.ts) va antes que el fallback del SPA.
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
 
 # Enrutamiento del lado del cliente.
 [[redirects]]
@@ -13,11 +25,11 @@
   status = 200
 
 # Cabeceras de seguridad. Mantener sincronizadas con server/index.ts (Express).
-# Si usas un dominio propio para Supabase, añádelo a connect-src.
+# Si la API vive en otro dominio (VITE_API_URL), añádelo a connect-src.
 [[headers]]
   for = "/*"
   [headers.values]
-    Content-Security-Policy = "default-src 'self'; script-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"

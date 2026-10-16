@@ -1,5 +1,5 @@
 import { PORTALS } from "@/lib/portals"
-import type { AdminSearchFilters } from "@/lib/propertyQuery"
+import type { AdminSearchFilters } from "@/lib/propertiesApi"
 
 interface PropiedadesFiltersProps {
   filters: AdminSearchFilters

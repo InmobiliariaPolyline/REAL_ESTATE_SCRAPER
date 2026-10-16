@@ -1,13 +1,5 @@
-import { LOGIN_LOCK_MS, LOGIN_MAX_ATTEMPTS } from "./config"
-import { isMissingRpc, warnLegacyMode } from "./rpc"
-import {
-  clearSession,
-  loadSession,
-  saveSession,
-  setSessionToken,
-} from "./sessionStore"
-import { fetchActiveSubscription, hasAnySubscription } from "./subscriptions"
-import { supabase } from "./supabase"
+import { ApiError, api } from "./api"
+import { clearSession, loadSession, saveSession, setSessionToken } from "./sessionStore"
 import type { SessionUser, Suscripcion, Vista } from "@/types"
 
 export type VencidoMotivo = "vencida" | "sin_suscripcion"
@@ -29,65 +21,26 @@ export type LoginFailure =
 
 export type LoginOutcome =
   | { ok: true; snapshot: AuthSnapshot }
-  | { ok: false; reason: LoginFailure; retryInSeconds?: number }
+  | { ok: false; reason: LoginFailure }
 
-interface ServerAccess {
+/** Respuesta de /api/login y /api/session. */
+interface AccessResponse {
   ok: boolean
-  error?: "invalid" | "baneado" | "bloqueado"
   token?: string
-  usuario?: SessionUser & { estado?: string }
-  suscripcion?: Suscripcion | null
-  tuvo_suscripcion?: boolean
+  usuario: SessionUser & { estado?: string }
+  suscripcion: Suscripcion | null
+  tuvo_suscripcion: boolean
 }
-
-// ── Bloqueo temporal en el cliente (defensa adicional; el límite real vive en el servidor) ──
-
-const GUARD_KEY = "inmoda_login_guard"
-
-interface LoginGuard {
-  fails: number
-  lockedUntil: number
-}
-
-function readGuard(): LoginGuard {
-  try {
-    const raw = localStorage.getItem(GUARD_KEY)
-    if (raw) {
-      const g = JSON.parse(raw) as Partial<LoginGuard>
-      return { fails: g.fails ?? 0, lockedUntil: g.lockedUntil ?? 0 }
-    }
-  } catch {
-    /* ignorar */
-  }
-  return { fails: 0, lockedUntil: 0 }
-}
-
-function writeGuard(guard: LoginGuard): void {
-  try {
-    localStorage.setItem(GUARD_KEY, JSON.stringify(guard))
-  } catch {
-    /* ignorar */
-  }
-}
-
-function registerFailure(): void {
-  const guard = readGuard()
-  const fails = guard.fails + 1
-  writeGuard(
-    fails >= LOGIN_MAX_ATTEMPTS
-      ? { fails: 0, lockedUntil: Date.now() + LOGIN_LOCK_MS }
-      : { fails, lockedUntil: guard.lockedUntil }
-  )
-}
-
-// ── Resolución de acceso ──
 
 /** Decide la pantalla según rol y suscripción. Rol desconocido => null. */
-function buildSnapshot(
-  user: SessionUser,
-  suscripcion: Suscripcion | null,
-  tuvoSuscripcion: boolean
-): AuthSnapshot | null {
+function buildSnapshot(res: AccessResponse): AuthSnapshot | null {
+  const user: SessionUser = {
+    id: res.usuario.id,
+    usuario: res.usuario.usuario,
+    rol: res.usuario.rol,
+  }
+  const suscripcion = res.suscripcion ?? null
+
   if (user.rol === "admin") {
     return { user, vista: "admin", suscripcion: null }
   }
@@ -97,190 +50,57 @@ function buildSnapshot(
       user,
       vista: "vencido",
       suscripcion: null,
-      vencidoMotivo: tuvoSuscripcion ? "vencida" : "sin_suscripcion",
+      vencidoMotivo: res.tuvo_suscripcion ? "vencida" : "sin_suscripcion",
     }
   }
   return null
 }
 
-async function snapshotFromLegacy(user: SessionUser): Promise<AuthSnapshot | null> {
-  if (user.rol !== "usuario") return buildSnapshot(user, null, false)
-  const suscripcion = await fetchActiveSubscription(user.id)
-  const tuvo = suscripcion ? true : await hasAnySubscription(user.id)
-  return buildSnapshot(user, suscripcion, tuvo)
-}
-
-// ── Login ──
-
-async function loginViaRpc(
-  usuario: string,
-  password: string
-): Promise<LoginOutcome | "missing"> {
-  const { data, error } = await supabase.rpc("login_usuario", {
-    p_usuario: usuario,
-    p_password: password,
-  })
-
-  if (error) {
-    if (isMissingRpc(error)) return "missing"
-    console.error("Error en login_usuario:", error)
-    return { ok: false, reason: "network" }
-  }
-
-  const res = data as ServerAccess | null
-  if (!res || !res.ok || !res.usuario) {
-    if (res?.error === "baneado") return { ok: false, reason: "banned" }
-    if (res?.error === "bloqueado") return { ok: false, reason: "locked" }
-    registerFailure()
-    return { ok: false, reason: "invalid" }
-  }
-
-  const user: SessionUser = {
-    id: res.usuario.id,
-    usuario: res.usuario.usuario,
-    rol: res.usuario.rol,
-  }
-  const snapshot = buildSnapshot(
-    user,
-    res.suscripcion ?? null,
-    !!res.tuvo_suscripcion
-  )
-  if (!snapshot) {
-    return { ok: false, reason: "unknown_role" }
-  }
-
-  saveSession({ user, token: res.token ?? null })
-  return { ok: true, snapshot }
-}
-
-async function loginLegacy(
-  usuario: string,
-  password: string
-): Promise<LoginOutcome> {
-  warnLegacyMode()
-
-  const { data, error } = await supabase
-    .from("usuarios")
-    .select("id, usuario, rol, estado")
-    .eq("usuario", usuario)
-    .eq("password_hash", password)
-    .maybeSingle()
-
-  if (error) {
-    console.error("Error consultando usuarios:", error)
-    return { ok: false, reason: "network" }
-  }
-  if (!data) {
-    registerFailure()
-    return { ok: false, reason: "invalid" }
-  }
-  if (data.estado === "baneado") return { ok: false, reason: "banned" }
-
-  // Registro de acceso: no bloquea el login si falla.
-  const [accesoRes, conexionRes] = await Promise.all([
-    supabase.from("historial_accesos").insert({ usuario_id: data.id }),
-    supabase
-      .from("usuarios")
-      .update({ ultima_conexion: new Date().toISOString() })
-      .eq("id", data.id),
-  ])
-  if (accesoRes.error) console.warn("No se registró el acceso:", accesoRes.error)
-  if (conexionRes.error)
-    console.warn("No se actualizó la última conexión:", conexionRes.error)
-
-  const user: SessionUser = { id: data.id, usuario: data.usuario, rol: data.rol }
-  try {
-    const snapshot = await snapshotFromLegacy(user)
-    if (!snapshot) return { ok: false, reason: "unknown_role" }
-    saveSession({ user, token: null })
-    return { ok: true, snapshot }
-  } catch (err) {
-    console.error("Error verificando suscripción:", err)
-    return { ok: false, reason: "network" }
-  }
-}
-
-export async function login(
-  usuarioRaw: string,
-  password: string
-): Promise<LoginOutcome> {
-  const guard = readGuard()
-  if (guard.lockedUntil > Date.now()) {
-    return {
-      ok: false,
-      reason: "locked",
-      retryInSeconds: Math.ceil((guard.lockedUntil - Date.now()) / 1000),
-    }
-  }
-
+export async function login(usuarioRaw: string, password: string): Promise<LoginOutcome> {
   const usuario = usuarioRaw.trim()
   if (!usuario || !password) return { ok: false, reason: "invalid" }
 
-  const viaRpc = await loginViaRpc(usuario, password)
-  const outcome = viaRpc === "missing" ? await loginLegacy(usuario, password) : viaRpc
+  let res: AccessResponse
+  try {
+    res = await api.post<AccessResponse>("/login", { usuario, password })
+  } catch (err) {
+    if (err instanceof ApiError) {
+      if (err.status === 401) return { ok: false, reason: "invalid" }
+      if (err.status === 403) return { ok: false, reason: "banned" }
+      if (err.status === 429) return { ok: false, reason: "locked" }
+    }
+    console.error("Error en el login:", err)
+    return { ok: false, reason: "network" }
+  }
 
-  if (outcome.ok) writeGuard({ fails: 0, lockedUntil: 0 })
-  return outcome
+  const snapshot = buildSnapshot(res)
+  if (!snapshot || !res.token) return { ok: false, reason: "unknown_role" }
+
+  saveSession({ user: snapshot.user, token: res.token })
+  return { ok: true, snapshot }
 }
 
-// ── Restauración de sesión (revalida contra el servidor) ──
-
 /**
- * Restaura la sesión guardada revalidando usuario, estado y suscripción.
+ * Restaura la sesión guardada revalidándola contra el servidor (usuario, estado, suscripción).
  * Devuelve `null` (y limpia el almacenamiento) si ya no es válida.
- * Lanza únicamente ante errores de red para que la UI pueda reintentar.
+ * Lanza únicamente ante errores de red para que la UI pueda avisar.
  */
 export async function restoreSession(): Promise<AuthSnapshot | null> {
   const stored = loadSession()
   if (!stored) return null
 
-  if (stored.token) {
-    const { data, error } = await supabase.rpc("validar_sesion")
-    if (error) {
-      if (isMissingRpc(error)) {
-        clearSession()
-        return null
-      }
-      throw error
-    }
-    const res = data as ServerAccess | null
-    if (!res || !res.ok || !res.usuario) {
+  let res: AccessResponse
+  try {
+    res = await api.get<AccessResponse>("/session")
+  } catch (err) {
+    if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
       clearSession()
       return null
     }
-    const user: SessionUser = {
-      id: res.usuario.id,
-      usuario: res.usuario.usuario,
-      rol: res.usuario.rol,
-    }
-    const snapshot = buildSnapshot(
-      user,
-      res.suscripcion ?? null,
-      !!res.tuvo_suscripcion
-    )
-    if (!snapshot) {
-      clearSession()
-      return null
-    }
-    return snapshot
+    throw err
   }
 
-  // Modo legado: no hay token, se revalida por id (rol y estado vigentes en la base).
-  const { data, error } = await supabase
-    .from("usuarios")
-    .select("id, usuario, rol, estado")
-    .eq("id", stored.user.id)
-    .maybeSingle()
-  if (error) throw error
-  if (!data || data.estado === "baneado") {
-    clearSession()
-    return null
-  }
-  const snapshot = await snapshotFromLegacy({
-    id: data.id,
-    usuario: data.usuario,
-    rol: data.rol,
-  })
+  const snapshot = buildSnapshot(res)
   if (!snapshot) {
     clearSession()
     return null
@@ -290,9 +110,9 @@ export async function restoreSession(): Promise<AuthSnapshot | null> {
 
 export async function logout(): Promise<void> {
   try {
-    await supabase.rpc("cerrar_sesion")
+    await api.post("/logout")
   } catch {
-    /* sin conexión o RPC inexistente: igualmente se limpia el cliente */
+    /* sin conexión o sesión ya caducada: igualmente se limpia el cliente */
   }
   setSessionToken(null)
   clearSession()

@@ -3,15 +3,8 @@ import {
   accentInsensitivePattern,
   bedroomsPattern,
   escapeLike,
-  priceRangeOr,
-} from "./propertyQuery"
-import { DEFAULT_FILTERS, type FilterState } from "@/types"
-
-const filters = (patch: Partial<FilterState>): FilterState => ({
-  ...DEFAULT_FILTERS,
-  portales: [],
-  ...patch,
-})
+} from "./filters"
+import { validateEnlace } from "./validation"
 
 describe("bedroomsPattern", () => {
   it("'2' coincide con 2 pero no con 12", () => {
@@ -53,21 +46,21 @@ describe("escapeLike", () => {
   })
 })
 
-describe("priceRangeOr", () => {
-  it("sin límites no genera condición", () => {
-    expect(priceRangeOr(filters({}))).toBeNull()
+describe("validateEnlace", () => {
+  it("normaliza y acepta un enlace válido", () => {
+    const r = validateEnlace({ titulo: " Ficha ", descripcion: " ", url: "https://e.com/x", tipo: "DOCUMENTACION" })
+    expect(r).toEqual({
+      ok: true,
+      titulo: "Ficha",
+      descripcion: null,
+      url: "https://e.com/x",
+      tipo: "DOCUMENTACION",
+    })
   })
 
-  it("PEN: compara precio y convierte precio_usd cuando precio no existe", () => {
-    const or = priceRangeOr(filters({ moneda: "PEN", precioMin: 1000, precioMax: 2000 }))!
-    expect(or).toContain("and(precio.gt.0,precio.gte.1000,precio.lte.2000)")
-    expect(or).toContain("and(precio.eq.0,precio_usd.gt.0,")
-    expect(or).toContain("and(precio.is.null,precio_usd.gt.0,")
-  })
-
-  it("USD: compara precio_usd y convierte precio", () => {
-    const or = priceRangeOr(filters({ moneda: "USD", precioMax: 100 }))!
-    expect(or).toContain("and(precio_usd.gt.0,precio_usd.lte.100)")
-    expect(or).toContain("and(precio_usd.eq.0,precio.gt.0,precio.lte.375)")
+  it("rechaza título vacío, URLs peligrosas y tipos desconocidos", () => {
+    expect(validateEnlace({ titulo: " ", descripcion: "", url: "https://e.com" }).ok).toBe(false)
+    expect(validateEnlace({ titulo: "x", descripcion: "", url: "javascript:alert(1)" }).ok).toBe(false)
+    expect(validateEnlace({ titulo: "x", descripcion: "", url: "https://e.com", tipo: "HACK" }).ok).toBe(false)
   })
 })

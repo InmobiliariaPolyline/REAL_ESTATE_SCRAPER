@@ -3,23 +3,16 @@ import { RefreshCw } from "lucide-react"
 import ConfirmModal from "@/components/common/ConfirmModal"
 import { useToast } from "@/contexts/ToastContext"
 import { formatDateTime } from "@/lib/dates"
-import { supabase } from "@/lib/supabase"
+import { ApiError, api } from "@/lib/api"
 
 interface AccessLog {
   id: number
   usuario_id: number
   fecha_acceso: string
-  // PostgREST devuelve un objeto para relaciones to-one, pero según la definición
-  // de la FK puede llegar como arreglo: se admiten ambos.
-  usuarios: { usuario: string } | { usuario: string }[] | null
+  usuario: string | null
 }
 
-const LOG_LIMIT = 50
-
-const usernameOf = (log: AccessLog): string => {
-  const rel = Array.isArray(log.usuarios) ? log.usuarios[0] : log.usuarios
-  return rel?.usuario || "desconocido"
-}
+const usernameOf = (log: AccessLog): string => log.usuario || "desconocido"
 
 export default function AdminScraper() {
   const [logs, setLogs] = useState<AccessLog[]>([])
@@ -31,14 +24,7 @@ export default function AdminScraper() {
   const loadLogs = useCallback(async () => {
     try {
       setLoading(true)
-      const { data, error } = await supabase
-        .from("historial_accesos")
-        .select("id, usuario_id, fecha_acceso, usuarios(usuario)")
-        .order("fecha_acceso", { ascending: false })
-        .limit(LOG_LIMIT)
-
-      if (error) throw error
-      setLogs((data as unknown as AccessLog[]) || [])
+      setLogs(await api.get<AccessLog[]>("/admin/accesos"))
     } catch (err) {
       addToast("Error al cargar el historial de accesos", "error")
       console.error(err)
@@ -56,17 +42,16 @@ export default function AdminScraper() {
     try {
       setScraperLoading(true)
 
-      // El GITHUB_PAT vive en los secrets de la Edge Function, NUNCA en el frontend.
-      const { error } = await supabase.functions.invoke("trigger-scraper")
-
-      if (error) {
-        addToast("❌ Error al contactar el servidor", "error")
-        console.error(error)
-      } else {
-        addToast("✅ Scraper iniciado — resultados en ~45 minutos", "success")
-      }
+      // El GITHUB_PAT vive en las variables de entorno del servidor, NUNCA en el frontend.
+      await api.post("/admin/scraper")
+      addToast("✅ Scraper iniciado — resultados en ~45 minutos", "success")
     } catch (err) {
-      addToast("❌ Error al contactar el servidor", "error")
+      addToast(
+        err instanceof ApiError && err.status === 501
+          ? "El scraper no está configurado en el servidor (GITHUB_PAT / GITHUB_REPO / GITHUB_WORKFLOW)"
+          : "❌ Error al contactar el servidor",
+        "error"
+      )
       console.error(err)
     } finally {
       setScraperLoading(false)
@@ -149,10 +134,9 @@ export default function AdminScraper() {
         }}
       >
         <strong style={{ color: "#C9A96E" }}>Nota de seguridad:</strong> El botón
-        "Forzar Scraper" llama a una Supabase Edge Function (
-        <code>supabase/functions/trigger-scraper</code>) que verifica que quien la
-        invoca sea administrador. El GITHUB_PAT se almacena en los secrets de la
-        función, NUNCA en el frontend.
+        "Forzar Scraper" llama a la API (<code>POST /api/admin/scraper</code>), que verifica
+        que quien la invoca sea administrador. El GITHUB_PAT se guarda en las variables de
+        entorno del servidor, NUNCA en el frontend.
       </div>
 
       {confirmOpen && (

@@ -2,130 +2,117 @@
 
 SaaS por suscripción de inteligencia inmobiliaria para Perú. Un scraper recolecta avisos de
 varios portales (Properati, Infocasas, Babilonia, Urbania, Adondevivir) y los guarda en
-Supabase; los suscriptores los consultan en un portal con filtros, y el administrador gestiona
+PostgreSQL; los suscriptores los consultan en un portal con filtros, y el administrador gestiona
 usuarios, suscripciones, propiedades y enlaces desde un panel.
 
-## Stack
+## Arquitectura
 
-- **Cliente:** React 19 + Vite 7 + Tailwind 4 + shadcn/Radix.
-- **Servidor:** Express mínimo que sirve el build con cabeceras de seguridad (Helmet, CSP).
-- **Datos:** Supabase (Postgres + RLS + RPC + Edge Functions).
+```
+Portales ─► Scraper (Python, GitHub Actions) ─► PostgreSQL (Neon) ◄─ API (api/) ◄─ Portal web (React)
+                 │ conexión directa (DATABASE_URL)       ▲              ▲
+                 └─ SUNAT: tipo de cambio                │              └── Netlify Function  ó  Express
+                                                         └── Inmodata (ETL / BI): solo lectura
+```
+
+- **El navegador nunca toca la base.** Habla con la API (`/api/*`); la cadena de conexión vive
+  solo en el servidor.
+- **La API** (`api/`) es un handler Web estándar (`Request → Response`) que se publica de dos
+  formas con el mismo código: Netlify Function (`netlify/functions/api.ts`) o servidor Express
+  (`server/index.ts`). Autoriza cada petición (público / sesión / suscriptor vigente / admin) y
+  llama a SQL parametrizado y a las funciones de `db/002_auth.sql`.
+- **Seguridad:** contraseñas con bcrypt (pgcrypto), bloqueo tras 5 fallos en 15 min, sesión con
+  token opaco de 12 h validado en el servidor en cada petición, cuentas baneadas cortadas al
+  instante, CSP estricta y URLs de avisos filtradas a http(s).
 
 ## Estructura
 
 ```
-client/src
-├── components/
-│   ├── admin/        Panel de administración (Dashboard, Usuarios, Propiedades, Enlaces, Scraper)
-│   │   └── propiedades/  Hook, filtros y modales de la pestaña Propiedades
-│   ├── portal/       Cabecera y filtros del portal de clientes
-│   ├── properties/   Tarjeta, tabla, paginación y enlaces de una propiedad
-│   ├── common/       ConfirmModal, Toast, ErrorBoundary, loaders
-│   └── ui/           Componentes shadcn
-├── contexts/         Toast y tema
-├── hooks/            Hooks genéricos
-├── lib/              Lógica sin UI: config, auth, sesión, suscripciones, consultas, fechas, precios…
-├── pages/            Login, Portal, Admin, Vencido
-└── types/            Tipos compartidos
-server/index.ts       Servidor Express opcional (estáticos + CSP)
-netlify.toml          Despliegue del frontend en Netlify
-supabase/
-├── migrations/       Esquema base, auth segura, RPC y RLS
-└── functions/        Edge Function `trigger-scraper`
+api/                  API (handler, router, auth, consultas y rutas) + pruebas de integración
+  routes/             auth · portal (propiedades y enlaces) · admin
+client/src            React: pages/, components/{admin,portal,properties,common,ui}, lib/, types/
+db/                   001_schema.sql (tablas) y 002_auth.sql (login, sesiones, administración)
+netlify/functions/    Función que publica la API en Netlify
+server/index.ts       Servidor Express opcional (API + estáticos + CSP)
+shared/               Código compartido cliente/API (constantes, filtros, validación)
+netlify.toml          Build, rutas, función y cabeceras de seguridad
 ```
 
 ## Puesta en marcha
 
+### 1. Base de datos (Neon)
+
+1. Crea el proyecto en Neon (región AWS US East 2, solo el servicio Postgres).
+2. En **SQL Editor** ejecuta, en este orden:
+   1. `db/001_schema.sql`
+   2. `db/002_auth.sql`
+   3. El `insert` del primer administrador (comentado al final de `001_schema.sql`), con tu
+      propia contraseña. No lo subas al repositorio.
+3. Copia la connection string (Dashboard → *Connect*). Es el valor de `DATABASE_URL`.
+
+Los scripts son idempotentes y se probaron en un Postgres real (PGlite) como parte de la suite.
+
+### 2. Desarrollo local
+
 ```bash
 pnpm install
-cp .env.example .env     # completa VITE_SUPABASE_URL y VITE_SUPABASE_ANON_KEY
-pnpm dev                 # desarrollo
+cp .env.example .env     # completa DATABASE_URL
+pnpm dev:api             # API en http://localhost:3001
+pnpm dev                 # frontend en http://localhost:3000 (reenvía /api a la API)
 pnpm check               # tipos
-pnpm test                # pruebas unitarias
-pnpm build && pnpm start # producción (Express en el puerto 3000 o $PORT)
+pnpm test                # 50 pruebas (API contra Postgres real, filtros, fechas, precios…)
 ```
 
-Variables (ver `.env.example`): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`,
-`VITE_ADMIN_WHATSAPP`, `VITE_USD_TO_PEN_RATE`, y para el servidor `PORT` y
-`CSP_EXTRA_CONNECT_SRC`.
+### 3. Producción en Netlify
 
-## Ecosistema y flujo de uso
+`netlify.toml` ya define build, función y cabeceras. En *Site settings → Environment variables*:
 
-```
-Portales ─► Scraper (Python, GitHub Actions) ─► PostgreSQL (Supabase) ─► Portal web (React, Netlify)
-                 │ conexión directa/pooler            ▲       └─► Panel admin
-                 └─ SUNAT: tipo de cambio             └────────── Inmodata (ETL / BI): solo lectura
-```
+| Variable | Obligatoria | Uso |
+| -------- | ----------- | --- |
+| `DATABASE_URL` | Sí | Conexión a Neon (marcar *Contains secret values*). Solo servidor |
+| `USD_TO_PEN_RATE`, `VITE_USD_TO_PEN_RATE` | No | Tipo de cambio (3.75 por defecto); deben coincidir |
+| `VITE_ADMIN_WHATSAPP` | No | WhatsApp de contacto (solo dígitos) |
+| `GITHUB_PAT`, `GITHUB_REPO`, `GITHUB_WORKFLOW`, `GITHUB_REF` | No | Botón "Forzar scraper" (el workflow necesita `workflow_dispatch`) |
 
-1. **Scraper** (repositorio aparte): hace UPSERT masivo en `propiedades` por `id`, guarda precio
-   original + `precio_usd` (tipo de cambio SUNAT) y refresca `ultima_vista_en` en cada corrida.
-   Se conecta a Postgres con el rol `postgres`/`service_role`, que **omite RLS**.
+Tras desplegar, comprueba `https://TU-SITIO/api/health` (debe responder `{"status":"ok"}`).
+
+Alternativa sin Netlify: `pnpm build && pnpm start` (Express en `$PORT`, por defecto 3000)
+con las mismas variables.
+
+## Flujo de uso
+
+1. **Scraper** (repositorio aparte): hace UPSERT masivo en `propiedades` por `id` y guarda el
+   precio original + `precio_usd` (tipo de cambio SUNAT). Debe refrescar `ultima_vista_en` en
+   cada corrida. Se conecta con la connection string de Neon (rol propietario).
 2. **Administrador**: crea usuarios y activa Premium (30 días, renovable).
 3. **Usuario**: con suscripción vigente entra al portal y filtra avisos; cada login queda en
-   `historial_accesos`. Sin suscripción ve la pantalla "Vencido".
+   `historial_accesos`. Sin suscripción ve la pantalla "Vencido" (distingue "vencida" de "sin
+   suscripción").
 4. **Admin cura avisos**: favoritos, historial, búsquedas guardadas y enlaces de apoyo.
-5. **Inmodata** lee `propiedades` (idealmente con un rol de solo lectura) para limpieza y BI.
+5. **Inmodata** lee `propiedades` (ETL / BI) con un rol de solo lectura, por ejemplo:
 
-## Base de datos desde cero
-
-Ejecutar en el SQL Editor de Supabase (o `supabase db push`), **en este orden**:
-
-1. `supabase/migrations/20251231000000_base_schema.sql` — tablas, índices y claves.
-2. `supabase/migrations/20260101000000_secure_auth.sql` — RPC de login, tokens de sesión y RLS.
-3. Crear el primer admin (instrucciones al final del primer archivo).
-
-Ambos scripts se validaron en un Postgres real (PGlite) con 22 comprobaciones: hash de
-contraseñas, bloqueo por intentos, RLS por rol/suscripción, renovación de Premium y baneo.
-
-Notas para el scraper: usar la misma forma de `id` en cada corrida (clave del UPSERT), guardar
-`portal` en minúsculas y `moneda` como `PEN` o `USD`. Supabase pausa los proyectos gratuitos
-tras 7 días sin actividad: mantener el keep-alive programado.
-
-## Despliegue en Netlify
-
-`netlify.toml` define build (`pnpm exec vite build`), carpeta publicada (`dist/public`),
-fallback de SPA y cabeceras de seguridad (CSP). Configura `VITE_SUPABASE_URL` y
-`VITE_SUPABASE_ANON_KEY` en las variables de entorno del sitio. El servidor Express
-(`server/index.ts`) es opcional y solo se necesita si no usas Netlify.
-
-## Seguridad: cómo activar la autenticación segura
-
-La aplicación funciona de dos maneras:
-
-| Modo | Cuándo | Qué implica |
-| ---- | ------ | ----------- |
-| **Seguro** | La migración `supabase/migrations/20260101000000_secure_auth.sql` está aplicada | Contraseñas con bcrypt, login por RPC con bloqueo tras 5 fallos en 15 min, tokens de sesión en servidor y RLS en todas las tablas |
-| **Legado** | La migración aún no existe | Comportamiento anterior (contraseñas en texto plano, sin RLS). La consola avisa con `[seguridad]` |
-
-Orden recomendado:
-
-1. Despliega esta versión del cliente (sigue funcionando en modo legado).
-2. Aplica la migración en el SQL Editor de Supabase (o `supabase db push`). Convierte las
-   contraseñas existentes a bcrypt y activa RLS.
-3. Verifica que ya no aparece el aviso `[seguridad]` en la consola del navegador.
-4. El scraper debe escribir en `propiedades` con la **service_role key** (omite RLS).
-5. Despliega la Edge Function que dispara el scraper y define sus secrets:
-
-   ```bash
-   supabase functions deploy trigger-scraper
-   supabase secrets set GITHUB_PAT=... GITHUB_REPO=owner/repo GITHUB_WORKFLOW=scraper.yml
+   ```sql
+   create role inmodata_ro login password 'CAMBIAR';
+   grant select on public.propiedades to inmodata_ro;
    ```
 
-   La función solo responde a administradores con sesión válida.
+Notas para el scraper: usar siempre la misma forma de `id` (clave del UPSERT), `portal` en
+minúsculas y `moneda` como `PEN` o `USD`.
 
-> La función `limpiar_inactivos` que usa el botón "Ejecutar Limpieza de Inactivos" no está
-> incluida: `propiedades.ultima_vista_en` permite definirla (p. ej. borrar avisos no vistos en
-> N días), pero solo es seguro una vez que el scraper actualice esa columna en cada corrida.
-> Mientras no exista, el botón informa que no está configurada.
-
-## Reglas de negocio relevantes
+## Reglas de negocio
 
 - Un usuario con rol `usuario` entra al portal solo si tiene una suscripción con
-  `fecha_vencimiento >= hoy` (fecha de Lima). Sin ella ve la pantalla "Vencido" (distingue
-  "vencida" de "sin suscripción").
+  `fecha_vencimiento >= hoy` (fecha de Lima).
 - Activar o renovar Premium suma 30 días: si ya hay una suscripción vigente se extiende desde
   su vencimiento y se reutiliza la misma fila. `fecha_limite_eliminacion` = vencimiento + 7.
-- La sesión se guarda 12 h y se revalida contra el servidor al abrir la app y al volver a la
-  pestaña (detecta baneos y vencimientos).
+- La sesión se revalida contra el servidor al abrir la app y al volver a la pestaña (detecta
+  baneos y vencimientos).
 - El portal ordena de forma global y estable: avisos con precio primero (más recientes antes) y
-  sin precio al final, también entre páginas.
+  sin precio al final, también entre páginas. Un aviso con solo una moneda entra en los
+  rangos de la otra moneda convertido con el tipo de cambio.
+- No se puede banear a un administrador (evita bloquear el panel).
+
+## Pendiente de definir
+
+- **"Ejecutar Limpieza de Inactivos"**: `propiedades.ultima_vista_en` permite definirla (p. ej.
+  borrar avisos no vistos en N días), pero solo es seguro cuando el scraper actualiza esa columna
+  en cada corrida. Mientras tanto la API responde 501 y el botón lo indica.

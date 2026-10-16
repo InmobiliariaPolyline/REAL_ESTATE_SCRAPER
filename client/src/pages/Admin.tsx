@@ -9,17 +9,16 @@ import { ADMIN_TABS, type AdminTab } from "@/components/admin/tabs"
 
 interface AdminProps {
   usuario: string
-  usuarioId: number
   onLogout: () => void
 }
 
-export default function Admin({ usuario, usuarioId, onLogout }: AdminProps) {
+export default function Admin({ usuario, onLogout }: AdminProps) {
   const [activeTab, setActiveTab] = useState<AdminTab>("dashboard")
 
   const renderContent = () => {
     switch (activeTab) {
       case "propiedades":
-        return <AdminPropiedades adminId={usuarioId} />
+        return <AdminPropiedades />
       case "enlaces":
         return <AdminEnlaces />
       case "usuarios":

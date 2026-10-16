@@ -3,10 +3,10 @@ import ConfirmModal from '@/components/common/ConfirmModal'
 import { useToast } from '@/contexts/ToastContext'
 import { PREMIUM_DAYS } from '@/lib/config'
 import { formatDate } from '@/lib/dates'
-import { activatePremium } from '@/lib/subscriptions'
 import {
   MIN_PASSWORD_LENGTH,
-  UsuarioAdminError,
+  activatePremium,
+  apiErrorMessage,
   createUsuario,
   listUsuarios,
   setUsuarioEstado,
@@ -110,11 +110,7 @@ export default function AdminUsuarios() {
       setNewPlan('GRATIS')
       triggerRefresh()
     } catch (err) {
-      const message =
-        err instanceof UsuarioAdminError
-          ? err.message
-          : (err as { message?: string })?.message || 'Error al crear usuario'
-      addToast(message, 'error')
+      addToast(apiErrorMessage(err, 'Error al crear usuario'), 'error')
       console.error(err)
     } finally {
       setCreating(false)

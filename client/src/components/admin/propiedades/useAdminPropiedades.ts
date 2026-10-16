@@ -1,39 +1,29 @@
 import { useCallback, useEffect, useRef, useState } from "react"
+import { ADMIN_PAGE_SIZE } from "@shared/constants"
 import { useToast } from "@/contexts/ToastContext"
-import { isMissingRpc } from "@/lib/rpc"
+import { ApiError, api } from "@/lib/api"
 import {
   EMPTY_ADMIN_SEARCH,
-  PROPERTY_COLUMNS,
   fetchAdminPage,
   toUsd,
   type AdminSearchFilters,
-} from "@/lib/propertyQuery"
-import { supabase } from "@/lib/supabase"
+} from "@/lib/propertiesApi"
 import type { Propiedad } from "@/types"
 import type { BusquedaGuardada } from "./BusquedasGuardadasList"
 
 export type PropiedadesTab = "buscar" | "favoritos" | "historial" | "guardadas"
 
-export const ITEMS_PER_PAGE = 20
-const IN_CHUNK = 100
-const HISTORY_LIMIT = 50
+export const ITEMS_PER_PAGE = ADMIN_PAGE_SIZE
 
-/** Trae propiedades por id (en lotes) conservando el orden de `ids`. */
-async function fetchByIds(ids: string[]): Promise<Propiedad[]> {
-  const found = new Map<string, Propiedad>()
-  for (let i = 0; i < ids.length; i += IN_CHUNK) {
-    const { data, error } = await supabase
-      .from("propiedades")
-      .select(PROPERTY_COLUMNS)
-      .in("id", ids.slice(i, i + IN_CHUNK))
-    if (error) throw error
-    for (const p of (data as Propiedad[] | null) ?? []) found.set(p.id, p)
-  }
-  return ids.map(id => found.get(id)).filter((p): p is Propiedad => !!p)
+interface IdsAndProps {
+  ids: string[]
+  propiedades: Propiedad[]
 }
 
+const enc = encodeURIComponent
+
 /** Estado y acciones de la pestaña "Propiedades" del panel de administración. */
-export function useAdminPropiedades(adminId: number) {
+export function useAdminPropiedades() {
   const { addToast } = useToast()
 
   const [tab, setTab] = useState<PropiedadesTab>("buscar")
@@ -57,32 +47,30 @@ export function useAdminPropiedades(adminId: number) {
   // ── Carga de datos ──────────────────────────────────────────────────────
 
   const loadFavoritosIds = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("favoritos")
-      .select("propiedad_id")
-      .eq("admin_id", adminId)
-    if (error) return console.error("Error cargando favoritos:", error)
-    setFavoritos(new Set((data ?? []).map(f => f.propiedad_id as string)))
-  }, [adminId])
+    try {
+      const data = await api.get<IdsAndProps>("/admin/favoritos")
+      setFavoritos(new Set(data.ids))
+    } catch (err) {
+      console.error("Error cargando favoritos:", err)
+    }
+  }, [])
 
   const loadHistorialIds = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("historial")
-      .select("propiedad_id")
-      .eq("admin_id", adminId)
-    if (error) return console.error("Error cargando historial:", error)
-    setHistorialIds(new Set((data ?? []).map(h => h.propiedad_id as string)))
-  }, [adminId])
+    try {
+      const data = await api.get<IdsAndProps>("/admin/historial")
+      setHistorialIds(new Set(data.ids))
+    } catch (err) {
+      console.error("Error cargando historial:", err)
+    }
+  }, [])
 
   const loadBusquedas = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("busquedas_guardadas")
-      .select("*")
-      .eq("admin_id", adminId)
-      .order("creado_en", { ascending: false })
-    if (error) return console.error("Error cargando búsquedas:", error)
-    setBusquedas((data as BusquedaGuardada[] | null) ?? [])
-  }, [adminId])
+    try {
+      setBusquedas(await api.get<BusquedaGuardada[]>("/admin/busquedas"))
+    } catch (err) {
+      console.error("Error cargando búsquedas:", err)
+    }
+  }, [])
 
   /** Ejecuta una búsqueda y deja `filters` como los filtros aplicados. */
   const runSearch = useCallback(
@@ -107,58 +95,27 @@ export function useAdminPropiedades(adminId: number) {
     [addToast]
   )
 
-  const loadFavoritosTab = useCallback(async () => {
-    const current = ++requestId.current
-    setLoading(true)
-    try {
-      const { data, error } = await supabase
-        .from("favoritos")
-        .select("propiedad_id")
-        .eq("admin_id", adminId)
-        .order("creado_en", { ascending: false })
-      if (error) throw error
-
-      const ids = (data ?? []).map(f => f.propiedad_id as string)
-      setFavoritos(new Set(ids))
-      const props = await fetchByIds(ids)
-      if (current !== requestId.current) return
-      setPropiedades(props)
-      setTotalCount(props.length)
-      setPage(0)
-    } catch (err) {
-      if (current !== requestId.current) return
-      addToast("Error al cargar favoritos", "error")
-      console.error(err)
-    } finally {
-      if (current === requestId.current) setLoading(false)
-    }
-  }, [adminId, addToast])
-
-  const loadHistorialTab = useCallback(async () => {
-    const current = ++requestId.current
-    setLoading(true)
-    try {
-      const { data, error } = await supabase
-        .from("historial")
-        .select("propiedad_id")
-        .eq("admin_id", adminId)
-        .order("visto_en", { ascending: false })
-        .limit(HISTORY_LIMIT)
-      if (error) throw error
-
-      const props = await fetchByIds((data ?? []).map(h => h.propiedad_id as string))
-      if (current !== requestId.current) return
-      setPropiedades(props)
-      setTotalCount(props.length)
-      setPage(0)
-    } catch (err) {
-      if (current !== requestId.current) return
-      addToast("Error al cargar historial", "error")
-      console.error(err)
-    } finally {
-      if (current === requestId.current) setLoading(false)
-    }
-  }, [adminId, addToast])
+  const loadListTab = useCallback(
+    async (path: "/admin/favoritos" | "/admin/historial", errorMessage: string) => {
+      const current = ++requestId.current
+      setLoading(true)
+      try {
+        const data = await api.get<IdsAndProps>(path)
+        if (current !== requestId.current) return
+        if (path === "/admin/favoritos") setFavoritos(new Set(data.ids))
+        setPropiedades(data.propiedades)
+        setTotalCount(data.propiedades.length)
+        setPage(0)
+      } catch (err) {
+        if (current !== requestId.current) return
+        addToast(errorMessage, "error")
+        console.error(err)
+      } finally {
+        if (current === requestId.current) setLoading(false)
+      }
+    },
+    [addToast]
+  )
 
   // Carga inicial de listas auxiliares.
   useEffect(() => {
@@ -171,8 +128,8 @@ export function useAdminPropiedades(adminId: number) {
   // así que al volver a "Buscar" hay que repetir la búsqueda aplicada).
   useEffect(() => {
     if (tab === "buscar") runSearch(applied, page)
-    else if (tab === "favoritos") loadFavoritosTab()
-    else if (tab === "historial") loadHistorialTab()
+    else if (tab === "favoritos") loadListTab("/admin/favoritos", "Error al cargar favoritos")
+    else if (tab === "historial") loadListTab("/admin/historial", "Error al cargar historial")
     else loadBusquedas()
     // Solo reacciona al cambio de pestaña.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -202,8 +159,7 @@ export function useAdminPropiedades(adminId: number) {
       return false
     }
     try {
-      const { error } = await supabase.from("busquedas_guardadas").insert({
-        admin_id: adminId,
+      await api.post("/admin/busquedas", {
         nombre: trimmed,
         distrito: draft.distrito,
         operacion: draft.operacion,
@@ -212,7 +168,6 @@ export function useAdminPropiedades(adminId: number) {
         precio_min: toUsd(draft.precioMin, draft.moneda),
         precio_max: toUsd(draft.precioMax, draft.moneda),
       })
-      if (error) throw error
       addToast("Búsqueda guardada", "success")
       loadBusquedas()
       return true
@@ -248,8 +203,7 @@ export function useAdminPropiedades(adminId: number) {
 
   const eliminarBusqueda = async (id: string): Promise<boolean> => {
     try {
-      const { error } = await supabase.from("busquedas_guardadas").delete().eq("id", id)
-      if (error) throw error
+      await api.delete(`/admin/busquedas/${enc(id)}`)
       setBusquedas(prev => prev.filter(b => b.id !== id))
       addToast("Búsqueda eliminada", "success")
       return true
@@ -266,13 +220,7 @@ export function useAdminPropiedades(adminId: number) {
     const isFav = favoritos.has(propiedadId)
     try {
       if (isFav) {
-        const { error } = await supabase
-          .from("favoritos")
-          .delete()
-          .eq("admin_id", adminId)
-          .eq("propiedad_id", propiedadId)
-        if (error) throw error
-
+        await api.delete(`/admin/favoritos/${enc(propiedadId)}`)
         setFavoritos(prev => {
           const next = new Set(prev)
           next.delete(propiedadId)
@@ -284,11 +232,7 @@ export function useAdminPropiedades(adminId: number) {
         }
         addToast("Quitado de favoritos", "info")
       } else {
-        const { error } = await supabase
-          .from("favoritos")
-          .insert({ admin_id: adminId, propiedad_id: propiedadId })
-        if (error) throw error
-
+        await api.post("/admin/favoritos", { propiedad_id: propiedadId })
         setFavoritos(prev => new Set(prev).add(propiedadId))
         addToast("Agregado a favoritos", "success")
       }
@@ -300,15 +244,7 @@ export function useAdminPropiedades(adminId: number) {
 
   const registerView = async (propiedadId: string) => {
     try {
-      const { error } = await supabase.from("historial").upsert(
-        {
-          admin_id: adminId,
-          propiedad_id: propiedadId,
-          visto_en: new Date().toISOString(),
-        },
-        { onConflict: "admin_id,propiedad_id" }
-      )
-      if (error) throw error
+      await api.put("/admin/historial", { propiedad_id: propiedadId })
       setHistorialIds(prev => new Set(prev).add(propiedadId))
     } catch (err) {
       console.error("Error al registrar historial", err)
@@ -317,8 +253,7 @@ export function useAdminPropiedades(adminId: number) {
 
   const deletePropiedad = async (id: string): Promise<boolean> => {
     try {
-      const { error } = await supabase.from("propiedades").delete().eq("id", id)
-      if (error) throw error
+      await api.delete(`/admin/propiedades/${enc(id)}`)
       setPropiedades(prev => prev.filter(p => p.id !== id))
       setTotalCount(prev => Math.max(0, prev - 1))
       addToast("Propiedad eliminada", "success")
@@ -330,20 +265,20 @@ export function useAdminPropiedades(adminId: number) {
     }
   }
 
-  /** Limpieza de registros inactivos: ejecuta la función `limpiar_inactivos` de la base de datos. */
+  /** Limpieza de registros inactivos: aún no está definida en el servidor (responde 501). */
   const runCleanup = async (): Promise<void> => {
-    const { error } = await supabase.rpc("limpiar_inactivos")
-    if (!error) {
+    try {
+      await api.post("/admin/limpiar-inactivos")
       addToast("Limpieza ejecutada correctamente", "success")
-      return
+    } catch (err) {
+      console.error("Error en limpiar-inactivos:", err)
+      addToast(
+        err instanceof ApiError && err.status === 501
+          ? "La limpieza de inactivos aún no está configurada en el servidor."
+          : "No se pudo ejecutar la limpieza",
+        "error"
+      )
     }
-    console.error("Error en limpiar_inactivos:", error)
-    addToast(
-      isMissingRpc(error)
-        ? "La limpieza no está configurada: falta la función limpiar_inactivos en la base de datos."
-        : "No se pudo ejecutar la limpieza",
-      "error"
-    )
   }
 
   // ── Derivados ───────────────────────────────────────────────────────────

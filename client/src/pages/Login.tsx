@@ -2,7 +2,6 @@ import { useState } from "react"
 import { Eye, EyeOff } from "lucide-react"
 import WhatsAppFab from "@/components/common/WhatsAppFab"
 import { login, type AuthSnapshot, type LoginFailure } from "@/lib/auth"
-import { isSupabaseConfigured } from "@/lib/config"
 
 interface LoginProps {
   onLoginSuccess: (snapshot: AuthSnapshot) => void
@@ -11,7 +10,7 @@ interface LoginProps {
 const ERROR_MESSAGES: Record<LoginFailure, string> = {
   invalid: "Usuario o contraseña incorrectos",
   banned: "Cuenta suspendida. Contacta al administrador.",
-  locked: "Demasiados intentos. Espera un momento e inténtalo de nuevo.",
+  locked: "Demasiados intentos fallidos. Espera unos minutos e inténtalo de nuevo.",
   unknown_role: "Tu cuenta no tiene un rol válido. Contacta al administrador.",
   network: "Error al conectar con el servidor",
 }
@@ -28,20 +27,11 @@ export default function Login({ onLoginSuccess }: LoginProps) {
     if (loading) return
     setError("")
 
-    if (!isSupabaseConfigured) {
-      setError("La aplicación no está configurada (faltan variables de Supabase).")
-      return
-    }
-
     setLoading(true)
     try {
       const outcome = await login(usuario, password)
       if (!outcome.ok) {
-        setError(
-          outcome.reason === "locked" && outcome.retryInSeconds
-            ? `Demasiados intentos. Reintenta en ${outcome.retryInSeconds} s.`
-            : ERROR_MESSAGES[outcome.reason]
-        )
+        setError(ERROR_MESSAGES[outcome.reason])
         return
       }
       onLoginSuccess(outcome.snapshot)
