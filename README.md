@@ -5,6 +5,8 @@ varios portales (Properati, Infocasas, Babilonia, Urbania, Adondevivir) y los gu
 PostgreSQL; los suscriptores los consultan en un portal con filtros, y el administrador gestiona
 usuarios, suscripciones, propiedades y enlaces desde un panel.
 
+**Sitio en producción:** https://realestatescrapeer.netlify.app/ · Estado de la API: https://realestatescrapeer.netlify.app/api/health
+
 ## Arquitectura
 
 ```
