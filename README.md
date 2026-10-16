@@ -42,11 +42,11 @@ netlify.toml          Build, rutas, función y cabeceras de seguridad
 ### 1. Base de datos (Neon)
 
 1. Crea el proyecto en Neon (región AWS US East 2, solo el servicio Postgres).
-2. En **SQL Editor** ejecuta, en este orden:
-   1. `db/001_schema.sql`
-   2. `db/002_auth.sql`
-   3. El `insert` del primer administrador (comentado al final de `001_schema.sql`), con tu
-      propia contraseña. No lo subas al repositorio.
+2. Aplica el esquema, con `pnpm db:migrate` (lee `DATABASE_URL` del entorno o de `.env`;
+   `pnpm db:migrate --check` solo lista tablas) o pegando en el **SQL Editor**, en orden,
+   `db/001_schema.sql` y `db/002_auth.sql`.
+3. Crea el primer administrador con el `insert` comentado al final de `001_schema.sql`, con tu
+   propia contraseña. No lo subas al repositorio.
 3. Copia la connection string (Dashboard → *Connect*). Es el valor de `DATABASE_URL`.
 
 Los scripts son idempotentes y se probaron en un Postgres real (PGlite) como parte de la suite.
