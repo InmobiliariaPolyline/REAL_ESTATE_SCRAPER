@@ -22,12 +22,17 @@ export default defineConfig({
       output: {
         manualChunks(id) {
           if (!id.includes("node_modules")) return undefined;
-          if (id.includes("react") || id.includes("scheduler")) {
+          // Coincidencia por carpeta del paquete: `includes("react")` atrapaba también
+          // react-hook-form, @radix-ui/react-*, etc. y hacía un chunk gigante.
+          if (/[\\/]node_modules[\\/](\.pnpm[\\/][^\\/]*[\\/]node_modules[\\/])?(react|react-dom|scheduler)[\\/]/.test(id)) {
             return "vendor-react";
           }
           if (id.includes("lucide-react")) return "vendor-icons";
-          if (id.includes("recharts") || id.includes("d3")) {
+          if (id.includes("recharts") || id.includes("d3-") || id.includes("victory-vendor")) {
             return "vendor-charts";
+          }
+          if (id.includes("@radix-ui") || id.includes("cmdk") || id.includes("vaul")) {
+            return "vendor-ui";
           }
           return "vendor";
         },

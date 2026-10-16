@@ -2,6 +2,7 @@ import path from "node:path";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  esbuild: { jsx: "automatic" },
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),
@@ -11,10 +12,13 @@ export default defineConfig({
   test: {
     include: [
       "client/src/**/*.test.ts",
+      "client/src/**/*.test.tsx",
       "api/**/*.test.ts",
       "shared/**/*.test.ts",
     ],
     environment: "node",
+    // Las pruebas de componentes declaran `// @vitest-environment jsdom` en su cabecera.
+    setupFiles: ["client/src/test/setup.ts"],
     testTimeout: 60000,
     hookTimeout: 60000,
   },

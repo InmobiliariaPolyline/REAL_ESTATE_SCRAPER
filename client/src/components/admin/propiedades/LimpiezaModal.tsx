@@ -4,6 +4,7 @@ import { useToast } from '@/contexts/ToastContext'
 import { ApiError, api } from '@/lib/api'
 import { formatDateTime } from '@/lib/dates'
 import { cn } from '@/lib/utils'
+import { trapFocus } from '@/lib/focusTrap'
 
 interface Preview {
   dias: number
@@ -89,6 +90,8 @@ export default function LimpiezaModal({ onClose, onDone }: LimpiezaModalProps) {
       role="presentation"
     >
       <div
+        ref={trapFocus}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="Limpieza de avisos inactivos"

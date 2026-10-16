@@ -3,6 +3,7 @@ import { useState } from "react"
 import Avatar from "@/components/common/Avatar"
 import Logo from "@/components/common/Logo"
 import AccountModal from "@/components/common/AccountModal"
+import ThemeToggle from "@/components/common/ThemeToggle"
 import {
   Sheet,
   SheetContent,
@@ -63,6 +64,8 @@ export default function PortalHeader({
             <KeyRound className="size-3.5 text-text-faint" />
           </button>
 
+          <ThemeToggle className="btn-sm" />
+
           <button onClick={onLogout} className="btn btn-secondary btn-sm">
             <LogOut className="size-4" />
             Cerrar sesión
@@ -117,6 +120,7 @@ export default function PortalHeader({
                   <KeyRound className="size-4" />
                   Mi cuenta
                 </button>
+                <ThemeToggle withLabel className="btn-secondary btn-lg btn-block justify-center" />
                 <button onClick={onLogout} className="btn btn-secondary btn-lg btn-block">
                   <LogOut className="size-4" />
                   Cerrar sesión

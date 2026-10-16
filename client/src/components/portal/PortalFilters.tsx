@@ -252,7 +252,7 @@ export default function PortalFilters({
                     type="checkbox"
                     checked={filters.portales.includes(portal)}
                     onChange={() => handlePortalToggle(portal)}
-                    className="size-4 cursor-pointer accent-[#d4b782]"
+                    className="size-4 cursor-pointer accent-gold"
                   />
                   <span>{portal}</span>
                 </label>

@@ -1,13 +1,14 @@
-import { useState } from "react"
-import AdminDashboard from "@/components/admin/AdminDashboard"
-import AdminAuditoria from "@/components/admin/AdminAuditoria"
-import AdminEnlaces from "@/components/admin/AdminEnlaces"
-import AdminPropiedades from "@/components/admin/AdminPropiedades"
-import AdminScraper from "@/components/admin/AdminScraper"
+import { Suspense, lazy, useState } from "react"
 import AdminSidebar from "@/components/admin/AdminSidebar"
-import AdminUsuarios from "@/components/admin/AdminUsuarios"
 import { ADMIN_TABS, type AdminTab } from "@/components/admin/tabs"
 import PageHeader from "@/components/common/PageHeader"
+
+const AdminDashboard = lazy(() => import("@/components/admin/AdminDashboard"))
+const AdminAuditoria = lazy(() => import("@/components/admin/AdminAuditoria"))
+const AdminEnlaces = lazy(() => import("@/components/admin/AdminEnlaces"))
+const AdminPropiedades = lazy(() => import("@/components/admin/AdminPropiedades"))
+const AdminScraper = lazy(() => import("@/components/admin/AdminScraper"))
+const AdminUsuarios = lazy(() => import("@/components/admin/AdminUsuarios"))
 
 interface AdminProps {
   usuario: string
@@ -40,6 +41,7 @@ export default function Admin({ usuario, onLogout }: AdminProps) {
 
   return (
     <div className="flex min-h-screen">
+      <a href="#contenido" className="skip-link">Saltar al contenido</a>
       <AdminSidebar
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -47,7 +49,7 @@ export default function Admin({ usuario, onLogout }: AdminProps) {
         onLogout={onLogout}
       />
 
-      <main className="min-w-0 flex-1">
+      <main id="contenido" tabIndex={-1} className="min-w-0 flex-1">
         <div className="mx-auto w-full max-w-[1400px] px-4 pb-12 pt-16 sm:px-8 md:pt-10">
           <PageHeader
             eyebrow={isDashboard ? "Panel de administración" : current.section}
@@ -64,7 +66,9 @@ export default function Admin({ usuario, onLogout }: AdminProps) {
           />
 
           <div key={activeTab} className="animate-slideInUp">
-            {renderContent()}
+            <Suspense fallback={<div className="skeleton h-64" aria-busy="true" />}>
+              {renderContent()}
+            </Suspense>
           </div>
         </div>
       </main>

@@ -1,5 +1,6 @@
 import { Bookmark, Loader2 } from "lucide-react"
 import { useEffect, useState } from "react"
+import { trapFocus } from '@/lib/focusTrap'
 
 interface GuardarBusquedaModalProps {
   busy?: boolean
@@ -34,6 +35,8 @@ export default function GuardarBusquedaModal({
       role="presentation"
     >
       <form
+        ref={trapFocus}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="Guardar esta búsqueda"

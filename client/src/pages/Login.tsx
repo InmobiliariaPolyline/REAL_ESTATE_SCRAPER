@@ -61,7 +61,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
           decoding="async"
           fetchPriority="high"
         />
-        <div className="absolute inset-0 bg-[linear-gradient(160deg,rgb(16_18_22/0.6)_0%,rgb(16_18_22/0.9)_55%,#101216_100%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(160deg,rgb(var(--app-rgb)/0.6)_0%,rgb(var(--app-rgb)/0.9)_55%,var(--app)_100%)]" />
         <div className="relative flex h-full flex-col justify-between p-12">
           <Logo />
           <div className="max-w-lg">
@@ -88,7 +88,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       </aside>
 
       {/* Formulario */}
-      <main className="flex items-center justify-center px-5 py-10">
+      <main id="contenido" className="flex items-center justify-center px-5 py-10">
         <div className="animate-slideInUp w-full max-w-md">
           <Logo className="mb-10 lg:hidden" />
 

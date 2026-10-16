@@ -35,8 +35,8 @@ interface Stats {
   porDia: { dia: string; total: number }[]
 }
 
-const GOLD = '#d4b782'
-const TEAL = '#4fd1b5'
+const GOLD = 'var(--gold)'
+const TEAL = 'var(--teal)'
 
 const fmt = (n: number) => n.toLocaleString('es-PE')
 
@@ -181,23 +181,23 @@ export default function AdminDashboard({ onNavigate }: DashboardProps) {
                       <stop offset="100%" stopColor={GOLD} stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid stroke="rgb(255 255 255 / 0.05)" vertical={false} />
+                  <CartesianGrid stroke="var(--line)" vertical={false} />
                   <XAxis
                     dataKey="dia"
                     tickFormatter={shortDay}
                     interval={4}
                     tickLine={false}
                     axisLine={false}
-                    tick={{ fill: '#6b7280', fontSize: 11 }}
+                    tick={{ fill: 'var(--text-faint)', fontSize: 11 }}
                   />
                   <YAxis
                     allowDecimals={false}
                     tickLine={false}
                     axisLine={false}
-                    tick={{ fill: '#6b7280', fontSize: 11 }}
+                    tick={{ fill: 'var(--text-faint)', fontSize: 11 }}
                   />
                   <Tooltip
-                    cursor={{ stroke: 'rgb(255 255 255 / 0.15)' }}
+                    cursor={{ stroke: 'var(--line-strong)' }}
                     content={({ active, payload }) =>
                       active && payload?.length ? (
                         <div className="rounded-xl border border-line-strong bg-surface-3 px-3 py-2 text-xs shadow-xl">
@@ -216,7 +216,7 @@ export default function AdminDashboard({ onNavigate }: DashboardProps) {
                     stroke={GOLD}
                     strokeWidth={2}
                     fill="url(#goldFill)"
-                    activeDot={{ r: 5, fill: GOLD, stroke: '#101216', strokeWidth: 2 }}
+                    activeDot={{ r: 5, fill: GOLD, stroke: 'var(--app)', strokeWidth: 2 }}
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -291,7 +291,7 @@ export default function AdminDashboard({ onNavigate }: DashboardProps) {
           </section>
 
           {/* Estado del scraper */}
-          <section className="gold-gradient relative overflow-hidden rounded-[1.25rem] p-6 shadow-[0_24px_48px_-24px_rgb(212_183_130/0.55)]">
+          <section className="gold-gradient relative overflow-hidden rounded-[1.25rem] p-6 shadow-[0_24px_48px_-24px_rgb(var(--gold-rgb)/0.55)]">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] opacity-75">
               <span className={cn('dot', scraperActive && 'dot-live')} />
               Estado del scraper
@@ -307,7 +307,7 @@ export default function AdminDashboard({ onNavigate }: DashboardProps) {
             <button
               type="button"
               onClick={() => onNavigate('scraper')}
-              className="btn btn-sm mt-5 bg-[#17130a] text-gold-strong hover:bg-black"
+              className="btn btn-sm mt-5 bg-[#17130a] text-[#e6cb97] hover:bg-black"
             >
               Ir a Actividad
               <ArrowRight className="size-4" />

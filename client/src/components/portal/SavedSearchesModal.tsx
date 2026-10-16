@@ -10,6 +10,7 @@ import {
   type SavedSearch,
 } from '@/lib/propertiesApi'
 import type { FilterState } from '@/types'
+import { trapFocus } from '@/lib/focusTrap'
 
 /** Resumen legible de unos filtros ("Lince · Venta · S/ 100.000 – 250.000"). */
 export function describeFilters(f: FilterState): string {
@@ -107,6 +108,8 @@ export default function SavedSearchesModal({
       onClick={() => !saving && onClose()}
     >
       <div
+        ref={trapFocus}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="Mis búsquedas guardadas"

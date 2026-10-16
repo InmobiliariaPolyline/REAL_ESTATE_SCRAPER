@@ -6,6 +6,7 @@ import { currencyLabel, getDisplayPrice, type Currency } from '@/lib/prices'
 import { safeHttpUrl } from '@/lib/url'
 import { cn } from '@/lib/utils'
 import type { Propiedad } from '@/types'
+import { trapFocus } from '@/lib/focusTrap'
 
 const fmt = (n: number) => n.toLocaleString('es-PE', { maximumFractionDigits: 0 })
 
@@ -102,6 +103,8 @@ export default function CompareModal({ items, moneda, onRemove, onClose }: Compa
       onClick={onClose}
     >
       <div
+        ref={trapFocus}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="Comparar propiedades"

@@ -1,6 +1,7 @@
 import { AlertTriangle, Info } from "lucide-react"
 import { useEffect, type ReactNode } from "react"
 import { cn } from "@/lib/utils"
+import { trapFocus } from '@/lib/focusTrap'
 
 interface ConfirmModalProps {
   title: string
@@ -46,6 +47,8 @@ export default function ConfirmModal({
       role="presentation"
     >
       <div
+        ref={trapFocus}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={title}

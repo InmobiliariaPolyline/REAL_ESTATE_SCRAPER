@@ -13,6 +13,7 @@ import {
   type SessionInfo,
 } from '@/lib/account'
 import { cn } from '@/lib/utils'
+import { trapFocus } from '@/lib/focusTrap'
 
 type Tab = 'password' | 'sessions'
 
@@ -162,6 +163,8 @@ export default function AccountModal({ usuario, onClose, initialTab = 'password'
       role="presentation"
     >
       <div
+        ref={trapFocus}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="Mi cuenta"

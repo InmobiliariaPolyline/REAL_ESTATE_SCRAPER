@@ -11,6 +11,7 @@ import {
   validateEnlace,
   type Enlace,
 } from '@/lib/enlaces'
+import { trapFocus } from '@/lib/focusTrap'
 
 interface EnlacesPropiedadProps {
   propiedadId: string
@@ -150,6 +151,8 @@ export default function EnlacesPropiedad({ propiedadId, onClose }: EnlacesPropie
       onClick={onClose}
     >
       <div
+        ref={trapFocus}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="Enlaces de la propiedad"

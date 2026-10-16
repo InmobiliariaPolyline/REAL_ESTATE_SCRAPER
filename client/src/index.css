@@ -23,7 +23,7 @@
   /* Texto */
   --text: #ece8e1;
   --text-muted: #98a0ac;
-  --text-faint: #6b7280;
+  --text-faint: #8a919e;
 
   /* Marca */
   --gold: #d4b782;
@@ -41,6 +41,17 @@
   --green: #4ade80;
 
   --radius: 1rem;
+
+  /* Canales RGB para componer transparencias que dependen del tema */
+  --app-rgb: 16 18 22;
+  --gold-rgb: 212 183 130;
+  --ink-rgb: 255 255 255;
+  --shadow-card: inset 0 1px 0 rgb(255 255 255 / 0.03), 0 18px 40px -24px rgb(0 0 0 / 0.7);
+  --shadow-card-hover:
+    inset 0 1px 0 rgb(255 255 255 / 0.04), 0 24px 48px -22px rgb(0 0 0 / 0.8),
+    0 0 0 1px rgb(212 183 130 / 0.08);
+  --glow-1: rgb(212 183 130 / 0.06);
+  --glow-2: rgb(110 168 254 / 0.04);
 
   /* Variables que consumen los componentes shadcn */
   --background: var(--app);
@@ -75,6 +86,58 @@
   --sidebar-accent-foreground: var(--text);
   --sidebar-border: var(--line);
   --sidebar-ring: var(--gold);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TEMA CLARO
+   Mismos nombres de token que el oscuro; el dorado se oscurece para mantener
+   contraste (>= 4.5:1) al usarse como color de texto.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+:root.light {
+  --app: #f4f1ea;
+  --surface-1: #fbfaf7;
+  --surface-2: #ffffff;
+  --surface-3: #f0ece3;
+  --surface-4: #e2dccf;
+
+  --line: rgb(20 24 31 / 0.1);
+  --line-strong: rgb(20 24 31 / 0.18);
+
+  --text: #1c1f26;
+  --text-muted: #525a68;
+  --text-faint: #6b7381;
+
+  --gold: #85601c;
+  --gold-strong: #6b4c12;
+  --gold-dim: #a98440;
+  --gold-soft: rgb(133 96 28 / 0.1);
+  --on-gold: #ffffff;
+
+  --teal: #0f766e;
+  --blue: #1d5fd1;
+  --violet: #6d3fd1;
+  --amber: #a85a05;
+  --rose: #c2352f;
+  --green: #15803d;
+
+  --destructive-foreground: #ffffff;
+
+  --app-rgb: 244 241 234;
+  --gold-rgb: 133 96 28;
+  --ink-rgb: 20 24 31;
+  --shadow-card: 0 1px 2px rgb(40 30 10 / 0.06), 0 14px 32px -20px rgb(40 30 10 / 0.25);
+  --shadow-card-hover: 0 2px 4px rgb(40 30 10 / 0.08), 0 22px 40px -20px rgb(40 30 10 / 0.3);
+  --glow-1: rgb(133 96 28 / 0.07);
+  --glow-2: rgb(29 95 209 / 0.04);
+}
+
+:root.light ::selection {
+  background: rgb(133 96 28 / 0.25);
+}
+
+:root.light .gold-gradient {
+  color: #17130a;
 }
 
 @theme inline {
@@ -159,13 +222,17 @@
     text-rendering: optimizeLegibility;
   }
 
+  html.light {
+    color-scheme: light;
+  }
+
   body {
     background-color: var(--app);
     color: var(--text);
     /* Resplandor dorado muy sutil, como luz ambiental */
     background-image:
-      radial-gradient(900px 500px at 85% -10%, rgb(212 183 130 / 0.06), transparent 60%),
-      radial-gradient(700px 400px at -10% 110%, rgb(110 168 254 / 0.04), transparent 60%);
+      radial-gradient(900px 500px at 85% -10%, var(--glow-1), transparent 60%),
+      radial-gradient(700px 400px at -10% 110%, var(--glow-2), transparent 60%);
     background-attachment: fixed;
   }
 
@@ -198,13 +265,18 @@
     @apply cursor-pointer;
   }
 
+  [role="dialog"]:focus,
+  main:focus {
+    outline: none;
+  }
+
   :focus-visible {
     outline: 2px solid var(--gold);
     outline-offset: 2px;
   }
 
   ::selection {
-    background: rgb(212 183 130 / 0.3);
+    background: rgb(var(--gold-rgb) / 0.3);
   }
 
   /* Scrollbar discreto */
@@ -283,14 +355,28 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 
 @layer components {
+  /* ── Accesibilidad ──────────────────────────────────────────────────── */
+  .skip-link {
+    position: fixed;
+    left: 1rem;
+    top: 0.75rem;
+    z-index: 100;
+    padding: 0.625rem 1rem;
+    border-radius: 0.75rem;
+    background: var(--gold);
+    color: var(--on-gold);
+    font-size: 0.875rem;
+    font-weight: 600;
+    transform: translateY(-200%);
+  }
+  .skip-link:focus { transform: none; }
+
   /* ── Tarjetas ───────────────────────────────────────────────────────── */
   .card {
     background-color: var(--surface-2);
     border: 1px solid var(--line);
     border-radius: 1.25rem;
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.03),
-      0 18px 40px -24px rgb(0 0 0 / 0.7);
+    box-shadow: var(--shadow-card);
   }
 
   .card-interactive {
@@ -301,11 +387,8 @@
   }
   .card-interactive:hover {
     transform: translateY(-3px);
-    border-color: rgb(212 183 130 / 0.35);
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.04),
-      0 24px 48px -22px rgb(0 0 0 / 0.8),
-      0 0 0 1px rgb(212 183 130 / 0.08);
+    border-color: rgb(var(--gold-rgb) / 0.35);
+    box-shadow: var(--shadow-card-hover);
   }
 
   /* Textura de líneas diagonales en tarjetas de métricas (guiño a la referencia) */
@@ -320,7 +403,7 @@
     width: 4.5rem;
     background-image: repeating-linear-gradient(
       135deg,
-      rgb(255 255 255 / 0.035) 0 1px,
+      rgb(var(--ink-rgb) / 0.035) 0 1px,
       transparent 1px 7px
     );
     pointer-events: none;
@@ -354,7 +437,7 @@
     background-color: var(--gold);
     color: var(--on-gold);
     font-weight: 600;
-    box-shadow: 0 8px 20px -10px rgb(212 183 130 / 0.7);
+    box-shadow: 0 8px 20px -10px rgb(var(--gold-rgb) / 0.7);
   }
   .btn-primary:hover:not(:disabled) { filter: brightness(1.08); }
 
@@ -370,7 +453,7 @@
 
   .btn-outline {
     background-color: transparent;
-    border-color: rgb(212 183 130 / 0.45);
+    border-color: rgb(var(--gold-rgb) / 0.45);
     color: var(--gold);
   }
   .btn-outline:hover:not(:disabled) { background-color: var(--gold-soft); }
@@ -430,8 +513,8 @@
   .field:hover:not(:disabled) { border-color: var(--line-strong); }
   .field:focus {
     outline: none;
-    border-color: rgb(212 183 130 / 0.7);
-    box-shadow: 0 0 0 3px rgb(212 183 130 / 0.14);
+    border-color: rgb(var(--gold-rgb) / 0.7);
+    box-shadow: 0 0 0 3px rgb(var(--gold-rgb) / 0.14);
   }
   .field:disabled { opacity: 0.55; cursor: not-allowed; }
 
@@ -507,7 +590,7 @@
     border: 1px solid transparent;
     white-space: nowrap;
   }
-  .badge-gold { background: var(--gold-soft); color: var(--gold); border-color: rgb(212 183 130 / 0.3); }
+  .badge-gold { background: var(--gold-soft); color: var(--gold); border-color: rgb(var(--gold-rgb) / 0.3); }
   .badge-green { background: rgb(74 222 128 / 0.1); color: var(--green); border-color: rgb(74 222 128 / 0.25); }
   .badge-rose { background: rgb(242 112 107 / 0.1); color: var(--rose); border-color: rgb(242 112 107 / 0.25); }
   .badge-blue { background: rgb(110 168 254 / 0.1); color: var(--blue); border-color: rgb(110 168 254 / 0.25); }
@@ -586,7 +669,7 @@
   }
   .table-modern tbody tr:last-child td { border-bottom: none; }
   .table-modern tbody tr { transition: background-color 0.15s ease; }
-  .table-modern tbody tr:hover { background-color: rgb(255 255 255 / 0.025); }
+  .table-modern tbody tr:hover { background-color: rgb(var(--ink-rgb) / 0.03); }
 
   /* ── Utilidades visuales ────────────────────────────────────────────── */
   .eyebrow {

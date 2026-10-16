@@ -1,13 +1,10 @@
 import { Bookmark, Download, Grid3X3, Heart, List, Loader2, SearchX, SlidersHorizontal } from "lucide-react"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react"
 import EmptyState from "@/components/common/EmptyState"
 import PageHeader from "@/components/common/PageHeader"
-import CompareModal from "@/components/portal/CompareModal"
 import CompareTray from "@/components/portal/CompareTray"
 import PortalFilters from "@/components/portal/PortalFilters"
 import PortalHeader from "@/components/portal/PortalHeader"
-import PropertyDetailModal from "@/components/portal/PropertyDetailModal"
-import SavedSearchesModal from "@/components/portal/SavedSearchesModal"
 import Pagination from "@/components/properties/Pagination"
 import PropertyCard from "@/components/properties/PropertyCard"
 import PropertyTable from "@/components/properties/PropertyTable"
@@ -33,6 +30,11 @@ import {
   type PlanType,
   type Propiedad,
 } from "@/types"
+
+// Modales pesados (gráficos, comparador): se descargan al abrirse por primera vez.
+const CompareModal = lazy(() => import("@/components/portal/CompareModal"))
+const PropertyDetailModal = lazy(() => import("@/components/portal/PropertyDetailModal"))
+const SavedSearchesModal = lazy(() => import("@/components/portal/SavedSearchesModal"))
 
 interface PortalProps {
   usuario: string
@@ -227,6 +229,7 @@ export default function Portal({
 
   return (
     <div className="min-h-screen pt-16">
+      <a href="#contenido" className="skip-link">Saltar al contenido</a>
       <PortalHeader
         usuario={usuario}
         planType={planType}
@@ -234,7 +237,7 @@ export default function Portal({
         onLogout={onLogout}
       />
 
-      <main className="mx-auto w-full max-w-[1500px] px-4 pb-28 pt-8 sm:px-8">
+      <main id="contenido" tabIndex={-1} className="mx-auto w-full max-w-[1500px] px-4 pb-28 pt-8 sm:px-8">
         <PageHeader
           eyebrow="Catálogo"
           title={
@@ -446,6 +449,7 @@ export default function Portal({
         }}
       />
 
+      <Suspense fallback={null}>
       {showCompare && compareItems.length >= 2 && (
         <CompareModal
           items={compareItems}
@@ -475,6 +479,7 @@ export default function Portal({
           onClose={() => setShowSaved(false)}
         />
       )}
+      </Suspense>
     </div>
   )
 }

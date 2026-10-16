@@ -1,6 +1,7 @@
 import { KeyRound } from 'lucide-react'
 import { useEffect } from 'react'
 import PasswordForm from './PasswordForm'
+import { trapFocus } from '@/lib/focusTrap'
 
 interface PasswordModalProps {
   usuarioId: number
@@ -23,6 +24,8 @@ export default function PasswordModal({ usuarioId, usuario, onClose }: PasswordM
       role="presentation"
     >
       <div
+        ref={trapFocus}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="Restablecer contraseña"

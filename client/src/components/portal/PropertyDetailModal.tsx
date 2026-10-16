@@ -10,8 +10,9 @@ import { currencyLabel, formatDisplayPrice, getDisplayPrice, type Currency } fro
 import { safeHttpUrl } from '@/lib/url'
 import { cn } from '@/lib/utils'
 import type { Propiedad } from '@/types'
+import { trapFocus } from '@/lib/focusTrap'
 
-const GOLD = '#d4b782'
+const GOLD = 'var(--gold)'
 const fmt = (n: number) => n.toLocaleString('es-PE', { maximumFractionDigits: 0 })
 const shortDate = (iso: string) => {
   const d = new Date(iso)
@@ -113,6 +114,8 @@ export default function PropertyDetailModal({
         onClick={onClose}
       >
         <div
+          ref={trapFocus}
+          tabIndex={-1}
           role="dialog"
           aria-modal="true"
           aria-label="Detalle de la propiedad"
@@ -232,24 +235,24 @@ export default function PropertyDetailModal({
                               <stop offset="100%" stopColor={GOLD} stopOpacity={0} />
                             </linearGradient>
                           </defs>
-                          <CartesianGrid stroke="rgb(255 255 255 / 0.05)" vertical={false} />
+                          <CartesianGrid stroke="var(--line)" vertical={false} />
                           <XAxis
                             dataKey="fecha"
                             tickFormatter={shortDate}
                             tickLine={false}
                             axisLine={false}
-                            tick={{ fill: '#6b7280', fontSize: 11 }}
+                            tick={{ fill: 'var(--text-faint)', fontSize: 11 }}
                           />
                           <YAxis
                             domain={['dataMin', 'dataMax']}
                             tickFormatter={v => fmt(Number(v))}
                             tickLine={false}
                             axisLine={false}
-                            tick={{ fill: '#6b7280', fontSize: 11 }}
+                            tick={{ fill: 'var(--text-faint)', fontSize: 11 }}
                             width={64}
                           />
                           <Tooltip
-                            cursor={{ stroke: 'rgb(255 255 255 / 0.15)' }}
+                            cursor={{ stroke: 'var(--line-strong)' }}
                             content={({ active, payload }) =>
                               active && payload?.length ? (
                                 <div className="rounded-xl border border-line-strong bg-surface-3 px-3 py-2 text-xs shadow-xl">
@@ -269,7 +272,7 @@ export default function PropertyDetailModal({
                             stroke={GOLD}
                             strokeWidth={2}
                             fill="url(#detailFill)"
-                            dot={{ r: 3, fill: GOLD, stroke: '#101216', strokeWidth: 2 }}
+                            dot={{ r: 3, fill: GOLD, stroke: 'var(--app)', strokeWidth: 2 }}
                           />
                         </AreaChart>
                       </ResponsiveContainer>

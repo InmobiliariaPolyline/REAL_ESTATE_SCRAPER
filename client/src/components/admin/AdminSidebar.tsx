@@ -2,6 +2,7 @@ import { KeyRound, LogOut, Menu, X } from "lucide-react"
 import { useState } from "react"
 import Avatar from "@/components/common/Avatar"
 import Logo from "@/components/common/Logo"
+import ThemeToggle from "@/components/common/ThemeToggle"
 import AccountModal from "@/components/common/AccountModal"
 import { cn } from "@/lib/utils"
 import { ADMIN_TABS, type AdminTab } from "./tabs"
@@ -99,7 +100,8 @@ export default function AdminSidebar({
           ))}
         </nav>
 
-        <button onClick={onLogout} className="btn btn-secondary mx-1 mt-3">
+        <ThemeToggle withLabel className="mx-1 mt-3" />
+        <button onClick={onLogout} className="btn btn-secondary mx-1 mt-2">
           <LogOut className="size-4" />
           Cerrar sesión
         </button>

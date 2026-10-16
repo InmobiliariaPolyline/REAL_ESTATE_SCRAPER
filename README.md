@@ -61,7 +61,7 @@ cp .env.example .env     # completa DATABASE_URL
 pnpm dev:api             # API en http://localhost:3001
 pnpm dev                 # frontend en http://localhost:3000 (reenvía /api a la API)
 pnpm check               # tipos
-pnpm test                # 50 pruebas (API contra Postgres real, filtros, fechas, precios…)
+pnpm test                # API contra Postgres real, filtros, precios y componentes (jsdom)
 ```
 
 ### 3. Producción en Netlify
@@ -90,6 +90,20 @@ JetBrains Mono (cifras). Los tokens (`--surface-*`, `--gold`, `--line`…) y las
 (`.card`, `.btn-*`, `.field`, `.badge-*`, `.segmented`, `.table-modern`) se reutilizan en todas las
 pantallas; los iconos son de lucide (sin emojis). Componentes comunes en `components/common/`
 (`StatCard`, `PageHeader`, `ConfirmModal`, `Toast`, `Avatar`, `EmptyState`, `Logo`).
+
+**Tema claro/oscuro:** el botón de la barra lateral (admin) y de la cabecera (portal) alterna el tema;
+la preferencia se guarda en el navegador y `client/public/theme-init.js` la aplica antes del primer
+pintado. Los colores del tema claro se definen en `:root.light` (el dorado se oscurece para mantener
+contraste de texto).
+
+**Accesibilidad:** enlace «Saltar al contenido», modales con foco atrapado y devuelto al cerrar
+(`lib/focusTrap.ts`), cierre con Escape y etiquetas en los botones de solo icono.
+
+**Rendimiento:** las pantallas, las pestañas del admin y los modales pesados se cargan bajo demanda;
+los gráficos (recharts) solo se descargan al abrir el Dashboard o el detalle de una propiedad.
+
+**Integración continua:** `.github/workflows/ci.yml` ejecuta tipos, pruebas y build en cada push y
+pull request, y una auditoría informativa de dependencias.
 
 ## Flujo de uso
 
