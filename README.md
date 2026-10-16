@@ -27,9 +27,10 @@ client/src
 ├── lib/              Lógica sin UI: config, auth, sesión, suscripciones, consultas, fechas, precios…
 ├── pages/            Login, Portal, Admin, Vencido
 └── types/            Tipos compartidos
-server/index.ts       Servidor Express (estáticos + CSP)
+server/index.ts       Servidor Express opcional (estáticos + CSP)
+netlify.toml          Despliegue del frontend en Netlify
 supabase/
-├── migrations/       Auth segura, RPC y RLS
+├── migrations/       Esquema base, auth segura, RPC y RLS
 └── functions/        Edge Function `trigger-scraper`
 ```
 
@@ -47,6 +48,45 @@ pnpm build && pnpm start # producción (Express en el puerto 3000 o $PORT)
 Variables (ver `.env.example`): `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`,
 `VITE_ADMIN_WHATSAPP`, `VITE_USD_TO_PEN_RATE`, y para el servidor `PORT` y
 `CSP_EXTRA_CONNECT_SRC`.
+
+## Ecosistema y flujo de uso
+
+```
+Portales ─► Scraper (Python, GitHub Actions) ─► PostgreSQL (Supabase) ─► Portal web (React, Netlify)
+                 │ conexión directa/pooler            ▲       └─► Panel admin
+                 └─ SUNAT: tipo de cambio             └────────── Inmodata (ETL / BI): solo lectura
+```
+
+1. **Scraper** (repositorio aparte): hace UPSERT masivo en `propiedades` por `id`, guarda precio
+   original + `precio_usd` (tipo de cambio SUNAT) y refresca `ultima_vista_en` en cada corrida.
+   Se conecta a Postgres con el rol `postgres`/`service_role`, que **omite RLS**.
+2. **Administrador**: crea usuarios y activa Premium (30 días, renovable).
+3. **Usuario**: con suscripción vigente entra al portal y filtra avisos; cada login queda en
+   `historial_accesos`. Sin suscripción ve la pantalla "Vencido".
+4. **Admin cura avisos**: favoritos, historial, búsquedas guardadas y enlaces de apoyo.
+5. **Inmodata** lee `propiedades` (idealmente con un rol de solo lectura) para limpieza y BI.
+
+## Base de datos desde cero
+
+Ejecutar en el SQL Editor de Supabase (o `supabase db push`), **en este orden**:
+
+1. `supabase/migrations/20251231000000_base_schema.sql` — tablas, índices y claves.
+2. `supabase/migrations/20260101000000_secure_auth.sql` — RPC de login, tokens de sesión y RLS.
+3. Crear el primer admin (instrucciones al final del primer archivo).
+
+Ambos scripts se validaron en un Postgres real (PGlite) con 22 comprobaciones: hash de
+contraseñas, bloqueo por intentos, RLS por rol/suscripción, renovación de Premium y baneo.
+
+Notas para el scraper: usar la misma forma de `id` en cada corrida (clave del UPSERT), guardar
+`portal` en minúsculas y `moneda` como `PEN` o `USD`. Supabase pausa los proyectos gratuitos
+tras 7 días sin actividad: mantener el keep-alive programado.
+
+## Despliegue en Netlify
+
+`netlify.toml` define build (`pnpm exec vite build`), carpeta publicada (`dist/public`),
+fallback de SPA y cabeceras de seguridad (CSP). Configura `VITE_SUPABASE_URL` y
+`VITE_SUPABASE_ANON_KEY` en las variables de entorno del sitio. El servidor Express
+(`server/index.ts`) es opcional y solo se necesita si no usas Netlify.
 
 ## Seguridad: cómo activar la autenticación segura
 
@@ -74,8 +114,9 @@ Orden recomendado:
    La función solo responde a administradores con sesión válida.
 
 > La función `limpiar_inactivos` que usa el botón "Ejecutar Limpieza de Inactivos" no está
-> incluida: define en la base de datos qué significa "inactivo" para tu negocio antes de
-> crearla. Mientras no exista, el botón informa que no está configurada.
+> incluida: `propiedades.ultima_vista_en` permite definirla (p. ej. borrar avisos no vistos en
+> N días), pero solo es seguro una vez que el scraper actualice esa columna en cada corrida.
+> Mientras no exista, el botón informa que no está configurada.
 
 ## Reglas de negocio relevantes
 

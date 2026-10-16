@@ -1,0 +1,30 @@
+# Despliegue del frontend en Netlify (el informe técnico indica que el SPA vive allí).
+# Variables requeridas en Site settings → Environment variables:
+#   VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY  (y opcionalmente VITE_ADMIN_WHATSAPP, VITE_USD_TO_PEN_RATE)
+
+[build]
+  command = "pnpm exec vite build"
+  publish = "dist/public"
+
+# Enrutamiento del lado del cliente.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Cabeceras de seguridad. Mantener sincronizadas con server/index.ts (Express).
+# Si usas un dominio propio para Supabase, añádelo a connect-src.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; connect-src 'self' https://*.supabase.co wss://*.supabase.co; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"
+
+# Los assets de Vite llevan hash: cache de largo plazo.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
