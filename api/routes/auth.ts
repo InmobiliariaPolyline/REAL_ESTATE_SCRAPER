@@ -1,6 +1,7 @@
 import { MIN_PASSWORD_LENGTH } from "../../shared/constants"
+import { audit, clientIp, userAgentOf } from "../audit"
 import type { Route } from "../router"
-import { HttpError, badRequest, forbidden, json, readJson, str } from "../http"
+import { HttpError, badRequest, forbidden, json, notFound, readJson, str } from "../http"
 import { runWatchdog } from "../watchdog"
 
 /** Comparación en tiempo constante de dos cadenas (evita filtrar el secreto por tiempos). */
@@ -57,7 +58,19 @@ export const authRoutes: Route[] = [
         [usuario, password]
       )
       const result = rows[0]?.r
-      if (result?.ok) return json(result)
+      if (result?.ok) {
+        // Dispositivo de la sesión (para "Mis sesiones"). Si la migración 005 aún no está
+        // aplicada, el login igualmente funciona.
+        try {
+          await db.query(
+            "update public.app_sessions set user_agent = $2, ip = $3 where token = $1::uuid",
+            [result.token, userAgentOf(req), clientIp(req)]
+          )
+        } catch (err) {
+          console.warn("No se guardó el dispositivo de la sesión:", err)
+        }
+        return json(result)
+      }
 
       // El cuerpo nunca revela si el usuario existe: solo el motivo genérico.
       if (result?.error === "bloqueado") {
@@ -107,6 +120,7 @@ export const authRoutes: Route[] = [
       )
       switch (rows[0]?.r) {
         case "ok":
+          await audit({ db, req, access }, "cuenta.password_cambio", access.usuario.usuario)
           return { ok: true }
         case "bloqueado":
           throw new HttpError(429, "bloqueado", "Demasiados intentos fallidos. Intenta más tarde.")
@@ -116,6 +130,53 @@ export const authRoutes: Route[] = [
           // 400 (no 401): la sesión es válida, solo la contraseña actual es incorrecta.
           throw new HttpError(400, "password_actual", "La contraseña actual no es correcta")
       }
+    },
+  },
+  {
+    method: "GET",
+    path: "/api/account/sessions",
+    level: "user",
+    handler: async ({ db, access }) =>
+      db.query(
+        `select sid::int as id, created_at, ultimo_uso, user_agent, ip,
+                (token = $2::uuid) as actual
+           from public.app_sessions
+          where usuario_id = $1 and expires_at > now()
+          order by ultimo_uso desc`,
+        [access.usuario.id, access.token]
+      ),
+  },
+  {
+    // Cierra todas las demás sesiones del usuario (la actual se conserva).
+    method: "POST",
+    path: "/api/account/sessions/revoke-others",
+    level: "user",
+    handler: async ({ req, db, access }) => {
+      const rows = await db.query(
+        "delete from public.app_sessions where usuario_id = $1 and token <> $2::uuid returning sid",
+        [access.usuario.id, access.token]
+      )
+      await audit({ db, req, access }, "cuenta.sesiones_cerradas", access.usuario.usuario, {
+        cerradas: rows.length,
+      })
+      return { ok: true, cerradas: rows.length }
+    },
+  },
+  {
+    method: "DELETE",
+    path: "/api/account/sessions/:id",
+    level: "user",
+    handler: async ({ req, params, db, access }) => {
+      const id = Number(params.id)
+      if (!Number.isInteger(id) || id <= 0) throw badRequest("Id inválido")
+      // Solo sesiones propias y distintas de la actual (para esa se usa "Cerrar sesión").
+      const rows = await db.query(
+        "delete from public.app_sessions where sid = $1 and usuario_id = $2 and token <> $3::uuid returning sid",
+        [id, access.usuario.id, access.token]
+      )
+      if (rows.length === 0) throw notFound()
+      await audit({ db, req, access }, "cuenta.sesiones_cerradas", access.usuario.usuario, { cerradas: 1 })
+      return { ok: true }
     },
   },
   {

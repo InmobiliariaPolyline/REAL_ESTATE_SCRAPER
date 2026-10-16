@@ -2,7 +2,7 @@ import { CalendarClock, Crown, KeyRound, LogOut, Menu, User } from "lucide-react
 import { useState } from "react"
 import Avatar from "@/components/common/Avatar"
 import Logo from "@/components/common/Logo"
-import PasswordModal from "@/components/common/PasswordModal"
+import AccountModal from "@/components/common/AccountModal"
 import {
   Sheet,
   SheetContent,
@@ -56,7 +56,7 @@ export default function PortalHeader({
           <button
             onClick={() => setShowPassword(true)}
             className="flex items-center gap-3 rounded-xl px-2 py-1 transition hover:bg-surface-3"
-            title="Cambiar mi contraseña"
+            title="Mi cuenta: contraseña y sesiones"
           >
             <Avatar name={usuario} size="sm" />
             <span className="text-sm font-medium text-text">{usuario}</span>
@@ -115,7 +115,7 @@ export default function PortalHeader({
                   className="btn btn-secondary btn-lg btn-block"
                 >
                   <KeyRound className="size-4" />
-                  Cambiar contraseña
+                  Mi cuenta
                 </button>
                 <button onClick={onLogout} className="btn btn-secondary btn-lg btn-block">
                   <LogOut className="size-4" />
@@ -129,7 +129,7 @@ export default function PortalHeader({
     </header>
 
     {/* Fuera del <header>: su backdrop-filter rompería el posicionamiento `fixed` del modal. */}
-    {showPassword && <PasswordModal mode="self" onClose={() => setShowPassword(false)} />}
+    {showPassword && <AccountModal usuario={usuario} onClose={() => setShowPassword(false)} />}
     </>
   )
 }

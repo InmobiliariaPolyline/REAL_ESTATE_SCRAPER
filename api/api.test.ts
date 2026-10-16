@@ -9,7 +9,7 @@ import { runWatchdog } from "./watchdog"
 
 /**
  * Pruebas de integración: la API completa contra un Postgres real (PGlite) con los scripts
- * db/001_schema.sql a db/004_price_history.sql aplicados.
+ * db/001_schema.sql a db/005_sessions_audit.sql aplicados.
  */
 
 const root = path.resolve(import.meta.dirname, "..")
@@ -29,10 +29,11 @@ interface Res<T = any> {
 async function call<T = any>(
   method: string,
   url: string,
-  opts: { token?: string | null; body?: unknown } = {}
+  opts: { token?: string | null; body?: unknown; headers?: Record<string, string> } = {}
 ): Promise<Res<T>> {
   const headers: Record<string, string> = {}
   if (opts.token) headers.Authorization = `Bearer ${opts.token}`
+  Object.assign(headers, opts.headers)
   if (opts.body !== undefined) headers["Content-Type"] = "application/json"
   const res = await handler(
     new Request(`http://localhost${url}`, {
@@ -44,8 +45,8 @@ async function call<T = any>(
   return { status: res.status, body: await res.json() }
 }
 
-const login = async (usuario: string, password: string) =>
-  call("POST", "/api/login", { body: { usuario, password } })
+const login = async (usuario: string, password: string, headers?: Record<string, string>) =>
+  call("POST", "/api/login", { body: { usuario, password }, headers })
 
 let admin = ""
 let member = ""
@@ -70,6 +71,7 @@ beforeAll(async () => {
   await pg.exec(fs.readFileSync(path.join(root, "db/002_auth.sql"), "utf8"))
   await pg.exec(fs.readFileSync(path.join(root, "db/003_account_ops.sql"), "utf8"))
   await pg.exec(fs.readFileSync(path.join(root, "db/004_price_history.sql"), "utf8"))
+  await pg.exec(fs.readFileSync(path.join(root, "db/005_sessions_audit.sql"), "utf8"))
 
   // El admin crea a "cliente" con Premium mediante la propia función SQL.
   admin = (await login("admin", "admin-pass-123")).body.token
@@ -892,5 +894,198 @@ describe("favoritos y búsquedas guardadas de clientes", () => {
 
     expect((await call("DELETE", `/api/busquedas/${id}`, { token: member })).status).toBe(200)
     expect((await call("POST", "/api/busquedas", { token: member, body: { nombre: "ahora sí", filtros: {} } })).status).toBe(200)
+  })
+})
+
+
+describe("sesiones activas", () => {
+  const create = (usuario: string, password: string) =>
+    call("POST", "/api/admin/usuarios", {
+      token: admin,
+      body: { usuario, password, rol: "usuario", estado: "activo", premium: true },
+    })
+  const sessions = (token: string) => call("GET", "/api/account/sessions", { token })
+
+  it("guarda dispositivo e IP al iniciar sesión y marca la sesión actual", async () => {
+    await create("sesiones1", "clave-sesiones-1")
+    const a = (await login("sesiones1", "clave-sesiones-1", { "user-agent": "Mozilla/5.0 (Windows NT 10.0) Chrome/120", "x-forwarded-for": "203.0.113.7, 10.0.0.1" })).body.token
+    const b = (await login("sesiones1", "clave-sesiones-1", { "user-agent": "Mozilla/5.0 (iPhone) Safari/604", "x-nf-client-connection-ip": "198.51.100.9" })).body.token
+
+    const list = await sessions(a)
+    expect(list.status).toBe(200)
+    expect(list.body).toHaveLength(2)
+    const current = list.body.find((x: any) => x.actual)
+    const other = list.body.find((x: any) => !x.actual)
+    expect(current.user_agent).toContain("Chrome")
+    expect(current.ip).toBe("203.0.113.7")
+    expect(other.user_agent).toContain("iPhone")
+    expect(other.ip).toBe("198.51.100.9")
+    expect(typeof current.id).toBe("number")
+
+    // Nunca se expone el token en la respuesta.
+    expect(JSON.stringify(list.body)).not.toContain(a)
+    expect(JSON.stringify(list.body)).not.toContain(b)
+  })
+
+  it("se puede cerrar una sesión concreta, pero no la actual ni la de otro usuario", async () => {
+    const a = (await login("sesiones1", "clave-sesiones-1")).body.token
+    const list = (await sessions(a)).body
+    const current = list.find((x: any) => x.actual)
+    const other = list.find((x: any) => !x.actual)
+
+    expect((await call("DELETE", `/api/account/sessions/${current.id}`, { token: a })).status).toBe(404)
+    expect((await call("DELETE", "/api/account/sessions/abc", { token: a })).status).toBe(400)
+
+    await create("sesiones2", "clave-sesiones-2")
+    const foreign = (await login("sesiones2", "clave-sesiones-2")).body.token
+    const foreignId = (await sessions(foreign)).body[0].id
+    expect((await call("DELETE", `/api/account/sessions/${foreignId}`, { token: a })).status).toBe(404)
+    expect((await sessions(foreign)).status).toBe(200) // la ajena sigue viva
+
+    expect((await call("DELETE", `/api/account/sessions/${other.id}`, { token: a })).status).toBe(200)
+    expect((await sessions(a)).body.some((x: any) => x.id === other.id)).toBe(false)
+  })
+
+  it("'cerrar las demás' conserva solo la sesión actual y queda en auditoría", async () => {
+    const a = (await login("sesiones1", "clave-sesiones-1")).body.token
+    const b = (await login("sesiones1", "clave-sesiones-1")).body.token
+    const res = await call("POST", "/api/account/sessions/revoke-others", { token: a })
+    expect(res.status).toBe(200)
+    expect(res.body.cerradas).toBeGreaterThanOrEqual(1)
+
+    expect((await call("GET", "/api/session", { token: b })).status).toBe(401)
+    expect((await call("GET", "/api/session", { token: a })).status).toBe(200)
+    expect((await sessions(a)).body).toHaveLength(1)
+
+    const log = (await pg.query("select usuario, accion from auditoria where accion = 'cuenta.sesiones_cerradas' and usuario = 'sesiones1'")).rows
+    expect(log.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it("el admin cierra todas las sesiones de un usuario", async () => {
+    const id = (await pg.query<{ id: number }>("select id::int from usuarios where usuario = 'sesiones1'")).rows[0].id
+    const t = (await login("sesiones1", "clave-sesiones-1")).body.token
+
+    expect((await call("POST", `/api/admin/usuarios/${id}/cerrar-sesiones`, { token: t })).status).toBe(403)
+    expect((await call("POST", "/api/admin/usuarios/99999/cerrar-sesiones", { token: admin })).status).toBe(404)
+
+    const res = await call("POST", `/api/admin/usuarios/${id}/cerrar-sesiones`, { token: admin })
+    expect(res.status).toBe(200)
+    expect(res.body.cerradas).toBeGreaterThanOrEqual(1)
+    expect((await call("GET", "/api/session", { token: t })).status).toBe(401)
+  })
+
+  it("actualiza ultimo_uso como máximo cada 5 minutos", async () => {
+    const t = (await login("sesiones2", "clave-sesiones-2")).body.token
+    const read = async () =>
+      (await pg.query<{ u: Date }>("select ultimo_uso u from app_sessions where token = $1::uuid", [t])).rows[0].u.getTime()
+
+    const fresh = await read()
+    await call("GET", "/api/session", { token: t })
+    expect(await read()).toBe(fresh) // reciente: no se reescribe
+
+    await pg.query("update app_sessions set ultimo_uso = now() - interval '10 minutes' where token = $1::uuid", [t])
+    const stale = await read()
+    await call("GET", "/api/session", { token: t })
+    expect(await read()).toBeGreaterThan(stale + 5 * 60 * 1000)
+  })
+})
+
+describe("auditoría", () => {
+  const audit = (qs = "", token: string | null = admin) => call("GET", `/api/admin/auditoria${qs}`, { token })
+
+  it("registra las acciones administrativas con quién, qué y sobre quién", async () => {
+    await pg.exec("delete from auditoria")
+    const created = await call("POST", "/api/admin/usuarios", {
+      token: admin,
+      body: { usuario: "aud-user", password: "clave-auditoria-1", premium: true },
+    })
+    const id = created.body.id
+    await call("POST", `/api/admin/usuarios/${id}/premium`, { token: admin })
+    await call("PATCH", `/api/admin/usuarios/${id}/estado`, { token: admin, body: { estado: "baneado" } })
+    await call("POST", `/api/admin/usuarios/${id}/password`, { token: admin, body: { password: "clave-reset-123" } })
+    await pg.exec(`insert into propiedades (id, portal, precio) values ('aud-p', 'urbania', 1)`)
+    await call("DELETE", "/api/admin/propiedades/aud-p", { token: admin })
+
+    const rows = (await audit()).body.data
+    const acciones = rows.map((r: any) => r.accion)
+    expect(acciones).toEqual(
+      expect.arrayContaining([
+        "usuario.crear",
+        "usuario.premium",
+        "usuario.estado",
+        "usuario.password_reset",
+        "propiedad.eliminar",
+      ])
+    )
+    const crear = rows.find((r: any) => r.accion === "usuario.crear")
+    expect(crear).toMatchObject({ usuario: "admin", objetivo: "aud-user" })
+    expect(crear.detalle).toMatchObject({ premium: true })
+    expect(rows.find((r: any) => r.accion === "usuario.estado").detalle).toEqual({ estado: "baneado" })
+    // Nunca se guardan contraseñas.
+    expect(JSON.stringify(rows)).not.toContain("clave-reset-123")
+    expect(JSON.stringify(rows)).not.toContain("clave-auditoria-1")
+  })
+
+  it("registra el cambio de contraseña propio, la limpieza y el scraper", async () => {
+    const t = (await login("admin", "admin-pass-123")).body.token
+    await call("POST", "/api/account/password", { token: t, body: { actual: "admin-pass-123", nueva: "admin-pass-456" } })
+    await pg.exec(`delete from auditoria`)
+    const t2 = (await login("admin", "admin-pass-456")).body.token
+    await call("POST", "/api/account/password", { token: t2, body: { actual: "admin-pass-456", nueva: "admin-pass-123" } })
+
+    await pg.exec(`delete from propiedades; insert into propiedades (id, portal, precio, ultima_vista_en) values ('fresca','urbania',1, now()), ('vieja','urbania',1, now() - interval '40 days')`)
+    const t3 = (await login("admin", "admin-pass-123")).body.token
+    expect((await call("POST", "/api/admin/limpiar-inactivos", { token: t3, body: { dias: 30 } })).status).toBe(200)
+
+    const rows = (await audit("", t3)).body.data
+    const byAction = (a: string) => rows.find((r: any) => r.accion === a)
+    expect(byAction("cuenta.password_cambio")).toMatchObject({ usuario: "admin" })
+    expect(byAction("limpieza.ejecutar").detalle).toMatchObject({ dias: 30, eliminadas: 1 })
+    admin = t3
+  })
+
+  it("filtra por acción y usuario, pagina y ordena de más reciente a más antigua", async () => {
+    // Garantiza datos propios para este caso, sin depender de las pruebas anteriores.
+    await call("POST", "/api/admin/usuarios", {
+      token: admin,
+      body: { usuario: "aud-filtro", password: "clave-filtro-12", premium: false },
+    })
+    const all = (await audit()).body
+    expect(all.count).toBeGreaterThanOrEqual(3)
+    expect(all.data.some((r: any) => r.accion === "usuario.crear")).toBe(true)
+    expect(all.acciones).toContain("usuario.crear")
+    const dates = all.data.map((r: any) => new Date(r.creado_en).getTime())
+    expect([...dates].sort((a, b) => b - a)).toEqual(dates)
+
+    const onlyCreate = (await audit("?accion=usuario.crear")).body
+    expect(onlyCreate.data.length).toBeGreaterThan(0)
+    expect(onlyCreate.data.every((r: any) => r.accion === "usuario.crear")).toBe(true)
+
+    const byUser = (await audit("?usuario=adm")).body
+    expect(byUser.data.every((r: any) => r.usuario.includes("adm"))).toBe(true)
+
+    const page = (await audit("?pageSize=1&page=1")).body
+    expect(page.data).toHaveLength(1)
+    expect(page.count).toBe(all.count)
+
+    expect((await audit("?accion=hackeo")).status).toBe(400)
+  })
+
+  it("solo el admin la consulta", async () => {
+    expect((await audit("", member)).status).toBe(403)
+    expect((await audit("", null)).status).toBe(401)
+  })
+
+  it("si la tabla no existe, la acción igualmente se completa", async () => {
+    await pg.exec("alter table auditoria rename to auditoria_tmp")
+    try {
+      const r = await call("POST", "/api/admin/usuarios", {
+        token: admin,
+        body: { usuario: "sin-auditoria", password: "clave-sin-aud-1", premium: false },
+      })
+      expect(r.status).toBe(200)
+    } finally {
+      await pg.exec("alter table auditoria_tmp rename to auditoria")
+    }
   })
 })

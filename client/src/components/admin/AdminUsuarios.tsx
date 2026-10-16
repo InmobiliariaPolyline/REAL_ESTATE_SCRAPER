@@ -1,4 +1,4 @@
-import { Ban, Crown, KeyRound, Loader2, RefreshCw, ShieldCheck, UserCheck, UserPlus, Users } from 'lucide-react'
+import { Ban, Crown, KeyRound, Loader2, LogOut, RefreshCw, ShieldCheck, UserCheck, UserPlus, Users } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import Avatar from '@/components/common/Avatar'
 import ConfirmModal from '@/components/common/ConfirmModal'
@@ -6,6 +6,7 @@ import EmptyState from '@/components/common/EmptyState'
 import PasswordModal from '@/components/common/PasswordModal'
 import { useToast } from '@/contexts/ToastContext'
 import { PREMIUM_DAYS } from '@/lib/config'
+import { closeUserSessions } from '@/lib/account'
 import { formatDate } from '@/lib/dates'
 import {
   MIN_PASSWORD_LENGTH,
@@ -19,7 +20,7 @@ import {
 import type { EstadoUsuario, Rol } from '@/types'
 
 type Usuario = UsuarioRow
-type ModalAction = 'premium' | 'banear' | 'activar'
+type ModalAction = 'premium' | 'banear' | 'activar' | 'sesiones'
 
 export default function AdminUsuarios() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([])
@@ -132,6 +133,12 @@ export default function AdminUsuarios() {
           `Premium activo para "${selectedUsuario.usuario}" (+${PREMIUM_DAYS} días)`,
           'success'
         )
+      } else if (modalAction === 'sesiones') {
+        const res = await closeUserSessions(selectedUsuario.id)
+        addToast(
+          `Sesiones de "${selectedUsuario.usuario}" cerradas (${res.cerradas})`,
+          'success'
+        )
       } else if (modalAction === 'banear') {
         await setUsuarioEstado(selectedUsuario.id, 'baneado')
         addToast(`Usuario "${selectedUsuario.usuario}" baneado`, 'success')
@@ -157,7 +164,9 @@ export default function AdminUsuarios() {
         : '¿Activar Premium?'
       : action === 'banear'
         ? '¿Banear usuario?'
-        : '¿Activar usuario?'
+        : action === 'sesiones'
+          ? '¿Cerrar todas sus sesiones?'
+          : '¿Activar usuario?'
 
   return (
     <div className="space-y-6">
@@ -354,6 +363,14 @@ export default function AdminUsuarios() {
                       <td>
                         <div className="flex flex-wrap items-center justify-end gap-2">
                           <button
+                            onClick={() => openModal(user, 'sesiones')}
+                            className="btn btn-ghost btn-sm btn-icon"
+                            title="Cerrar todas sus sesiones"
+                            aria-label={`Cerrar las sesiones de ${user.usuario}`}
+                          >
+                            <LogOut className="size-3.5" />
+                          </button>
+                          <button
                             onClick={() => setPasswordUser(user)}
                             className="btn btn-secondary btn-sm"
                             aria-label={`Restablecer contraseña de ${user.usuario}`}
@@ -401,7 +418,6 @@ export default function AdminUsuarios() {
 
       {passwordUser && (
         <PasswordModal
-          mode="reset"
           usuarioId={passwordUser.id}
           usuario={passwordUser.usuario}
           onClose={() => setPasswordUser(null)}
@@ -416,6 +432,9 @@ export default function AdminUsuarios() {
           onConfirm={handleAction}
           onCancel={closeModal}
         >
+          {modalAction === 'sesiones' && (
+            <p className="mb-2">El usuario deberá iniciar sesión de nuevo en todos sus dispositivos.</p>
+          )}
           {modalAction === 'premium' && (
             <p className="mb-2">
               {selectedUsuario.suscripcionActiva

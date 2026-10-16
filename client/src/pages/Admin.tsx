@@ -1,5 +1,6 @@
 import { useState } from "react"
 import AdminDashboard from "@/components/admin/AdminDashboard"
+import AdminAuditoria from "@/components/admin/AdminAuditoria"
 import AdminEnlaces from "@/components/admin/AdminEnlaces"
 import AdminPropiedades from "@/components/admin/AdminPropiedades"
 import AdminScraper from "@/components/admin/AdminScraper"
@@ -29,6 +30,8 @@ export default function Admin({ usuario, onLogout }: AdminProps) {
         return <AdminUsuarios />
       case "scraper":
         return <AdminScraper />
+      case "auditoria":
+        return <AdminAuditoria />
       case "dashboard":
       default:
         return <AdminDashboard onNavigate={setActiveTab} />

@@ -32,7 +32,7 @@ Portales ─► Scraper (Python, GitHub Actions) ─► PostgreSQL (Neon) ◄─
 api/                  API (handler, router, auth, consultas y rutas) + pruebas de integración
   routes/             auth · portal (propiedades y enlaces) · admin
 client/src            React: pages/, components/{admin,portal,properties,common,ui}, lib/, types/
-db/                   001_schema.sql (tablas) y 002_auth.sql (login, sesiones, administración)
+db/                   001..005: esquema, auth, cuenta, historial de precios, sesiones y auditoría
 netlify/functions/    Función que publica la API en Netlify
 server/index.ts       Servidor Express opcional (API + estáticos + CSP)
 shared/               Código compartido cliente/API (constantes, filtros, validación)
@@ -44,12 +44,12 @@ netlify.toml          Build, rutas, función y cabeceras de seguridad
 ### 1. Base de datos (Neon)
 
 1. Crea el proyecto en Neon (región AWS US East 2, solo el servicio Postgres).
-2. Aplica el esquema (`db/001` a `db/004`), con `pnpm db:migrate` (lee `DATABASE_URL` del entorno o de `.env`;
+2. Aplica el esquema (`db/001` a `db/005`), con `pnpm db:migrate` (lee `DATABASE_URL` del entorno o de `.env`;
    `pnpm db:migrate --check` solo lista tablas) o pegando en el **SQL Editor**, en orden,
-   `db/001_schema.sql` y `db/002_auth.sql`.
+   los archivos `db/001_*.sql` a `db/005_*.sql`.
 3. Crea el primer administrador con el `insert` comentado al final de `001_schema.sql`, con tu
    propia contraseña. No lo subas al repositorio.
-3. Copia la connection string (Dashboard → *Connect*). Es el valor de `DATABASE_URL`.
+4. Copia la connection string (Dashboard → *Connect*). Es el valor de `DATABASE_URL`.
 
 Los scripts son idempotentes y se probaron en un Postgres real (PGlite) como parte de la suite.
 
@@ -138,6 +138,17 @@ minúsculas y `moneda` como `PEN` o `USD`.
   funciona sin modificar el scraper.
 - **Exportar CSV:** descarga la búsqueda actual (hasta 5000 avisos, UTF-8 con BOM para Excel y con
   protección contra inyección de fórmulas).
+
+## Seguridad y operación
+
+- **Mi cuenta:** cambiar contraseña y ver/cerrar las sesiones activas (dispositivo, IP, último uso).
+- **Auditoría** (pestaña del admin): registro de altas, baneos, Premium, restablecimientos, borrados,
+  limpiezas y lanzamientos del scraper, con filtros por acción y usuario. Es "best effort": si
+  falla el registro, la acción no se interrumpe.
+- **Respaldos:** `.github/workflows/backup.yml` genera cada día un `pg_dump` cifrado (secrets
+  `BACKUP_DATABASE_URL` y `BACKUP_PASSPHRASE`). Restauración, rotación de credenciales y el rol de
+  solo lectura para Inmodata (`db/optional/inmodata_readonly.sql`) están en
+  [`docs/SEGURIDAD.md`](docs/SEGURIDAD.md).
 
 ## Operación
 

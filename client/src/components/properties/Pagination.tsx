@@ -7,6 +7,8 @@ interface PaginationProps {
   onPageChange: (page: number) => void
   totalItems: number
   itemsPerPage: number
+  /** Sustantivo del contador (por defecto "propiedades"). */
+  noun?: string
 }
 
 export default function Pagination({
@@ -15,6 +17,7 @@ export default function Pagination({
   onPageChange,
   totalItems,
   itemsPerPage,
+  noun = 'propiedades',
 }: PaginationProps) {
   const startItem = totalItems === 0 ? 0 : currentPage * itemsPerPage + 1
   const endItem = Math.min((currentPage + 1) * itemsPerPage, totalItems)
@@ -76,7 +79,7 @@ export default function Pagination({
       <span className="text-center text-sm text-text-muted sm:text-left">
         Mostrando <strong className="mono font-medium text-text">{startItem}</strong>–
         <strong className="mono font-medium text-text">{endItem}</strong> de{' '}
-        <strong className="mono font-medium text-text">{totalItems}</strong> propiedades
+        <strong className="mono font-medium text-text">{totalItems}</strong> {noun}
       </span>
 
       <div className="flex flex-wrap items-center justify-center gap-1.5">

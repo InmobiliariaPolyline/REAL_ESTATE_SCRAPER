@@ -1,4 +1,4 @@
-import { Activity, Building2, LayoutDashboard, Link2, Users, type LucideIcon } from "lucide-react"
+import { Activity, Building2, LayoutDashboard, Link2, ScrollText, Users, type LucideIcon } from "lucide-react"
 
 export type AdminTab =
   | "dashboard"
@@ -6,6 +6,7 @@ export type AdminTab =
   | "enlaces"
   | "usuarios"
   | "scraper"
+  | "auditoria"
 
 export interface AdminTabInfo {
   id: AdminTab
@@ -56,6 +57,14 @@ export const ADMIN_TABS: AdminTabInfo[] = [
     title: "Actividad del sistema",
     description: "Lanza el scraper manualmente y revisa los últimos accesos de usuarios.",
     icon: Activity,
+    section: "SISTEMA",
+  },
+  {
+    id: "auditoria",
+    label: "Auditoría",
+    title: "Auditoría",
+    description: "Registro de las acciones administrativas: quién hizo qué, sobre quién y cuándo.",
+    icon: ScrollText,
     section: "SISTEMA",
   },
 ]

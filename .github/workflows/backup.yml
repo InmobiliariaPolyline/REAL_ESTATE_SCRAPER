@@ -1,0 +1,61 @@
+# Respaldo diario y cifrado de la base de datos (Neon) como artefacto de GitHub Actions.
+#
+# Secretos requeridos (Settings → Secrets and variables → Actions):
+#   BACKUP_DATABASE_URL  cadena de conexión DIRECTA de Neon (sin "-pooler" en el host: pg_dump
+#                        no funciona bien a través del pooler)
+#   BACKUP_PASSPHRASE    frase larga para cifrar el respaldo (guárdala fuera de GitHub: sin ella
+#                        el respaldo no se puede abrir)
+#
+# Guía de restauración: docs/SEGURIDAD.md
+
+name: Respaldo de la base de datos
+
+on:
+  schedule:
+    - cron: "30 7 * * *" # 02:30 hora de Lima
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Verificar secretos
+        env:
+          BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          test -n "$BACKUP_DATABASE_URL" || { echo "Falta el secreto BACKUP_DATABASE_URL"; exit 1; }
+          test -n "$BACKUP_PASSPHRASE" || { echo "Falta el secreto BACKUP_PASSPHRASE"; exit 1; }
+
+      - name: Volcado con pg_dump
+        env:
+          BACKUP_DATABASE_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+        run: |
+          # pg_dump 18 en contenedor: un cliente más nuevo que el servidor siempre es compatible.
+          docker run --rm -e BACKUP_DATABASE_URL postgres:18-alpine \
+            sh -c 'pg_dump --no-owner --no-privileges --format=custom "$BACKUP_DATABASE_URL"' > backup.dump
+          test "$(stat -c%s backup.dump)" -gt 2048 || { echo "El volcado es sospechosamente pequeño"; exit 1; }
+
+      - name: Verificar que el volcado es legible
+        run: |
+          docker run --rm -i postgres:18-alpine pg_restore --list < backup.dump | head -n 15
+
+      - name: Cifrar
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt \
+            -pass env:BACKUP_PASSPHRASE -in backup.dump -out "backup-$(date -u +%F).dump.enc"
+          shred -u backup.dump || rm -f backup.dump
+
+      - name: Guardar respaldo cifrado (14 días)
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_number }}
+          path: backup-*.dump.enc
+          retention-days: 14
+          if-no-files-found: error

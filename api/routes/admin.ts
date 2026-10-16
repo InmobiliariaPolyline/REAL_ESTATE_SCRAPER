@@ -1,5 +1,6 @@
 import { ADMIN_PAGE_SIZE, MAX_PAGE_SIZE, MIN_PASSWORD_LENGTH, PREMIUM_DAYS } from "../../shared/constants"
 import { escapeLike } from "../../shared/filters"
+import { AUDIT_ACTIONS, audit } from "../audit"
 import { CLEANUP_MAX_DAYS, CLEANUP_MIN_DAYS, previewCleanup, runCleanup } from "../cleanup"
 import { HttpError, badRequest, forbidden, intParam, notFound, optNumber, optStr, readJson, str } from "../http"
 import {
@@ -8,6 +9,7 @@ import {
   parseAdminFilters,
   propertyColumns,
 } from "../propertyQueries"
+import type { Db } from "../db"
 import type { Route } from "../router"
 import { favoritosRoutes } from "./favoritos"
 
@@ -24,6 +26,12 @@ function cleanupDays(value: string | null): number {
     throw badRequest(`Los días deben estar entre ${CLEANUP_MIN_DAYS} y ${CLEANUP_MAX_DAYS}`)
   }
   return days
+}
+
+/** Nombre de usuario para los registros de auditoría (null si no existe). */
+async function nameOf(db: Db, id: number): Promise<string | null> {
+  const rows = await db.query<{ usuario: string }>("select usuario from public.usuarios where id = $1", [id])
+  return rows[0]?.usuario ?? null
 }
 
 const bigintId = (value: string, field = "id"): number => {
@@ -70,9 +78,10 @@ export const adminRoutes: Route[] = [
     method: "DELETE",
     path: "/api/admin/propiedades/:id",
     level: "admin",
-    handler: async ({ params, db }) => {
+    handler: async ({ req, params, db, access }) => {
       const rows = await db.query("delete from public.propiedades where id = $1 returning id", [params.id])
       if (rows.length === 0) throw notFound()
+      await audit({ db, req, access }, "propiedad.eliminar", params.id)
       return { ok: true }
     },
   },
@@ -237,7 +246,7 @@ export const adminRoutes: Route[] = [
     method: "POST",
     path: "/api/admin/usuarios",
     level: "admin",
-    handler: async ({ req, db }) => {
+    handler: async ({ req, db, access }) => {
       const body = await readJson(req)
       const usuario = str(body.usuario, "usuario", 100).trim()
       const password = str(body.password, "password", 200)
@@ -248,6 +257,7 @@ export const adminRoutes: Route[] = [
           "select public.crear_usuario($1, $2, $3, $4, $5) as id",
           [usuario, password, rol, estado, body.premium === true]
         )
+        await audit({ db, req, access }, "usuario.crear", usuario, { rol, estado, premium: body.premium === true })
         return { id: Number(rows[0].id) }
       } catch (err) {
         mapDbError(err)
@@ -258,7 +268,7 @@ export const adminRoutes: Route[] = [
     method: "PATCH",
     path: "/api/admin/usuarios/:id/estado",
     level: "admin",
-    handler: async ({ req, params, db }) => {
+    handler: async ({ req, params, db, access }) => {
       const id = bigintId(params.id)
       const body = await readJson(req)
       const estado = str(body.estado, "estado", 20)
@@ -273,6 +283,7 @@ export const adminRoutes: Route[] = [
       if (estado === "baneado") {
         await db.query("delete from public.app_sessions where usuario_id = $1", [id])
       }
+      await audit({ db, req, access }, "usuario.estado", await nameOf(db, id), { estado })
       return { ok: true }
     },
   },
@@ -280,16 +291,61 @@ export const adminRoutes: Route[] = [
     method: "POST",
     path: "/api/admin/usuarios/:id/premium",
     level: "admin",
-    handler: async ({ params, db }) => {
+    handler: async ({ req, params, db, access }) => {
+      const id = bigintId(params.id)
       try {
-        await db.query("select public.activar_premium($1::bigint, $2::int)", [
-          bigintId(params.id),
-          PREMIUM_DAYS,
-        ])
+        await db.query("select public.activar_premium($1::bigint, $2::int)", [id, PREMIUM_DAYS])
       } catch (err) {
         mapDbError(err)
       }
+      await audit({ db, req, access }, "usuario.premium", await nameOf(db, id), { dias: PREMIUM_DAYS })
       return { ok: true }
+    },
+  },
+
+  {
+    method: "POST",
+    path: "/api/admin/usuarios/:id/cerrar-sesiones",
+    level: "admin",
+    handler: async ({ req, params, db, access }) => {
+      const id = bigintId(params.id)
+      const nombre = await nameOf(db, id)
+      if (!nombre) throw notFound()
+      const rows = await db.query("delete from public.app_sessions where usuario_id = $1 returning sid", [id])
+      await audit({ db, req, access }, "usuario.cerrar_sesiones", nombre, { cerradas: rows.length })
+      return { ok: true, cerradas: rows.length }
+    },
+  },
+
+  // ── Auditoría ────────────────────────────────────────────────────────────
+  {
+    method: "GET",
+    path: "/api/admin/auditoria",
+    level: "admin",
+    handler: async ({ url, db }) => {
+      const page = intParam(url.searchParams.get("page"), 0, 0, 100000)
+      const pageSize = intParam(url.searchParams.get("pageSize"), 50, 1, 200)
+      const accion = (url.searchParams.get("accion") ?? "").trim()
+      const usuario = (url.searchParams.get("usuario") ?? "").trim().slice(0, 100)
+      if (accion && !(AUDIT_ACTIONS as string[]).includes(accion)) throw badRequest("Acción inválida")
+
+      const params: unknown[] = []
+      const where: string[] = []
+      if (accion) where.push(`accion = $${params.push(accion)}`)
+      if (usuario) where.push(`usuario ilike $${params.push(`%${escapeLike(usuario)}%`)}`)
+      const clause = where.length ? `where ${where.join(" and ")}` : ""
+
+      const [rows, total] = await Promise.all([
+        db.query(
+          `select id::int as id, usuario_id::int as usuario_id, usuario, accion, objetivo, detalle, ip, creado_en
+             from public.auditoria ${clause}
+            order by creado_en desc, id desc
+            limit ${pageSize} offset ${page * pageSize}`,
+          params
+        ),
+        db.query<{ n: number }>(`select count(*)::int as n from public.auditoria ${clause}`, params),
+      ])
+      return { data: rows, count: total[0]?.n ?? 0, acciones: AUDIT_ACTIONS }
     },
   },
 
@@ -351,7 +407,7 @@ export const adminRoutes: Route[] = [
     method: "POST",
     path: "/api/admin/scraper",
     level: "admin",
-    handler: async ({ env }) => {
+    handler: async ({ req, db, env, access }) => {
       const { GITHUB_PAT: pat, GITHUB_REPO: repo, GITHUB_WORKFLOW: workflow } = env
       if (!pat || !repo || !workflow) {
         throw new HttpError(501, "not_configured", "Faltan GITHUB_PAT, GITHUB_REPO o GITHUB_WORKFLOW en el servidor")
@@ -373,6 +429,7 @@ export const adminRoutes: Route[] = [
         console.error("GitHub respondió", res.status, await res.text())
         throw new HttpError(502, "github_error", "GitHub rechazó la solicitud")
       }
+      await audit({ db, req, access }, "scraper.lanzar", env.GITHUB_WORKFLOW ?? null)
       return { ok: true }
     },
   },
@@ -387,7 +444,7 @@ export const adminRoutes: Route[] = [
     method: "POST",
     path: "/api/admin/limpiar-inactivos",
     level: "admin",
-    handler: async ({ req, db }) => {
+    handler: async ({ req, db, access }) => {
       const body = await readJson(req)
       const dias = cleanupDays(body.dias === undefined ? null : String(body.dias))
 
@@ -396,6 +453,7 @@ export const adminRoutes: Route[] = [
         throw new HttpError(409, "limpieza_no_segura", preview.motivo ?? "La limpieza no es segura")
       }
       const eliminadas = await runCleanup(db, dias)
+      await audit({ db, req, access }, "limpieza.ejecutar", null, { dias, eliminadas, protegidas: preview.protegidas })
       return { ok: true, eliminadas, protegidas: preview.protegidas }
     },
   },
@@ -403,7 +461,7 @@ export const adminRoutes: Route[] = [
     method: "POST",
     path: "/api/admin/usuarios/:id/password",
     level: "admin",
-    handler: async ({ req, params, db }) => {
+    handler: async ({ req, params, db, access }) => {
       const id = bigintId(params.id)
       const body = await readJson(req)
       const password = str(body.password, "password", 200)
@@ -416,6 +474,7 @@ export const adminRoutes: Route[] = [
       )
       if (rows[0]?.r === "inexistente") throw notFound()
       if (rows[0]?.r !== "ok") throw badRequest("No se pudo restablecer la contraseña")
+      await audit({ db, req, access }, "usuario.password_reset", await nameOf(db, id))
       return { ok: true }
     },
   },

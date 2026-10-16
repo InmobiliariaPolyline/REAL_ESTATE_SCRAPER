@@ -2,7 +2,7 @@ import { KeyRound, LogOut, Menu, X } from "lucide-react"
 import { useState } from "react"
 import Avatar from "@/components/common/Avatar"
 import Logo from "@/components/common/Logo"
-import PasswordModal from "@/components/common/PasswordModal"
+import AccountModal from "@/components/common/AccountModal"
 import { cn } from "@/lib/utils"
 import { ADMIN_TABS, type AdminTab } from "./tabs"
 
@@ -62,7 +62,7 @@ export default function AdminSidebar({
           type="button"
           onClick={() => setShowPassword(true)}
           className="group mx-1 mb-2 flex items-center gap-3 rounded-2xl border border-line bg-surface-2 p-3 text-left transition hover:border-gold/40"
-          title="Cambiar mi contraseña"
+          title="Mi cuenta: contraseña y sesiones"
         >
           <Avatar name={adminName} />
           <div className="min-w-0 flex-1">
@@ -105,7 +105,7 @@ export default function AdminSidebar({
         </button>
       </aside>
 
-      {showPassword && <PasswordModal mode="self" onClose={() => setShowPassword(false)} />}
+      {showPassword && <AccountModal usuario={adminName} onClose={() => setShowPassword(false)} />}
 
       {/* Espaciador (escritorio) */}
       <div className="hidden w-64 shrink-0 md:block" aria-hidden="true" />
