@@ -56,7 +56,11 @@ export interface PortalFilters {
   precioMin: number | null
   precioMax: number | null
   dormitorios: Dormitorios
+  orden: Orden
 }
+
+export type Orden = "relevancia" | "recientes" | "precio_asc" | "precio_desc"
+const ORDENES = new Set<string>(["relevancia", "recientes", "precio_asc", "precio_desc"])
 
 const DORMITORIOS = new Set(["todos", "1", "2", "3", "4+"])
 
@@ -85,6 +89,7 @@ export function parsePortalFilters(q: URLSearchParams): PortalFilters {
     precioMin: optNumber(q.get("precioMin")),
     precioMax: optNumber(q.get("precioMax")),
     dormitorios: dormitorios as Dormitorios,
+    orden: ORDENES.has(q.get("orden") ?? "") ? (q.get("orden") as Orden) : "relevancia",
   }
 }
 
@@ -120,8 +125,28 @@ function applyPortalWhere(w: Where, f: PortalFilters, usdToPen: number) {
 }
 
 /**
- * Página del portal. Orden global y estable: avisos con precio primero (más recientes antes),
- * luego los que no tienen precio en ninguna moneda. Un solo SELECT con el total en `total`.
+ * Cláusula ORDER BY del portal. Todas las variantes son estables entre páginas (desempate por
+ * fecha e id). El orden por precio usa el precio efectivo en la moneda elegida: el nativo si
+ * existe o el convertido de la otra moneda; los avisos sin precio siempre quedan al final.
+ */
+function orderClause(w: Where, f: PortalFilters, usdToPen: number): string {
+  const priced = "(case when precio > 0 or precio_usd > 0 then 0 else 1 end)"
+  const tail = "creado_en desc, id desc"
+  if (f.orden === "recientes") return `order by ${tail}`
+  if (f.orden === "relevancia") return `order by ${priced}, ${tail}`
+
+  const rate = w.p(usdToPen)
+  const effective =
+    f.moneda === "USD"
+      ? `(case when precio_usd > 0 then precio_usd when precio > 0 then precio / ${rate}::numeric end)`
+      : `(case when precio > 0 then precio when precio_usd > 0 then precio_usd * ${rate}::numeric end)`
+  const dir = f.orden === "precio_asc" ? "asc" : "desc"
+  return `order by ${priced}, ${effective} ${dir} nulls last, ${tail}`
+}
+
+/**
+ * Página del portal. Por defecto el orden es global y estable: avisos con precio primero (más
+ * recientes antes) y al final los que no tienen precio. Un solo SELECT con el total en `total`.
  */
 export function buildPortalQuery(
   f: PortalFilters,
@@ -131,13 +156,13 @@ export function buildPortalQuery(
 ): BuiltQuery {
   const w = new Where()
   applyPortalWhere(w, f, usdToPen)
+  const order = orderClause(w, f, usdToPen)
   const limit = w.p(pageSize)
   const offset = w.p(page * pageSize)
   return {
     text: `select ${PROPERTY_COLUMNS}, count(*) over()::int as total
            from public.propiedades ${w.sql()}
-           order by (case when precio > 0 or precio_usd > 0 then 0 else 1 end),
-                    creado_en desc, id desc
+           ${order}
            limit ${limit} offset ${offset}`,
     params: w.params,
   }

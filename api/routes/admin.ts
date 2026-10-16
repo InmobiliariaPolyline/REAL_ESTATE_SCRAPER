@@ -9,6 +9,7 @@ import {
   propertyColumns,
 } from "../propertyQueries"
 import type { Route } from "../router"
+import { favoritosRoutes } from "./favoritos"
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const HISTORY_LIMIT = 50
@@ -43,6 +44,8 @@ function mapDbError(err: unknown): never {
 }
 
 export const adminRoutes: Route[] = [
+  ...favoritosRoutes("/api/admin", "admin"),
+
   // ── Propiedades ──────────────────────────────────────────────────────────
   {
     method: "GET",
@@ -108,53 +111,6 @@ export const adminRoutes: Route[] = [
           order by e.creado_en desc
           limit ${ENLACES_LIMIT}`
       ),
-  },
-
-  // ── Favoritos ────────────────────────────────────────────────────────────
-  {
-    method: "GET",
-    path: "/api/admin/favoritos",
-    level: "admin",
-    handler: async ({ db, access }) => {
-      const propiedades = await db.query<{ id: string }>(
-        `select ${propertyColumns("p")}
-           from public.favoritos f
-           join public.propiedades p on p.id = f.propiedad_id
-          where f.admin_id = $1
-          order by f.creado_en desc`,
-        [access.usuario.id]
-      )
-      return { ids: propiedades.map(p => p.id), propiedades }
-    },
-  },
-  {
-    method: "POST",
-    path: "/api/admin/favoritos",
-    level: "admin",
-    handler: async ({ req, db, access }) => {
-      const body = await readJson(req)
-      const propiedadId = str(body.propiedad_id, "propiedad_id", 200)
-      const exists = await db.query("select 1 from public.propiedades where id = $1", [propiedadId])
-      if (exists.length === 0) throw notFound()
-      await db.query(
-        `insert into public.favoritos (admin_id, propiedad_id) values ($1, $2)
-         on conflict (admin_id, propiedad_id) do nothing`,
-        [access.usuario.id, propiedadId]
-      )
-      return { ok: true }
-    },
-  },
-  {
-    method: "DELETE",
-    path: "/api/admin/favoritos/:propiedadId",
-    level: "admin",
-    handler: async ({ params, db, access }) => {
-      await db.query("delete from public.favoritos where admin_id = $1 and propiedad_id = $2", [
-        access.usuario.id,
-        params.propiedadId,
-      ])
-      return { ok: true }
-    },
   },
 
   // ── Historial de vistos ──────────────────────────────────────────────────

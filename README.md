@@ -44,7 +44,7 @@ netlify.toml          Build, rutas, función y cabeceras de seguridad
 ### 1. Base de datos (Neon)
 
 1. Crea el proyecto en Neon (región AWS US East 2, solo el servicio Postgres).
-2. Aplica el esquema (`db/001`, `002` y `003`), con `pnpm db:migrate` (lee `DATABASE_URL` del entorno o de `.env`;
+2. Aplica el esquema (`db/001` a `db/004`), con `pnpm db:migrate` (lee `DATABASE_URL` del entorno o de `.env`;
    `pnpm db:migrate --check` solo lista tablas) o pegando en el **SQL Editor**, en orden,
    `db/001_schema.sql` y `db/002_auth.sql`.
 3. Crea el primer administrador con el `insert` comentado al final de `001_schema.sql`, con tu
@@ -123,6 +123,21 @@ minúsculas y `moneda` como `PEN` o `USD`.
   sin precio al final, también entre páginas. Un aviso con solo una moneda entra en los
   rangos de la otra moneda convertido con el tipo de cambio.
 - No se puede banear a un administrador (evita bloquear el panel).
+
+## Portal de clientes
+
+- **Favoritos:** corazón en cada aviso y filtro "Favoritos" (por usuario).
+- **Mis búsquedas:** guarda los filtros actuales con un nombre (hasta 20) y reutilízalos; el servidor
+  valida y normaliza los filtros antes de guardarlos.
+- **Ordenar:** relevancia, más recientes, precio de menor a mayor y de mayor a menor (por precio
+  efectivo en la moneda elegida; los avisos sin precio siempre quedan al final).
+- **Comparar:** hasta 3 propiedades lado a lado (precio, precio por m², área, dormitorios, baños…)
+  con el mejor valor de cada fila resaltado.
+- **Detalle:** precio por m² e historial de cambios de precio. El historial lo registra un trigger
+  de la base (`db/004_price_history.sql`) cuando el scraper cambia `precio` o `precio_usd`, así que
+  funciona sin modificar el scraper.
+- **Exportar CSV:** descarga la búsqueda actual (hasta 5000 avisos, UTF-8 con BOM para Excel y con
+  protección contra inyección de fórmulas).
 
 ## Operación
 

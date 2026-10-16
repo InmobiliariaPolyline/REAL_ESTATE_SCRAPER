@@ -1,4 +1,4 @@
-import { Bath, BedDouble, Building2, ExternalLink, Heart, Link2, MapPin, Ruler, Trash2 } from 'lucide-react'
+import { Bath, BedDouble, Building2, ExternalLink, Heart, Info, Link2, MapPin, Ruler, Scale, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { getOperacionColor, getPortalColor } from '@/lib/portals'
 import {
@@ -29,6 +29,12 @@ interface PropertyCardProps {
   onToggleFavorite?: (id: string) => void
   onDelete?: (id: string) => void
   onView?: (id: string) => void
+  /** Abre el detalle con el historial de precios. */
+  onOpenDetail?: (id: string) => void
+  /** Selección para comparar propiedades. */
+  isCompared?: boolean
+  compareDisabled?: boolean
+  onToggleCompare?: (id: string) => void
 }
 
 /** Dato de ficha (dormitorios, baños, área) con icono; se oculta si no hay valor. */
@@ -65,6 +71,10 @@ export default function PropertyCard({
   onToggleFavorite,
   onDelete,
   onView,
+  onOpenDetail,
+  isCompared,
+  compareDisabled,
+  onToggleCompare,
 }: PropertyCardProps) {
   const [mostrarEnlaces, setMostrarEnlaces] = useState(false)
 
@@ -76,7 +86,10 @@ export default function PropertyCard({
   return (
     <>
       <article
-        className="card card-interactive animate-slideInUp group flex flex-col overflow-hidden"
+        className={cn(
+          'card card-interactive animate-slideInUp group flex flex-col overflow-hidden',
+          isCompared && 'border-gold/60 ring-1 ring-gold/40'
+        )}
         style={{ animationDelay: `${Math.min(index, 12) * 40}ms` }}
       >
         {/* Imagen */}
@@ -143,7 +156,17 @@ export default function PropertyCard({
           </p>
 
           <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-medium leading-snug text-text">
-            {titulo}
+            {onOpenDetail ? (
+              <button
+                type="button"
+                onClick={() => onOpenDetail(id)}
+                className="text-left transition hover:text-gold"
+              >
+                {titulo}
+              </button>
+            ) : (
+              titulo
+            )}
           </h3>
 
           <div className="flex flex-wrap gap-2">
@@ -175,14 +198,47 @@ export default function PropertyCard({
               Ver aviso
             </a>
 
+            {onOpenDetail && (
+              <button
+                onClick={() => onOpenDetail(id)}
+                className="btn btn-secondary btn-sm btn-icon"
+                title="Ver detalle e historial de precio"
+                aria-label="Ver detalle e historial de precio"
+              >
+                <Info className="size-4" />
+              </button>
+            )}
+
             <button
               onClick={() => setMostrarEnlaces(true)}
-              className="btn btn-secondary btn-sm"
+              className="btn btn-secondary btn-sm btn-icon"
               title="Ver enlaces de apoyo"
+              aria-label="Ver enlaces de apoyo"
             >
               <Link2 className="size-4" />
-              Enlaces
             </button>
+
+            {onToggleCompare && (
+              <button
+                onClick={() => onToggleCompare(id)}
+                disabled={compareDisabled && !isCompared}
+                aria-pressed={!!isCompared}
+                className={cn(
+                  'btn btn-sm btn-icon',
+                  isCompared ? 'btn-primary' : 'btn-secondary'
+                )}
+                title={
+                  isCompared
+                    ? 'Quitar de la comparación'
+                    : compareDisabled
+                      ? 'Máximo 3 propiedades'
+                      : 'Agregar a la comparación'
+                }
+                aria-label={isCompared ? 'Quitar de la comparación' : 'Agregar a la comparación'}
+              >
+                <Scale className="size-4" />
+              </button>
+            )}
 
             {onDelete && (
               <button

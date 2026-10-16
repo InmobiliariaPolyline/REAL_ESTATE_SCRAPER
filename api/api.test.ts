@@ -9,7 +9,7 @@ import { runWatchdog } from "./watchdog"
 
 /**
  * Pruebas de integración: la API completa contra un Postgres real (PGlite) con los scripts
- * db/001_schema.sql, db/002_auth.sql y db/003_account_ops.sql aplicados.
+ * db/001_schema.sql a db/004_price_history.sql aplicados.
  */
 
 const root = path.resolve(import.meta.dirname, "..")
@@ -69,6 +69,7 @@ beforeAll(async () => {
   `)
   await pg.exec(fs.readFileSync(path.join(root, "db/002_auth.sql"), "utf8"))
   await pg.exec(fs.readFileSync(path.join(root, "db/003_account_ops.sql"), "utf8"))
+  await pg.exec(fs.readFileSync(path.join(root, "db/004_price_history.sql"), "utf8"))
 
   // El admin crea a "cliente" con Premium mediante la propia función SQL.
   admin = (await login("admin", "admin-pass-123")).body.token
@@ -676,5 +677,220 @@ describe("watchdog del scraper", () => {
     const ok = await call2({ CRON_SECRET: "s3creto" }, "s3creto")
     expect(ok.status).toBe(200)
     expect(ok.body).toMatchObject({ stale: false, reason: "sin_datos" })
+  })
+})
+
+
+describe("historial de precios y detalle", () => {
+  it("el trigger registra el precio inicial y solo los cambios de precio", async () => {
+    await pg.exec(`delete from propiedades`)
+    await pg.exec(`insert into propiedades (id, portal, titulo, precio, precio_usd, moneda) values ('h1','urbania','Depa', 1000, 270, 'PEN')`)
+    const count = async () => (await pg.query<{ n: number }>("select count(*)::int n from propiedades_precios where propiedad_id='h1'")).rows[0].n
+    expect(await count()).toBe(1)
+
+    await pg.exec(`update propiedades set titulo = 'Depa renovado' where id='h1'`)
+    expect(await count()).toBe(1) // cambiar otra columna no genera historial
+
+    await pg.exec(`update propiedades set precio = 900, precio_usd = 240 where id='h1'`)
+    expect(await count()).toBe(2)
+
+    await pg.exec(`update propiedades set precio = 900 where id='h1'`)
+    expect(await count()).toBe(2) // mismo valor: sin cambio
+
+    await pg.exec(`update propiedades set precio = 0, precio_usd = 0 where id='h1'`)
+    expect(await count()).toBe(2) // sin precio no se historia
+
+    await pg.exec(`insert into propiedades (id, portal, precio, precio_usd) values ('h0','urbania', 0, 0)`)
+    expect((await pg.query("select count(*)::int n from propiedades_precios where propiedad_id='h0'")).rows[0]).toEqual({ n: 0 })
+  })
+
+  it("GET /api/propiedades/:id devuelve la propiedad y su historial ordenado", async () => {
+    await pg.exec(`update propiedades set precio = 850, precio_usd = 225 where id='h1'`)
+    const r = await call("GET", "/api/propiedades/h1", { token: member })
+    expect(r.status).toBe(200)
+    expect(r.body.propiedad).toMatchObject({ id: "h1", titulo: "Depa renovado" })
+    expect(typeof r.body.propiedad.precio).toBe("number")
+    expect(r.body.historial.map((h: any) => h.precio)).toEqual([1000, 900, 850])
+    expect(typeof r.body.historial[0].precio_usd).toBe("number")
+
+    expect((await call("GET", "/api/propiedades/no-existe", { token: member })).status).toBe(404)
+    expect((await call("GET", "/api/propiedades/h1", { token: noPlan })).status).toBe(403)
+    expect((await call("GET", "/api/propiedades/h1")).status).toBe(401)
+  })
+
+  it("el backfill de la migración cubre avisos existentes sin historial", async () => {
+    await pg.exec(`alter table propiedades disable trigger propiedades_registrar_precio`)
+    await pg.exec(`insert into propiedades (id, portal, precio, precio_usd, creado_en) values ('h2','urbania', 500, 130, now() - interval '5 days')`)
+    await pg.exec(`alter table propiedades enable trigger propiedades_registrar_precio`)
+    expect((await pg.query("select count(*)::int n from propiedades_precios where propiedad_id='h2'")).rows[0]).toEqual({ n: 0 })
+
+    await pg.exec(fs.readFileSync(path.join(root, "db/004_price_history.sql"), "utf8")) // idempotente
+    const rows = (await pg.query<{ precio: number }>("select precio::float8 precio from propiedades_precios where propiedad_id='h2'")).rows
+    expect(rows).toEqual([{ precio: 500 }])
+  })
+})
+
+describe("orden de resultados", () => {
+  const ids = (res: any) => res.body.data.map((r: any) => r.id)
+  const list = (qs: string) => call("GET", `/api/propiedades${qs}`, { token: member })
+
+  it("ordena por precio efectivo en la moneda elegida y deja sin precio al final", async () => {
+    await pg.exec(`delete from propiedades`)
+    await pg.exec(`
+      insert into propiedades (id, portal, precio, precio_usd, moneda, creado_en) values
+        ('o1','urbania', 3000,    0, 'PEN', now() - interval '1 hours'),
+        ('o2','urbania', 1000,    0, 'PEN', now() - interval '2 hours'),
+        ('o3','urbania',    0, 1000, 'USD', now() - interval '3 hours'),
+        ('o4','urbania',    0,    0, 'PEN', now());
+    `)
+    // Tasa de la API en pruebas: 4 PEN por USD => o3 = 4000 PEN.
+    expect(ids(await list("?orden=precio_asc&moneda=PEN"))).toEqual(["o2", "o1", "o3", "o4"])
+    expect(ids(await list("?orden=precio_desc&moneda=PEN"))).toEqual(["o3", "o1", "o2", "o4"])
+    // En USD: o2 = 250, o1 = 750, o3 = 1000.
+    expect(ids(await list("?orden=precio_asc&moneda=USD"))).toEqual(["o2", "o1", "o3", "o4"])
+    expect(ids(await list("?orden=precio_desc&moneda=USD"))).toEqual(["o3", "o1", "o2", "o4"])
+  })
+
+  it("'recientes' ignora el precio y 'relevancia' es el valor por defecto", async () => {
+    expect(ids(await list("?orden=recientes"))).toEqual(["o4", "o1", "o2", "o3"])
+    expect(ids(await list(""))).toEqual(["o1", "o2", "o3", "o4"]) // con precio primero, recientes antes
+    expect(ids(await list("?orden=cualquier-cosa"))).toEqual(["o1", "o2", "o3", "o4"])
+  })
+
+  it("el orden por precio es estable entre páginas", async () => {
+    const p1 = ids(await list("?orden=precio_asc&moneda=PEN&pageSize=2&page=0"))
+    const p2 = ids(await list("?orden=precio_asc&moneda=PEN&pageSize=2&page=1"))
+    expect([...p1, ...p2]).toEqual(["o2", "o1", "o3", "o4"])
+  })
+})
+
+describe("exportar a CSV", () => {
+  const exportCsv = (qs = "", token: string | null = member) =>
+    handler(
+      new Request(`http://localhost/api/propiedades/export${qs}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      })
+    )
+
+  it("devuelve un CSV con BOM, cabecera y filas de la búsqueda", async () => {
+    await pg.exec(`delete from propiedades`)
+    await pg.exec(`
+      insert into propiedades (id, portal, operacion, titulo, precio, precio_usd, moneda, distrito, area, url) values
+        ('c1','urbania','VENTA','Depa "luminoso", con terraza', 1000, 270, 'PEN', 'Lince', '80 m²', 'https://e.com/1'),
+        ('c2','properati','ALQUILER','Casa', 2000, 540, 'PEN', 'Surco', '120 m²', 'https://e.com/2');
+    `)
+    const res = await exportCsv("?operacion=VENTA")
+    expect(res.status).toBe(200)
+    expect(res.headers.get("content-type")).toContain("text/csv")
+    expect(res.headers.get("content-disposition")).toMatch(/attachment; filename="propiedades-\d{4}-\d{2}-\d{2}\.csv"/)
+
+    // `Response.text()` descarta el BOM; se comprueba en los bytes reales (EF BB BF).
+    const bytes = new Uint8Array(await res.arrayBuffer())
+    expect([...bytes.slice(0, 3)]).toEqual([0xef, 0xbb, 0xbf])
+    const text = new TextDecoder("utf-8").decode(bytes.slice(3))
+    const lines = text.trim().split("\r\n")
+    expect(lines[0]).toBe("id,portal,operacion,inmueble,titulo,precio,moneda,precio_usd,distrito,dormitorios,banios,area,url,creado_en")
+    expect(lines).toHaveLength(2) // solo la VENTA
+    expect(lines[1]).toContain('"Depa ""luminoso"", con terraza"')
+    expect(lines[1]).toContain(",1000,PEN,270,")
+  })
+
+  it("neutraliza inyección de fórmulas de Excel", async () => {
+    await pg.exec(`insert into propiedades (id, portal, titulo, precio) values ('c3','urbania','=HYPERLINK("http://evil","x")', 10)`)
+    const text = await (await exportCsv("?pageSize=10")).text()
+    expect(text).toContain(`"'=HYPERLINK(""http://evil"",""x"")"`)
+    expect(text).not.toMatch(/,=HYPERLINK/)
+  })
+
+  it("exige sesión y suscripción vigente", async () => {
+    expect((await exportCsv("", null)).status).toBe(401)
+    expect((await exportCsv("", noPlan)).status).toBe(403)
+  })
+})
+
+describe("favoritos y búsquedas guardadas de clientes", () => {
+  let other = ""
+  it("favoritos: agregar, listar, aislados por usuario y quitar", async () => {
+    await pg.exec(`delete from propiedades`)
+    await pg.exec(`insert into propiedades (id, portal, titulo, precio) values ('f1','urbania','Uno', 1), ('f2','urbania','Dos', 2)`)
+    await call("POST", "/api/admin/usuarios", {
+      token: admin,
+      body: { usuario: "otro-cliente", password: "clave-otro-55", premium: true },
+    })
+    other = (await login("otro-cliente", "clave-otro-55")).body.token
+
+    expect((await call("POST", "/api/favoritos", { token: member, body: { propiedad_id: "f1" } })).status).toBe(200)
+    await call("POST", "/api/favoritos", { token: member, body: { propiedad_id: "f1" } }) // idempotente
+    await call("POST", "/api/favoritos", { token: member, body: { propiedad_id: "f2" } })
+
+    const mine = await call("GET", "/api/favoritos", { token: member })
+    expect(mine.body.ids).toEqual(["f2", "f1"])
+    expect(typeof mine.body.propiedades[0].precio).toBe("number")
+    expect((await call("GET", "/api/favoritos", { token: other })).body.ids).toEqual([])
+
+    await call("DELETE", "/api/favoritos/f2", { token: other }) // no borra el de otro usuario
+    expect((await call("GET", "/api/favoritos", { token: member })).body.ids).toEqual(["f2", "f1"])
+    await call("DELETE", "/api/favoritos/f2", { token: member })
+    expect((await call("GET", "/api/favoritos", { token: member })).body.ids).toEqual(["f1"])
+
+    expect((await call("POST", "/api/favoritos", { token: member, body: { propiedad_id: "nope" } })).status).toBe(404)
+    expect((await call("GET", "/api/favoritos", { token: noPlan })).status).toBe(403)
+    expect((await call("GET", "/api/favoritos")).status).toBe(401)
+  })
+
+  it("búsquedas: guarda solo filtros válidos y los devuelve como objeto", async () => {
+    const created = await call("POST", "/api/busquedas", {
+      token: member,
+      body: {
+        nombre: "  Depas en Lince  ",
+        filtros: {
+          distrito: "Lince",
+          operacion: "VENTA",
+          inmueble: "Hack",
+          portales: ["Urbania", 5, "x".repeat(60)],
+          moneda: "USD",
+          precioMin: "1000",
+          precioMax: -5,
+          dormitorios: "9",
+          inyectada: "<script>",
+        },
+      },
+    })
+    expect(created.status).toBe(200)
+
+    const list = await call("GET", "/api/busquedas", { token: member })
+    expect(list.body).toHaveLength(1)
+    expect(list.body[0].nombre).toBe("Depas en Lince")
+    expect(list.body[0].filtros).toEqual({
+      distrito: "Lince",
+      operacion: "VENTA",
+      inmueble: "todos",
+      portales: ["urbania"],
+      moneda: "USD",
+      precioMin: 1000,
+      precioMax: "",
+      dormitorios: "todos",
+    })
+    expect(JSON.stringify(list.body)).not.toContain("script")
+
+    expect((await call("GET", "/api/busquedas", { token: other })).body).toEqual([])
+    expect((await call("POST", "/api/busquedas", { token: member, body: { nombre: "  ", filtros: {} } })).status).toBe(400)
+    expect((await call("GET", "/api/busquedas", { token: noPlan })).status).toBe(403)
+  })
+
+  it("búsquedas: máximo 20 por usuario y no se pueden borrar las de otro", async () => {
+    const id = (await call("GET", "/api/busquedas", { token: member })).body[0].id
+    expect((await call("DELETE", `/api/busquedas/${id}`, { token: other })).status).toBe(404)
+    expect((await call("DELETE", "/api/busquedas/no-uuid", { token: member })).status).toBe(400)
+
+    for (let i = 0; i < 19; i++) {
+      await call("POST", "/api/busquedas", { token: member, body: { nombre: `b${i}`, filtros: {} } })
+    }
+    const over = await call("POST", "/api/busquedas", { token: member, body: { nombre: "una más", filtros: {} } })
+    expect(over.status).toBe(400)
+    expect(over.body.message).toContain("20")
+
+    expect((await call("DELETE", `/api/busquedas/${id}`, { token: member })).status).toBe(200)
+    expect((await call("POST", "/api/busquedas", { token: member, body: { nombre: "ahora sí", filtros: {} } })).status).toBe(200)
   })
 })

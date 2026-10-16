@@ -1,17 +1,64 @@
 import { MAX_PAGE_SIZE, PORTAL_PAGE_SIZE } from "../../shared/constants"
+import { sanitizeFilterState } from "../../shared/savedSearch"
 import { validateEnlace } from "../../shared/validation"
+import { toCsv, type CsvColumn } from "../csv"
 import { usdToPenRate } from "../env"
-import { badRequest, intParam, notFound, optStr, readJson } from "../http"
+import { badRequest, intParam, notFound, optStr, readJson, str } from "../http"
 import {
   ENLACE_COLUMNS,
+  PROPERTY_COLUMNS,
   buildPortalCount,
   buildPortalQuery,
   parsePortalFilters,
 } from "../propertyQueries"
 import type { Route } from "../router"
+import { favoritosRoutes } from "./favoritos"
 
-/** Páginas del portal y enlaces de apoyo (admin y suscriptores vigentes). */
+const MAX_EXPORT_ROWS = 5000
+const MAX_SAVED_SEARCHES = 20
+
+interface ExportRow {
+  id: string
+  portal: string
+  operacion: string | null
+  inmueble: string | null
+  titulo: string | null
+  precio: number
+  moneda: string
+  precio_usd: number
+  distrito: string | null
+  dormitorios: string | null
+  banios: string | null
+  area: string | null
+  url: string | null
+  creado_en: Date | string
+}
+
+const EXPORT_COLUMNS: CsvColumn<ExportRow>[] = [
+  { header: "id", get: r => r.id },
+  { header: "portal", get: r => r.portal },
+  { header: "operacion", get: r => r.operacion },
+  { header: "inmueble", get: r => r.inmueble },
+  { header: "titulo", get: r => r.titulo },
+  { header: "precio", get: r => r.precio },
+  { header: "moneda", get: r => r.moneda },
+  { header: "precio_usd", get: r => r.precio_usd },
+  { header: "distrito", get: r => r.distrito },
+  { header: "dormitorios", get: r => r.dormitorios },
+  { header: "banios", get: r => r.banios },
+  { header: "area", get: r => r.area },
+  { header: "url", get: r => r.url },
+  { header: "creado_en", get: r => r.creado_en },
+]
+
+/** Detecta que la tabla del historial aún no existe (migración 004 sin aplicar). */
+const isMissingTable = (err: unknown) =>
+  /relation .* does not exist/i.test(String((err as { message?: string })?.message ?? ""))
+
+/** Páginas del portal, detalle, exportación, favoritos, búsquedas y enlaces (admin y suscriptores vigentes). */
 export const portalRoutes: Route[] = [
+  ...favoritosRoutes("/api", "member"),
+
   {
     method: "GET",
     path: "/api/propiedades",
@@ -34,6 +81,112 @@ export const portalRoutes: Route[] = [
         count = (await db.query<{ total: number }>(c.text, c.params))[0]?.total ?? 0
       }
       return { data: rows.map(({ total: _t, ...row }) => row), count }
+    },
+  },
+
+  {
+    // Debe ir antes de `/api/propiedades/:id` para que "export" no se interprete como un id.
+    method: "GET",
+    path: "/api/propiedades/export",
+    level: "member",
+    handler: async ({ url, db, env }) => {
+      const filters = parsePortalFilters(url.searchParams)
+      const query = buildPortalQuery(filters, 0, MAX_EXPORT_ROWS, usdToPenRate(env))
+      const rows = await db.query<ExportRow & { total: number }>(query.text, query.params)
+
+      const today = new Date().toISOString().slice(0, 10)
+      return new Response(toCsv(rows, EXPORT_COLUMNS), {
+        status: 200,
+        headers: {
+          "Content-Type": "text/csv; charset=utf-8",
+          "Content-Disposition": `attachment; filename="propiedades-${today}.csv"`,
+          "Cache-Control": "no-store",
+        },
+      })
+    },
+  },
+  {
+    method: "GET",
+    path: "/api/propiedades/:id",
+    level: "member",
+    handler: async ({ params, db }) => {
+      const rows = await db.query(
+        `select ${PROPERTY_COLUMNS} from public.propiedades where id = $1`,
+        [params.id]
+      )
+      if (rows.length === 0) throw notFound()
+
+      let historial: unknown[] = []
+      try {
+        historial = await db.query(
+          `select registrado_en, precio::float8 as precio, precio_usd::float8 as precio_usd, moneda
+             from public.propiedades_precios
+            where propiedad_id = $1
+            order by registrado_en`,
+          [params.id]
+        )
+      } catch (err) {
+        // Sin la migración 004 el detalle sigue funcionando, solo sin historial.
+        if (!isMissingTable(err)) throw err
+      }
+      return { propiedad: rows[0], historial }
+    },
+  },
+
+  {
+    method: "GET",
+    path: "/api/busquedas",
+    level: "member",
+    handler: async ({ db, access }) =>
+      db.query(
+        `select id, nombre, filtros, creado_en
+           from public.busquedas_guardadas
+          where admin_id = $1 and filtros is not null
+          order by creado_en desc`,
+        [access.usuario.id]
+      ),
+  },
+  {
+    method: "POST",
+    path: "/api/busquedas",
+    level: "member",
+    handler: async ({ req, db, access }) => {
+      const body = await readJson(req)
+      const nombre = str(body.nombre, "nombre", 80).trim()
+      if (!nombre) throw badRequest("Ponle un nombre a la búsqueda")
+      const filtros = sanitizeFilterState(body.filtros)
+
+      const count = await db.query<{ n: number }>(
+        "select count(*)::int as n from public.busquedas_guardadas where admin_id = $1 and filtros is not null",
+        [access.usuario.id]
+      )
+      if ((count[0]?.n ?? 0) >= MAX_SAVED_SEARCHES) {
+        throw badRequest(`Puedes guardar hasta ${MAX_SAVED_SEARCHES} búsquedas. Elimina alguna para continuar.`)
+      }
+
+      const rows = await db.query<{ id: string }>(
+        `insert into public.busquedas_guardadas (admin_id, nombre, distrito, operacion, portal, filtros)
+         values ($1, $2, $3, $4, 'todos', $5::jsonb)
+         returning id`,
+        [access.usuario.id, nombre, filtros.distrito, filtros.operacion, JSON.stringify(filtros)]
+      )
+      return rows[0]
+    },
+  },
+  {
+    method: "DELETE",
+    path: "/api/busquedas/:id",
+    level: "member",
+    handler: async ({ params, db, access }) => {
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(params.id)) {
+        throw badRequest("Id inválido")
+      }
+      const rows = await db.query(
+        "delete from public.busquedas_guardadas where id = $1 and admin_id = $2 and filtros is not null returning id",
+        [params.id, access.usuario.id]
+      )
+      if (rows.length === 0) throw notFound()
+      return { ok: true }
     },
   },
 

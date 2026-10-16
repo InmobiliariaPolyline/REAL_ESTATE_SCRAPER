@@ -74,7 +74,37 @@ async function request<T>(
   return data as T
 }
 
+/** Descarga autenticada de un archivo (p. ej. CSV): devuelve el contenido y el nombre sugerido. */
+async function download(
+  path: string,
+  params?: QueryParams
+): Promise<{ blob: Blob; filename: string }> {
+  const token = getSessionToken()
+  let res: Response
+  try {
+    res = await fetch(`${API_BASE_URL}/api${path}${toQuery(params)}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+  } catch (err) {
+    throw new ApiError(0, "network", err instanceof Error ? err.message : "Error de red")
+  }
+  if (!res.ok) {
+    let body: { error?: string; message?: string } = {}
+    try {
+      body = await res.json()
+    } catch {
+      /* sin cuerpo JSON */
+    }
+    if (res.status === 401 && token) onUnauthorized?.()
+    throw new ApiError(res.status, body.error ?? "http_error", body.message ?? `Error ${res.status}`)
+  }
+  const disposition = res.headers.get("content-disposition") ?? ""
+  const filename = /filename="?([^";]+)"?/i.exec(disposition)?.[1] ?? "descarga"
+  return { blob: await res.blob(), filename }
+}
+
 export const api = {
+  download,
   get: <T>(path: string, params?: QueryParams) => request<T>("GET", path, { params }),
   post: <T>(path: string, body?: unknown) =>
     request<T>("POST", path, { body: body ?? {} }),

@@ -1,3 +1,5 @@
+import { DEFAULT_PORTAL_FILTERS, type PortalFilterState } from "@shared/savedSearch"
+
 export type Vista = "login" | "admin" | "portal" | "vencido"
 
 export type Rol = "admin" | "usuario"
@@ -37,26 +39,7 @@ export interface Propiedad {
   creado_en?: string
 }
 
-export interface FilterState {
-  distrito: string
-  operacion: "todos" | "ALQUILER" | "VENTA"
-  inmueble: "todos" | "Departamento" | "Casa"
-  portales: string[]
-  moneda: "PEN" | "USD"
-  precioMin: number | ""
-  precioMax: number | ""
-  dormitorios: "todos" | "1" | "2" | "3" | "4+"
-}
-
-export const DEFAULT_FILTERS: FilterState = {
-  distrito: "",
-  operacion: "todos",
-  inmueble: "todos",
-  portales: [],
-  moneda: "PEN",
-  precioMin: "",
-  precioMax: "",
-  dormitorios: "todos",
-}
+export type FilterState = PortalFilterState
+export const DEFAULT_FILTERS: FilterState = DEFAULT_PORTAL_FILTERS
 
 export type PlanType = "PREMIUM" | "GRATIS"
