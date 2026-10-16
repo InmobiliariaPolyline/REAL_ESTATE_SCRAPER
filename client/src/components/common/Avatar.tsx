@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils"
 
 interface AvatarProps {
   name: string
-  size?: "sm" | "md" | "lg"
+  size?: "sm" | "md" | "lg" | "xl"
   className?: string
 }
 
@@ -10,6 +10,7 @@ const SIZES = {
   sm: "size-8 text-xs",
   md: "size-10 text-sm",
   lg: "size-12 text-base",
+  xl: "size-20 text-2xl",
 }
 
 // Paleta fija: el mismo nombre siempre produce el mismo color.

@@ -1,7 +1,9 @@
 import path from "node:path";
 import { defineConfig } from "vitest/config";
+import { buildInfo } from "./build-info";
 
 export default defineConfig({
+  define: buildInfo(import.meta.dirname),
   esbuild: { jsx: "automatic" },
   resolve: {
     alias: {

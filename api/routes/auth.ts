@@ -133,6 +133,43 @@ export const authRoutes: Route[] = [
     },
   },
   {
+    // Resumen de la cuenta para la pantalla "Perfil": antigüedad, accesos, plan y actividad propia.
+    method: "GET",
+    path: "/api/account/profile",
+    level: "user",
+    handler: async ({ db, access }) => {
+      const id = access.usuario.id
+      const rows = await db.query<Record<string, unknown>>(
+        `select u.usuario, u.rol, u.estado, u.creado_en,
+                (select count(*)::int from public.historial_accesos h
+                  where h.usuario_id = u.id and h.fecha_acceso >= now() - interval '30 days') as accesos_30d,
+                (select count(*)::int from public.historial_accesos h where h.usuario_id = u.id) as accesos_total,
+                -- El acceso más reciente es el actual; el "anterior" es el segundo.
+                (select h.fecha_acceso from public.historial_accesos h
+                  where h.usuario_id = u.id order by h.fecha_acceso desc offset 1 limit 1) as acceso_anterior,
+                (select count(*)::int from public.app_sessions s
+                  where s.usuario_id = u.id and s.expires_at > now()) as sesiones_activas,
+                (select count(*)::int from public.favoritos f where f.admin_id = u.id) as favoritos,
+                (select count(*)::int from public.busquedas_guardadas b
+                  where b.admin_id = u.id and b.filtros is not null) as busquedas
+           from public.usuarios u
+          where u.id = $1`,
+        [id]
+      )
+      const sub = await db.query<{ fecha_inicio: string; fecha_vencimiento: string; dias_restantes: number; dias_totales: number }>(
+        `select to_char(fecha_inicio, 'YYYY-MM-DD') as fecha_inicio,
+                to_char(fecha_vencimiento, 'YYYY-MM-DD') as fecha_vencimiento,
+                (fecha_vencimiento - (now() at time zone 'America/Lima')::date)::int as dias_restantes,
+                (fecha_vencimiento - fecha_inicio)::int as dias_totales
+           from public.suscripciones
+          where usuario_id = $1
+          order by fecha_vencimiento desc limit 1`,
+        [id]
+      )
+      return { ...rows[0], suscripcion: sub[0] ?? null }
+    },
+  },
+  {
     method: "GET",
     path: "/api/account/sessions",
     level: "user",

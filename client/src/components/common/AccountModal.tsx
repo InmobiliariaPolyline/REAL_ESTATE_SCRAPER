@@ -17,7 +17,7 @@ import { trapFocus } from '@/lib/focusTrap'
 
 type Tab = 'password' | 'sessions'
 
-function SessionsPanel() {
+export function SessionsPanel() {
   const [sessions, setSessions] = useState<SessionInfo[]>([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)

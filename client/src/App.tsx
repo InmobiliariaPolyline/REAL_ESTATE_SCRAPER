@@ -3,6 +3,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import ErrorBoundary from "./components/common/ErrorBoundary"
 import FullScreenLoader from "./components/common/FullScreenLoader"
 import IdleWarningModal from "./components/common/IdleWarningModal"
+import { PreferencesProvider } from "./contexts/PreferencesContext"
 import { ThemeProvider } from "./contexts/ThemeContext"
 import { ToastProvider, useToast } from "./contexts/ToastContext"
 import { useIdleSession } from "./hooks/useIdleSession"
@@ -147,11 +148,13 @@ export default function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider defaultTheme="dark" switchable>
-        <ToastProvider>
-          <TooltipProvider>
-            <Router />
-          </TooltipProvider>
-        </ToastProvider>
+        <PreferencesProvider>
+          <ToastProvider>
+            <TooltipProvider>
+              <Router />
+            </TooltipProvider>
+          </ToastProvider>
+        </PreferencesProvider>
       </ThemeProvider>
     </ErrorBoundary>
   )

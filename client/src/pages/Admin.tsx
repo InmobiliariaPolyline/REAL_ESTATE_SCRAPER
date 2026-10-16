@@ -2,15 +2,15 @@ import { KeyRound, LogOut, Moon, Sun } from "lucide-react"
 import { Suspense, lazy, useState } from "react"
 import AdminSidebar from "@/components/admin/AdminSidebar"
 import { ADMIN_TABS, type AdminTab } from "@/components/admin/tabs"
+import { sectionsFor, type SistemaSection } from "@/components/sistema/SistemaModule"
 import { useTheme } from "@/contexts/ThemeContext"
 import CommandPalette, { type CommandAction } from "@/components/common/CommandPalette"
 import PageHeader from "@/components/common/PageHeader"
 
 const AdminDashboard = lazy(() => import("@/components/admin/AdminDashboard"))
-const AdminAuditoria = lazy(() => import("@/components/admin/AdminAuditoria"))
 const AdminEnlaces = lazy(() => import("@/components/admin/AdminEnlaces"))
 const AdminPropiedades = lazy(() => import("@/components/admin/AdminPropiedades"))
-const AdminActividad = lazy(() => import("@/components/admin/AdminActividad"))
+const SistemaModule = lazy(() => import("@/components/sistema/SistemaModule"))
 const AdminUsuarios = lazy(() => import("@/components/admin/AdminUsuarios"))
 
 interface AdminProps {
@@ -20,6 +20,7 @@ interface AdminProps {
 
 export default function Admin({ usuario, onLogout }: AdminProps) {
   const [activeTab, setActiveTab] = useState<AdminTab>("dashboard")
+  const [sistemaSection, setSistemaSection] = useState<SistemaSection>("perfil")
   const { theme, toggleTheme } = useTheme()
 
   const paletteActions: CommandAction[] = [
@@ -30,6 +31,17 @@ export default function Admin({ usuario, onLogout }: AdminProps) {
       icon: tab.icon,
       keywords: [tab.title, tab.description],
       run: () => setActiveTab(tab.id),
+    })),
+    ...sectionsFor(true).map(sec => ({
+      id: `sistema-${sec.id}`,
+      label: `Sistema: ${sec.label}`,
+      group: "Sistema",
+      icon: sec.icon,
+      keywords: [sec.title, sec.description],
+      run: () => {
+        setSistemaSection(sec.id)
+        setActiveTab("sistema")
+      },
     })),
     { id: "cuenta", label: "Mi cuenta: contraseña y sesiones", group: "Cuenta", icon: KeyRound, keywords: ["password", "clave", "dispositivos"], run: () => window.dispatchEvent(new Event("open-account")) },
     ...(toggleTheme
@@ -49,10 +61,15 @@ export default function Admin({ usuario, onLogout }: AdminProps) {
         return <AdminEnlaces />
       case "usuarios":
         return <AdminUsuarios />
-      case "actividad":
-        return <AdminActividad />
-      case "auditoria":
-        return <AdminAuditoria />
+      case "sistema":
+        return (
+          <SistemaModule
+            esAdmin
+            section={sistemaSection}
+            onSectionChange={setSistemaSection}
+            onLogout={onLogout}
+          />
+        )
       case "dashboard":
       default:
         return <AdminDashboard onNavigate={setActiveTab} />

@@ -1,14 +1,15 @@
-import { Calculator, Home, LayoutGrid, Search, TrendingUp, type LucideIcon } from "lucide-react"
+import { Calculator, Home, LayoutGrid, Search, TrendingUp, UserCog, type LucideIcon } from "lucide-react"
 import { openCommandPalette } from "@/components/common/CommandPalette"
 import { cn } from "@/lib/utils"
 
-export type PortalView = "inicio" | "catalogo" | "estadisticas" | "calculadora"
+export type PortalView = "inicio" | "catalogo" | "estadisticas" | "calculadora" | "cuenta"
 
 const TABS: { id: PortalView; label: string; icon: LucideIcon }[] = [
   { id: "inicio", label: "Inicio", icon: Home },
   { id: "catalogo", label: "Catálogo", icon: LayoutGrid },
   { id: "estadisticas", label: "Estadísticas", icon: TrendingUp },
   { id: "calculadora", label: "Calculadora", icon: Calculator },
+  { id: "cuenta", label: "Cuenta", icon: UserCog },
 ]
 
 interface PortalTabsProps {

@@ -986,6 +986,31 @@ describe("sesiones activas", () => {
   })
 })
 
+describe("perfil de la cuenta", () => {
+  it("exige sesión y devuelve el resumen del propio usuario", async () => {
+    expect((await call("GET", "/api/account/profile")).status).toBe(401)
+
+    const r = await call("GET", "/api/account/profile", { token: member })
+    expect(r.status).toBe(200)
+    expect(r.body).toMatchObject({ usuario: "cliente", rol: "usuario", estado: "activo" })
+    expect(r.body.accesos_total).toBeGreaterThanOrEqual(1)
+    expect(r.body.sesiones_activas).toBeGreaterThanOrEqual(1)
+    expect(typeof r.body.favoritos).toBe("number")
+    expect(r.body.suscripcion).toMatchObject({ fecha_vencimiento: expect.any(String) })
+    expect(r.body.suscripcion.dias_restantes).toBeGreaterThan(0)
+    expect(r.body.suscripcion.dias_totales).toBeGreaterThanOrEqual(r.body.suscripcion.dias_restantes)
+    // Nunca expone datos sensibles.
+    expect(JSON.stringify(r.body)).not.toMatch(/password|hash|token/i)
+  })
+
+  it("el admin no tiene suscripción y un usuario sin plan también puede ver su perfil", async () => {
+    const a = await call("GET", "/api/account/profile", { token: admin })
+    expect(a.body).toMatchObject({ rol: "admin" })
+    expect(a.body.suscripcion).toBeNull()
+    expect((await call("GET", "/api/account/profile", { token: noPlan })).status).toBe(200)
+  })
+})
+
 describe("inicio, estadísticas y vencimientos", () => {
   it("exigen sesión con plan vigente", async () => {
     expect((await call("GET", "/api/inicio")).status).toBe(401)

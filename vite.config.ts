@@ -2,8 +2,10 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
 import { defineConfig } from "vite";
+import { buildInfo } from "./build-info";
 
 export default defineConfig({
+  define: buildInfo(import.meta.dirname),
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {

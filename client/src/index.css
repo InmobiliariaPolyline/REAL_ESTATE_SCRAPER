@@ -52,6 +52,9 @@
     0 0 0 1px rgb(212 183 130 / 0.08);
   --glow-1: rgb(212 183 130 / 0.06);
   --glow-2: rgb(110 168 254 / 0.04);
+  --grad-a: #e6cb97;
+  --grad-b: #d4b782;
+  --grad-c: #b8935f;
 
   /* Variables que consumen los componentes shadcn */
   --background: var(--app);
@@ -205,6 +208,150 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   PERSONALIZACIÓN (Sistema → Personalización)
+   Color de acento: reemplaza la familia "gold" (el nombre es histórico). Se define aparte
+   para el tema oscuro y el claro; el degradado de marca usa tonos propios de cada acento.
+   ═══════════════════════════════════════════════════════════════════════════ */
+:root[data-accent="teal"]:not(.light) {
+  --gold: #4fd1b5;
+  --gold-strong: #7ee3cc;
+  --gold-dim: #2f9d86;
+  --gold-rgb: 79 209 181;
+  --gold-soft: rgb(79 209 181 / 0.12);
+  --on-gold: #04211b;
+  --grad-a: #7ee3cc;
+  --grad-b: #4fd1b5;
+  --grad-c: #2f9d86;
+  --glow-1: rgb(79 209 181 / 0.07);
+}
+:root.light[data-accent="teal"] {
+  --gold: #0f766e;
+  --gold-strong: #0b5d56;
+  --gold-dim: #2b9488;
+  --gold-rgb: 15 118 110;
+  --gold-soft: rgb(15 118 110 / 0.12);
+  --on-gold: #ffffff;
+  --grad-a: #4fd1b5;
+  --grad-b: #7ee3cc;
+  --grad-c: #2f9d86;
+  --glow-1: rgb(15 118 110 / 0.07);
+}
+:root[data-accent="blue"]:not(.light) {
+  --gold: #6ea8fe;
+  --gold-strong: #9bc2ff;
+  --gold-dim: #4a7fd1;
+  --gold-rgb: 110 168 254;
+  --gold-soft: rgb(110 168 254 / 0.12);
+  --on-gold: #06142b;
+  --grad-a: #9bc2ff;
+  --grad-b: #6ea8fe;
+  --grad-c: #4a7fd1;
+  --glow-1: rgb(110 168 254 / 0.07);
+}
+:root.light[data-accent="blue"] {
+  --gold: #1d5fd1;
+  --gold-strong: #1749a3;
+  --gold-dim: #4a7fd1;
+  --gold-rgb: 29 95 209;
+  --gold-soft: rgb(29 95 209 / 0.12);
+  --on-gold: #ffffff;
+  --grad-a: #6ea8fe;
+  --grad-b: #9bc2ff;
+  --grad-c: #4a7fd1;
+  --glow-1: rgb(29 95 209 / 0.07);
+}
+:root[data-accent="violet"]:not(.light) {
+  --gold: #a78bfa;
+  --gold-strong: #c4b0fc;
+  --gold-dim: #7c5fd6;
+  --gold-rgb: 167 139 250;
+  --gold-soft: rgb(167 139 250 / 0.12);
+  --on-gold: #150c33;
+  --grad-a: #c4b0fc;
+  --grad-b: #a78bfa;
+  --grad-c: #7c5fd6;
+  --glow-1: rgb(167 139 250 / 0.07);
+}
+:root.light[data-accent="violet"] {
+  --gold: #6d3fd1;
+  --gold-strong: #5530a8;
+  --gold-dim: #8a63e0;
+  --gold-rgb: 109 63 209;
+  --gold-soft: rgb(109 63 209 / 0.12);
+  --on-gold: #ffffff;
+  --grad-a: #a78bfa;
+  --grad-b: #c4b0fc;
+  --grad-c: #7c5fd6;
+  --glow-1: rgb(109 63 209 / 0.07);
+}
+:root[data-accent="green"]:not(.light) {
+  --gold: #4ade80;
+  --gold-strong: #86efac;
+  --gold-dim: #2fa85c;
+  --gold-rgb: 74 222 128;
+  --gold-soft: rgb(74 222 128 / 0.12);
+  --on-gold: #052e16;
+  --grad-a: #86efac;
+  --grad-b: #4ade80;
+  --grad-c: #2fa85c;
+  --glow-1: rgb(74 222 128 / 0.07);
+}
+:root.light[data-accent="green"] {
+  --gold: #15803d;
+  --gold-strong: #116631;
+  --gold-dim: #3aa05f;
+  --gold-rgb: 21 128 61;
+  --gold-soft: rgb(21 128 61 / 0.12);
+  --on-gold: #ffffff;
+  --grad-a: #4ade80;
+  --grad-b: #86efac;
+  --grad-c: #2fa85c;
+  --glow-1: rgb(21 128 61 / 0.07);
+}
+:root[data-accent="amber"]:not(.light) {
+  --gold: #f5b454;
+  --gold-strong: #f9cd87;
+  --gold-dim: #d48a1f;
+  --gold-rgb: 245 180 84;
+  --gold-soft: rgb(245 180 84 / 0.12);
+  --on-gold: #2b1700;
+  --grad-a: #f9cd87;
+  --grad-b: #f5b454;
+  --grad-c: #d48a1f;
+  --glow-1: rgb(245 180 84 / 0.07);
+}
+:root.light[data-accent="amber"] {
+  --gold: #a85a05;
+  --gold-strong: #864704;
+  --gold-dim: #d08a30;
+  --gold-rgb: 168 90 5;
+  --gold-soft: rgb(168 90 5 / 0.12);
+  --on-gold: #ffffff;
+  --grad-a: #f5b454;
+  --grad-b: #f9cd87;
+  --grad-c: #d48a1f;
+  --glow-1: rgb(168 90 5 / 0.07);
+}
+
+/* Tamaño de interfaz: todo usa rem, así que basta con escalar la raíz */
+:root[data-scale="compact"] { font-size: 92%; }
+:root[data-scale="large"] { font-size: 108%; }
+
+/* Animaciones reducidas por elección del usuario (además de la preferencia del sistema) */
+:root[data-motion="reduced"] *,
+:root[data-motion="reduced"] *::before,
+:root[data-motion="reduced"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Luz ambiental desactivada */
+:root[data-ambient="off"] body::before { display: none; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
    BASE
@@ -366,6 +513,21 @@
   50% { opacity: 0.45; }
 }
 
+@keyframes swatchPop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.22); }
+  100% { transform: scale(1); }
+}
+
+@keyframes ringDraw {
+  from { stroke-dashoffset: var(--ring-len, 283); }
+}
+
+@keyframes timelineIn {
+  from { opacity: 0; transform: translateX(-10px); }
+  to { opacity: 1; transform: none; }
+}
+
 @keyframes drift {
   0% { transform: translate3d(-3%, -2%, 0) scale(1); }
   50% { transform: translate3d(2%, 3%, 0) scale(1.08); }
@@ -423,6 +585,8 @@
 .animate-slideInUp { animation: slideInUp 0.4s cubic-bezier(0.23, 1, 0.32, 1) both; }
 .animate-popIn { animation: popIn 0.22s cubic-bezier(0.23, 1, 0.32, 1) both; }
 .animate-fadeIn { animation: fadeIn 0.25s ease both; }
+.animate-swatch { animation: swatchPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.animate-timeline { animation: timelineIn 0.45s cubic-bezier(0.23, 1, 0.32, 1) backwards; }
 .animate-float { animation: float 4.5s ease-in-out infinite; }
 .animate-shake { animation: shake 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97) both; }
 .radar-ring { animation: radar 2.2s ease-out infinite; }
@@ -727,6 +891,33 @@
   }
   .dot-live { animation: pulseSoft 2s ease-in-out infinite; }
 
+  /* ── Interruptor (role="switch") ────────────────────────────────────── */
+  .switch {
+    position: relative;
+    flex-shrink: 0;
+    width: 2.75rem;
+    height: 1.5rem;
+    border-radius: 999px;
+    background: var(--surface-4);
+    border: 1px solid var(--line-strong);
+    transition: background-color 0.25s ease, border-color 0.25s ease;
+  }
+  .switch::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0.1875rem;
+    width: 1.0625rem;
+    height: 1.0625rem;
+    border-radius: 999px;
+    background: var(--text);
+    transform: translateY(-50%);
+    transition: left 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.25s ease;
+  }
+  .switch[aria-checked="true"] { background: var(--gold); border-color: var(--gold); }
+  .switch[aria-checked="true"]::after { left: calc(100% - 1.0625rem - 0.1875rem); background: var(--on-gold); }
+  .switch:disabled { opacity: 0.5; cursor: not-allowed; }
+
   /* ── Navegación lateral ─────────────────────────────────────────────── */
   .nav-item {
     position: relative;
@@ -841,7 +1032,7 @@
   .gold-gradient {
     background:
       radial-gradient(120% 120% at 100% 0%, rgb(255 255 255 / 0.22), transparent 55%),
-      linear-gradient(135deg, #e6cb97 0%, #d4b782 45%, #b8935f 100%);
+      linear-gradient(135deg, var(--grad-a) 0%, var(--grad-b) 45%, var(--grad-c) 100%);
     color: var(--on-gold);
   }
 

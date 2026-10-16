@@ -27,6 +27,7 @@ import PortalEstadisticas from "@/components/portal/PortalEstadisticas"
 import PortalHeader from "@/components/portal/PortalHeader"
 import PortalInicio from "@/components/portal/PortalInicio"
 import PortalTabs, { type PortalView } from "@/components/portal/PortalTabs"
+import { sectionsFor, type SistemaSection } from "@/components/sistema/SistemaModule"
 import Pagination from "@/components/properties/Pagination"
 import PropertyCard from "@/components/properties/PropertyCard"
 import PropertyTable from "@/components/properties/PropertyTable"
@@ -55,6 +56,7 @@ import {
 } from "@/types"
 
 // Modales pesados (gráficos, comparador): se descargan al abrirse por primera vez.
+const SistemaModule = lazy(() => import("@/components/sistema/SistemaModule"))
 const CompareModal = lazy(() => import("@/components/portal/CompareModal"))
 const PropertyDetailModal = lazy(() => import("@/components/portal/PropertyDetailModal"))
 const SavedSearchesModal = lazy(() => import("@/components/portal/SavedSearchesModal"))
@@ -105,6 +107,7 @@ export default function Portal({
   const { theme, toggleTheme } = useTheme()
   const requestId = useRef(0)
   const [view, setView] = useState<PortalView>("inicio")
+  const [sistemaSection, setSistemaSection] = useState<SistemaSection>("perfil")
 
   const loadProperties = useCallback(
     async (activeFilters: FilterState, page: number, activeOrden: Orden = ordenRef.current) => {
@@ -265,6 +268,17 @@ export default function Portal({
     { id: "v-calc", label: "Ir a la Calculadora", group: "Secciones", icon: Calculator, keywords: ["hipoteca", "rentabilidad", "cuota"], run: () => setView("calculadora") },
     { id: "a-fav", label: "Ver mis favoritos", group: "Acciones", icon: Heart, run: () => { setView("catalogo"); if (!soloFavoritos) toggleSoloFavoritos() } },
     { id: "a-busquedas", label: "Mis búsquedas guardadas", group: "Acciones", icon: Bookmark, run: () => setShowSaved(true) },
+    ...sectionsFor(false).map(sec => ({
+      id: `cuenta-${sec.id}`,
+      label: `Cuenta: ${sec.label}`,
+      group: "Cuenta",
+      icon: sec.icon,
+      keywords: [sec.title, sec.description],
+      run: () => {
+        setSistemaSection(sec.id)
+        setView("cuenta")
+      },
+    })),
     { id: "a-cuenta", label: "Mi cuenta: contraseña y sesiones", group: "Cuenta", icon: KeyRound, keywords: ["password", "clave", "dispositivos"], run: () => window.dispatchEvent(new Event("open-account")) },
     ...(toggleTheme
       ? [{ id: "a-tema", label: theme === "dark" ? "Cambiar a tema claro" : "Cambiar a tema oscuro", group: "Cuenta", icon: theme === "dark" ? Sun : Moon, run: toggleTheme }]
@@ -328,6 +342,24 @@ export default function Portal({
               description="Estima la cuota de una hipoteca y cuánto rinde un inmueble puesto en alquiler."
             />
             <PortalCalculadora />
+          </>
+        )}
+
+        {view === "cuenta" && (
+          <>
+            <PageHeader
+              eyebrow="Cuenta"
+              title="Tu cuenta"
+              description="Perfil, seguridad, apariencia y novedades del sistema."
+            />
+            <Suspense fallback={<div className="skeleton h-72" aria-busy="true" />}>
+              <SistemaModule
+                esAdmin={false}
+                section={sistemaSection}
+                onSectionChange={setSistemaSection}
+                onLogout={onLogout}
+              />
+            </Suspense>
           </>
         )}
 

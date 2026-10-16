@@ -161,6 +161,24 @@ minúsculas y `moneda` como `PEN` o `USD`.
 - **Admin, Vencimientos:** el Dashboard lista las suscripciones que vencen en 7 días (o vencieron hace
   menos de 7) con un botón que abre WhatsApp con el recordatorio de renovación ya escrito.
 
+## Módulo Sistema
+
+Disponible para el administrador (pestaña **Sistema**) y para los clientes (pestaña **Cuenta**), con una
+sub-barra lateral (`client/src/components/sistema/`):
+
+- **Perfil:** antigüedad, accesos, sesiones activas, favoritos y el plan con un anillo de días restantes
+  (`GET /api/account/profile`).
+- **Seguridad:** estado de protección, cambio de contraseña, sesiones activas y buenas prácticas.
+- **Tema y personalización:** tema claro u oscuro, color de acento, tamaño de la interfaz, animaciones
+  reducidas y luz ambiental. Se guardan solo en el navegador (`localStorage`, clave `prefs`) y
+  `client/public/theme-init.js` las aplica antes del primer pintado.
+- **Actividad y Auditoría** (solo administrador): últimos accesos y registro de acciones.
+- **Acerca del sistema:** versión, estado en vivo de la API y el historial de implementaciones,
+  mejoras, correcciones y seguridad (`client/src/lib/changelog.ts`).
+
+**Versión:** la fija `package.json` y se inyecta en la compilación (`build-info.ts`); una prueba verifica
+que coincida con la última entrada de `changelog.ts`. Al publicar una versión nueva, actualiza ambos.
+
 ## Seguridad y operación
 
 - **Mi cuenta:** cambiar contraseña y ver/cerrar las sesiones activas (dispositivo, IP, último uso).
