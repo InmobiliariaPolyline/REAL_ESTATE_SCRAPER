@@ -396,6 +396,35 @@ describe("admin: métricas y utilidades", () => {
     expect((await call("POST", "/api/admin/limpiar-inactivos", { token: t })).status).toBe(501)
   })
 
+  it("health diagnostica la causa sin filtrar secretos", async () => {
+    const failing = (message: string) =>
+      createApiHandler(
+        () => ({
+          query: async () => {
+            throw new Error(message)
+          },
+        }),
+        {}
+      )
+    const probe = async (message: string) => {
+      const res = await failing(message)(new Request("http://localhost/api/health"))
+      return { status: res.status, text: JSON.stringify(await res.json()) }
+    }
+
+    const noUrl = await probe("DATABASE_URL no está configurada")
+    expect(noUrl.status).toBe(503)
+    expect(noUrl.text).toContain("DATABASE_URL")
+
+    const badPass = await probe('password authentication failed for user "neondb_owner" npg_SECRETO')
+    expect(badPass.text).toContain("rechazó las credenciales")
+    expect(badPass.text).not.toContain("neondb_owner")
+    expect(badPass.text).not.toContain("npg_SECRETO")
+
+    expect((await probe("getaddrinfo ENOTFOUND ep-x.neon.tech")).text).toContain("alcanzar")
+    expect((await probe('relation "usuarios" does not exist')).text).toContain("db/")
+    expect((await probe("algo raro")).text).toContain("desconocido")
+  })
+
   it("errores internos no filtran detalles", async () => {
     const broken = createApiHandler(
       () => ({
@@ -405,7 +434,13 @@ describe("admin: métricas y utilidades", () => {
       }),
       {}
     )
-    const res = await broken(new Request("http://localhost/api/health"))
+    const res = await broken(
+      new Request("http://localhost/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ usuario: "a", password: "b" }),
+      })
+    )
     expect(res.status).toBe(500)
     expect(JSON.stringify(await res.json())).not.toContain("neondb_owner")
   })

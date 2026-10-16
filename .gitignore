@@ -114,3 +114,6 @@ temp/
 # Scratch / temporal files
 scratch/
 
+
+# Archivo para importar variables en Netlify (contiene secretos)
+netlify.env

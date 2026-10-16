@@ -7,6 +7,27 @@ interface LoginResult {
   [key: string]: unknown
 }
 
+/** Categoría legible de un fallo de conexión a la base (sin datos sensibles). */
+export function describeDbFailure(err: unknown): string {
+  const msg = String((err as { message?: string })?.message ?? err)
+  if (/DATABASE_URL no está configurada/i.test(msg)) {
+    return "Falta la variable DATABASE_URL en el servidor"
+  }
+  if (/password authentication failed|authentication failed|no pg_hba|role .* does not exist/i.test(msg)) {
+    return "La base rechazó las credenciales de DATABASE_URL (¿contraseña antigua?)"
+  }
+  if (/ENOTFOUND|getaddrinfo|fetch failed|ECONNREFUSED|ETIMEDOUT|timeout/i.test(msg)) {
+    return "No se pudo alcanzar el servidor de la base de datos"
+  }
+  if (/relation .* does not exist|function .* does not exist/i.test(msg)) {
+    return "La base está accesible pero falta aplicar los scripts de db/"
+  }
+  if (/invalid connection string|Invalid URL|Database connection string/i.test(msg)) {
+    return "DATABASE_URL tiene un formato inválido"
+  }
+  return "Error desconocido al consultar la base de datos"
+}
+
 export const authRoutes: Route[] = [
   {
     method: "POST",
@@ -59,7 +80,14 @@ export const authRoutes: Route[] = [
     path: "/api/health",
     level: "public",
     handler: async ({ db }) => {
-      await db.query("select 1")
+      try {
+        await db.query("select 1")
+      } catch (err) {
+        // Diagnóstico para operaciones: indica la categoría del fallo, nunca la cadena de
+        // conexión, el usuario ni el mensaje original de la base.
+        console.error("Health check falló:", err)
+        throw new HttpError(503, "db_unavailable", describeDbFailure(err))
+      }
       return { status: "ok" }
     },
   },
