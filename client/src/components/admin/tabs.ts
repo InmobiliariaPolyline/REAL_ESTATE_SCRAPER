@@ -19,5 +19,5 @@ export const ADMIN_TABS: AdminTabInfo[] = [
   { id: "propiedades", label: "Propiedades", title: "Propiedades", icon: "🏠", section: "GESTIÓN" },
   { id: "enlaces", label: "Enlaces", title: "Enlaces", icon: "🔗", section: "GESTIÓN" },
   { id: "usuarios", label: "Usuarios", title: "Usuarios y Suscripciones", icon: "👥", section: "GESTIÓN" },
-  { id: "scraper", label: "Scraper", title: "Scraper y accesos", icon: "🔄", section: "SISTEMA" },
+  { id: "scraper", label: "Actividad", title: "Actividad del sistema", icon: "🔄", section: "SISTEMA" },
 ]

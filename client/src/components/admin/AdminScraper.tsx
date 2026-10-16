@@ -61,7 +61,41 @@ export default function AdminScraper() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap gap-3">
+      {/* Ejecución del scraper */}
+      <section className="space-y-3">
+        <h2
+          className="text-lg font-bold"
+          style={{ fontFamily: "Cormorant Garamond", color: "#F0EDE8" }}
+        >
+          Ejecución del scraper
+        </h2>
+        <p className="text-sm" style={{ color: "#6B6B6B", fontFamily: "DM Sans" }}>
+          Lanza una corrida manual sin esperar al horario automático. El estado del
+          scraper (avisos nuevos y última actividad) se ve en el Dashboard.
+        </p>
+        <button
+          onClick={() => setConfirmOpen(true)}
+          disabled={scraperLoading}
+          className="px-4 py-2 rounded text-sm font-medium transition"
+          style={{
+            backgroundColor: "#C9A96E",
+            color: "#0F0F0F",
+            fontFamily: "DM Sans",
+            opacity: scraperLoading ? 0.6 : 1,
+          }}
+        >
+          {scraperLoading ? "Iniciando..." : "🔄 Forzar Scraper Ahora"}
+        </button>
+      </section>
+
+      {/* Accesos de usuarios */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2
+          className="text-lg font-bold"
+          style={{ fontFamily: "Cormorant Garamond", color: "#F0EDE8" }}
+        >
+          Accesos de usuarios
+        </h2>
         <button
           onClick={loadLogs}
           disabled={loading}
@@ -77,27 +111,7 @@ export default function AdminScraper() {
           <RefreshCw size={16} />
           Actualizar
         </button>
-        <button
-          onClick={() => setConfirmOpen(true)}
-          disabled={scraperLoading}
-          className="px-4 py-2 rounded text-sm font-medium transition"
-          style={{
-            backgroundColor: "#C9A96E",
-            color: "#0F0F0F",
-            fontFamily: "DM Sans",
-            opacity: scraperLoading ? 0.6 : 1,
-          }}
-        >
-          {scraperLoading ? "Iniciando..." : "🔄 Forzar Scraper Ahora"}
-        </button>
       </div>
-
-      <h2
-        className="text-lg font-bold"
-        style={{ fontFamily: "Cormorant Garamond", color: "#F0EDE8" }}
-      >
-        Últimos accesos de usuarios
-      </h2>
 
       {/* Consola de accesos */}
       <div
