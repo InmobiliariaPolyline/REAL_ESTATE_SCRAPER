@@ -401,15 +401,6 @@ describe("admin: métricas y utilidades", () => {
     expect(typeof logs.body[0].id).toBe("number")
   })
 
-  it("scraper sin configurar -> 501", async () => {
-    const t = (await login("admin", "admin-pass-123")).body.token
-    const res = await call("POST", "/api/admin/scraper", { token: t })
-    expect(res.status).toBe(501)
-    // Indica qué variables faltan (solo nombres).
-    expect(JSON.stringify(res.body)).toContain("GITHUB_PAT")
-    expect(JSON.stringify(res.body)).toContain("GITHUB_WORKFLOW")
-  })
-
   it("health diagnostica la causa sin filtrar secretos", async () => {
     const failing = (message: string) =>
       createApiHandler(
@@ -1060,7 +1051,7 @@ describe("auditoría", () => {
     expect(JSON.stringify(rows)).not.toContain("clave-auditoria-1")
   })
 
-  it("registra el cambio de contraseña propio, la limpieza y el scraper", async () => {
+  it("registra el cambio de contraseña propio y la limpieza", async () => {
     const t = (await login("admin", "admin-pass-123")).body.token
     await call("POST", "/api/account/password", { token: t, body: { actual: "admin-pass-123", nueva: "admin-pass-456" } })
     await pg.exec(`delete from auditoria`)

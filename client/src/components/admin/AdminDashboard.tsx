@@ -1,4 +1,4 @@
-import { Activity, AlertTriangle, ArrowRight, Building2, Crown, RefreshCw, Users } from 'lucide-react'
+import { Activity, AlertTriangle, Building2, Crown, RefreshCw, Users } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Area,
@@ -26,7 +26,7 @@ import type { AdminTab } from './tabs'
 /** Cada cuánto se refrescan las métricas mientras el panel está visible. */
 const REFRESH_MS = 30_000
 
-/** Horas sin avisos nuevos a partir de las cuales se considera inactivo al scraper. */
+/** Horas sin avisos nuevos a partir de las cuales se considera sin actividad la carga de datos. */
 const STALE_HOURS = 48
 
 interface Stats {
@@ -124,25 +124,21 @@ export default function AdminDashboard({ onNavigate }: DashboardProps) {
     let acc = base
     return series.slice(-14).map(d => (acc += d.total))
   })()
-  const scraperActive = hoursSince !== null && hoursSince <= STALE_HOURS
+  const dataFresh = hoursSince !== null && hoursSince <= STALE_HOURS
 
   return (
     <div className="space-y-6">
-      {/* Aviso: el scraper dejó de cargar avisos */}
-      {!loading && stats?.ultimoAviso && !scraperActive && (
+      {/* Aviso: dejaron de llegar avisos nuevos */}
+      {!loading && stats?.ultimoAviso && !dataFresh && (
         <div
           role="alert"
           className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber/30 bg-amber/10 px-5 py-4"
         >
           <p className="flex items-center gap-3 text-sm text-amber">
             <AlertTriangle className="size-5 shrink-0" />
-            El scraper lleva {Math.floor(hoursSince ?? 0)} h sin cargar avisos nuevos.
-            Revisa que su ejecución programada siga activa.
+            Llevan {Math.floor(hoursSince ?? 0)} h sin llegar avisos nuevos.
+            Revisa la fuente que carga los datos.
           </p>
-          <button onClick={() => onNavigate('scraper')} className="btn btn-outline btn-sm">
-            Ver actividad
-            <ArrowRight className="size-4" />
-          </button>
         </div>
       )}
 
@@ -205,8 +201,6 @@ export default function AdminDashboard({ onNavigate }: DashboardProps) {
           loading={loading}
           value={<AnimatedNumber value={stats?.added24h ?? 0} />}
           spark={dailySeries}
-          footerLabel="Ver actividad"
-          onFooterClick={() => onNavigate('scraper')}
         />
       </div>
 
@@ -368,33 +362,25 @@ export default function AdminDashboard({ onNavigate }: DashboardProps) {
             )}
           </section>
 
-          {/* Estado del scraper */}
+          {/* Estado de la carga de datos */}
           <section className="gold-gradient sheen relative overflow-hidden rounded-[1.25rem] p-6 shadow-[0_24px_48px_-24px_rgb(var(--gold-rgb)/0.55)]">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] opacity-75">
               <span className="relative inline-flex">
-                <span className={cn('dot', scraperActive && 'dot-live')} />
-                {scraperActive && (
+                <span className={cn('dot', dataFresh && 'dot-live')} />
+                {dataFresh && (
                   <span className="radar-ring absolute inset-0 rounded-full bg-current opacity-40" aria-hidden="true" />
                 )}
               </span>
-              Estado del scraper
+              Carga de datos
             </div>
             <p className="mt-3 font-display text-3xl font-semibold leading-tight">
-              {loading ? '...' : scraperActive ? 'Activo' : 'Sin actividad'}
+              {loading ? '...' : dataFresh ? 'Al día' : 'Sin novedades'}
             </p>
             <p className="mt-1 text-sm opacity-80">
               {stats?.ultimoAviso
                 ? `Último aviso ${timeAgo(stats.ultimoAviso, now)} (${formatDateTime(stats.ultimoAviso)})`
                 : 'Aún no hay avisos cargados'}
             </p>
-            <button
-              type="button"
-              onClick={() => onNavigate('scraper')}
-              className="btn btn-sm mt-5 bg-[#17130a] text-[#e6cb97] hover:bg-black"
-            >
-              Ir a Actividad
-              <ArrowRight className="size-4" />
-            </button>
           </section>
         </div>
       </div>

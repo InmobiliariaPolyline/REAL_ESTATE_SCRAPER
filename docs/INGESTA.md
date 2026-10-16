@@ -1,9 +1,7 @@
 # Contrato de ingesta del scraper
 
-Guía para conectar el scraper (Python / GitHub Actions) a la base de Neon. El repositorio ya incluye una
-estructura en Node/TypeScript (`scraper/`, ver su README) que implementa este contrato; los ejemplos en
-Python siguen siendo válidos si prefieres otro lenguaje. El sistema solo
-necesita que el scraper escriba en `public.propiedades` con estas reglas.
+Guía para conectar el scraper (Python / GitHub Actions) a la base de Neon. El sistema solo
+necesita que quien cargue los datos escriba en `public.propiedades` con estas reglas.
 
 ## Conexión
 

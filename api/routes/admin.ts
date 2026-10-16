@@ -402,51 +402,6 @@ export const adminRoutes: Route[] = [
       ),
   },
 
-  // ── Scraper ──────────────────────────────────────────────────────────────
-  {
-    method: "POST",
-    path: "/api/admin/scraper",
-    level: "admin",
-    handler: async ({ req, db, env, access }) => {
-      const { GITHUB_PAT: pat, GITHUB_REPO: repo, GITHUB_WORKFLOW: workflow } = env
-      const faltan = [
-        !pat && "GITHUB_PAT",
-        !repo && "GITHUB_REPO",
-        !workflow && "GITHUB_WORKFLOW",
-      ].filter(Boolean)
-      if (faltan.length > 0) {
-        // Solo nombres de variables, nunca sus valores.
-        throw new HttpError(501, "not_configured", `Faltan variables en el servidor: ${faltan.join(", ")}`)
-      }
-      const res = await fetch(
-        `https://api.github.com/repos/${repo}/actions/workflows/${workflow}/dispatches`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${pat}`,
-            Accept: "application/vnd.github+json",
-            "X-GitHub-Api-Version": "2022-11-28",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ ref: env.GITHUB_REF || "main" }),
-        }
-      )
-      if (!res.ok) {
-        console.error("GitHub respondió", res.status, await res.text())
-        const motivo =
-          res.status === 401 || res.status === 403
-            ? "el token (GITHUB_PAT) no es válido o no tiene permiso Actions: write"
-            : res.status === 404
-              ? "no se encontró el repositorio o el workflow (revisa GITHUB_REPO y GITHUB_WORKFLOW)"
-              : res.status === 422
-                ? "el workflow no admite ejecución manual (falta workflow_dispatch) o la rama no existe"
-                : "respuesta inesperada de GitHub"
-        throw new HttpError(502, "github_error", `GitHub rechazó la solicitud (${res.status}): ${motivo}`)
-      }
-      await audit({ db, req, access }, "scraper.lanzar", env.GITHUB_WORKFLOW ?? null)
-      return { ok: true }
-    },
-  },
   {
     // Vista previa: cuántos avisos se eliminarían y si es seguro hacerlo.
     method: "GET",

@@ -7,7 +7,7 @@ const AdminDashboard = lazy(() => import("@/components/admin/AdminDashboard"))
 const AdminAuditoria = lazy(() => import("@/components/admin/AdminAuditoria"))
 const AdminEnlaces = lazy(() => import("@/components/admin/AdminEnlaces"))
 const AdminPropiedades = lazy(() => import("@/components/admin/AdminPropiedades"))
-const AdminScraper = lazy(() => import("@/components/admin/AdminScraper"))
+const AdminActividad = lazy(() => import("@/components/admin/AdminActividad"))
 const AdminUsuarios = lazy(() => import("@/components/admin/AdminUsuarios"))
 
 interface AdminProps {
@@ -29,8 +29,8 @@ export default function Admin({ usuario, onLogout }: AdminProps) {
         return <AdminEnlaces />
       case "usuarios":
         return <AdminUsuarios />
-      case "scraper":
-        return <AdminScraper />
+      case "actividad":
+        return <AdminActividad />
       case "auditoria":
         return <AdminAuditoria />
       case "dashboard":

@@ -5,7 +5,7 @@ export type AdminTab =
   | "propiedades"
   | "enlaces"
   | "usuarios"
-  | "scraper"
+  | "actividad"
   | "auditoria"
 
 export interface AdminTabInfo {
@@ -23,7 +23,7 @@ export const ADMIN_TABS: AdminTabInfo[] = [
     id: "dashboard",
     label: "Dashboard",
     title: "Dashboard",
-    description: "Resumen del sistema: avisos, usuarios, suscripciones y estado del scraper.",
+    description: "Resumen del sistema: avisos, usuarios, suscripciones y estado de los datos.",
     icon: LayoutDashboard,
     section: "GENERAL",
   },
@@ -52,10 +52,10 @@ export const ADMIN_TABS: AdminTabInfo[] = [
     section: "GESTIÓN",
   },
   {
-    id: "scraper",
+    id: "actividad",
     label: "Actividad",
     title: "Actividad del sistema",
-    description: "Lanza el scraper manualmente y revisa los últimos accesos de usuarios.",
+    description: "Revisa los últimos inicios de sesión de los usuarios.",
     icon: Activity,
     section: "SISTEMA",
   },

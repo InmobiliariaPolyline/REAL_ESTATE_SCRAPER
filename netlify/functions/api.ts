@@ -4,7 +4,6 @@
 // Variables de entorno (Site settings → Environment variables):
 //   DATABASE_URL     cadena de conexión de Neon (obligatoria; solo en el servidor)
 //   USD_TO_PEN_RATE  tipo de cambio (opcional; igual que VITE_USD_TO_PEN_RATE)
-//   GITHUB_PAT, GITHUB_REPO, GITHUB_WORKFLOW, GITHUB_REF  para "Forzar scraper" (opcionales)
 
 import { createNeonDb, type Db } from "../../api/db"
 import type { ApiEnv } from "../../api/env"

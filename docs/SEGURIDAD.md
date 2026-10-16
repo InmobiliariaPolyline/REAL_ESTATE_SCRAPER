@@ -21,7 +21,7 @@ Guía práctica para mantener el sistema seguro y recuperable.
   concreta o todas las demás.
 - **Usuarios → botón de salida**: el admin cierra todas las sesiones de un usuario.
 - **Auditoría**: quién creó o baneó usuarios, activó Premium, restableció contraseñas, eliminó
-  propiedades, ejecutó la limpieza o lanzó el scraper. Nunca guarda contraseñas ni tokens. La tabla
+  propiedades, o ejecutó la limpieza. Nunca guarda contraseñas ni tokens. La tabla
   `auditoria` crece despacio; si algún día hace falta podarla:
 
   ```sql
@@ -41,7 +41,6 @@ La IP se toma de `x-nf-client-connection-ip` (Netlify) o `x-forwarded-for` (prox
 | ---------- | ---------- | -------- |
 | `DATABASE_URL` (app) | Variables de Netlify (secreta) | Cada 90 días y ante cualquier sospecha |
 | `BACKUP_DATABASE_URL`, `BACKUP_PASSPHRASE` | Secrets de GitHub Actions | Cada 6 meses; guarda la frase de cifrado también fuera de GitHub |
-| `GITHUB_PAT` (forzar scraper) | Variables de Netlify (secreta) | Token con caducidad y solo permiso *Actions: write* |
 | `ALERT_WEBHOOK_URL`, `CRON_SECRET` | Variables de Netlify (secretas) | Si se filtran |
 | Contraseña del admin | Base de datos (hash) | Desde **Mi cuenta** |
 

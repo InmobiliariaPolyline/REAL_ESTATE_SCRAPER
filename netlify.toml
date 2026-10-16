@@ -1,8 +1,7 @@
 # Despliegue en Netlify: frontend estático + API como Netlify Function (netlify/functions/api.ts).
 # Variables en Site settings → Environment variables:
 #   DATABASE_URL (Neon, solo servidor · marcar "Contains secret values"),
-#   opcionales: USD_TO_PEN_RATE, VITE_ADMIN_WHATSAPP, VITE_USD_TO_PEN_RATE,
-#   GITHUB_PAT, GITHUB_REPO, GITHUB_WORKFLOW, GITHUB_REF (botón "Forzar scraper").
+#   opcionales: USD_TO_PEN_RATE, VITE_ADMIN_WHATSAPP, VITE_USD_TO_PEN_RATE.
 
 [build]
   command = "pnpm exec vite build"
@@ -10,10 +9,9 @@
 
   [build.environment]
     # Estas variables son públicas (los VITE_* viajan en el bundle del navegador y el tipo de
-    # cambio es un dato abierto; GITHUB_REPO/WORKFLOW/REF son nombres públicos), así que no deben
-    # tratarse como secretos. DATABASE_URL SÍ se
+    # cambio es un dato abierto), así que no deben tratarse como secretos. DATABASE_URL SÍ se
     # sigue escaneando: nunca debe aparecer en el repositorio ni en el build.
-    SECRETS_SCAN_OMIT_KEYS = "USD_TO_PEN_RATE,VITE_USD_TO_PEN_RATE,VITE_ADMIN_WHATSAPP,ALERT_STALE_HOURS,GITHUB_REF,GITHUB_WORKFLOW,GITHUB_REPO"
+    SECRETS_SCAN_OMIT_KEYS = "USD_TO_PEN_RATE,VITE_USD_TO_PEN_RATE,VITE_ADMIN_WHATSAPP,ALERT_STALE_HOURS"
 
 [functions]
   directory = "netlify/functions"

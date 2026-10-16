@@ -24,7 +24,6 @@ export type AuditAction =
   | "usuario.cerrar_sesiones"
   | "propiedad.eliminar"
   | "limpieza.ejecutar"
-  | "scraper.lanzar"
   | "cuenta.password_cambio"
   | "cuenta.sesiones_cerradas"
 
@@ -37,7 +36,6 @@ export const AUDIT_ACTIONS: AuditAction[] = [
   "usuario.cerrar_sesiones",
   "propiedad.eliminar",
   "limpieza.ejecutar",
-  "scraper.lanzar",
   "cuenta.password_cambio",
   "cuenta.sesiones_cerradas",
 ]

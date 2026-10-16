@@ -5,11 +5,6 @@ export interface ApiEnv {
   DATABASE_URL?: string
   /** Tipo de cambio PEN por 1 USD; debe coincidir con VITE_USD_TO_PEN_RATE del cliente. */
   USD_TO_PEN_RATE?: string
-  /** Para "Forzar scraper": token con permiso Actions (write) y destino del workflow. */
-  GITHUB_PAT?: string
-  GITHUB_REPO?: string
-  GITHUB_WORKFLOW?: string
-  GITHUB_REF?: string
   /** Alertas del watchdog: webhook (Slack/Discord compatible) y horas sin actividad para alertar. */
   ALERT_WEBHOOK_URL?: string
   ALERT_STALE_HOURS?: string

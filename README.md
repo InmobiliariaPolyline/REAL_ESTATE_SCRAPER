@@ -73,7 +73,6 @@ pnpm test                # API contra Postgres real, filtros, precios y componen
 | `DATABASE_URL` | Sí | Conexión a Neon (marcar *Contains secret values*). Solo servidor |
 | `USD_TO_PEN_RATE`, `VITE_USD_TO_PEN_RATE` | No | Tipo de cambio (3.75 por defecto); deben coincidir |
 | `VITE_ADMIN_WHATSAPP` | No | WhatsApp de contacto (solo dígitos) |
-| `GITHUB_PAT`, `GITHUB_REPO`, `GITHUB_WORKFLOW`, `GITHUB_REF` | No | Botón "Forzar scraper" (el workflow necesita `workflow_dispatch`) |
 | `ALERT_WEBHOOK_URL`, `ALERT_STALE_HOURS` | No | Alertas del watchdog: webhook (Slack, Discord o compatible) y horas sin actividad (24 por defecto) |
 | `CRON_SECRET` | No | Permite a un planificador externo llamar a `POST /api/internal/watchdog` (cabecera `x-cron-secret`) |
 
@@ -157,7 +156,7 @@ minúsculas y `moneda` como `PEN` o `USD`.
 
 - **Mi cuenta:** cambiar contraseña y ver/cerrar las sesiones activas (dispositivo, IP, último uso).
 - **Auditoría** (pestaña del admin): registro de altas, baneos, Premium, restablecimientos, borrados,
-  limpiezas y lanzamientos del scraper, con filtros por acción y usuario. Es "best effort": si
+  limpiezas, con filtros por acción y usuario. Es "best effort": si
   falla el registro, la acción no se interrumpe.
 - **Respaldos:** `.github/workflows/backup.yml` genera cada día un `pg_dump` cifrado (secrets
   `BACKUP_DATABASE_URL` y `BACKUP_PASSPHRASE`). Restauración, rotación de credenciales y el rol de
