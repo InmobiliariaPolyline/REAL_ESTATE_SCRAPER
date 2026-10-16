@@ -8,6 +8,12 @@
   command = "pnpm exec vite build"
   publish = "dist/public"
 
+  [build.environment]
+    # Estas variables son públicas (los VITE_* viajan en el bundle del navegador y el tipo de
+    # cambio es un dato abierto), así que no deben tratarse como secretos. DATABASE_URL SÍ se
+    # sigue escaneando: nunca debe aparecer en el repositorio ni en el build.
+    SECRETS_SCAN_OMIT_KEYS = "USD_TO_PEN_RATE,VITE_USD_TO_PEN_RATE,VITE_ADMIN_WHATSAPP"
+
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
