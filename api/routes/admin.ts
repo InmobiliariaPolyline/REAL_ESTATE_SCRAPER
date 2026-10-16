@@ -333,7 +333,7 @@ export const adminRoutes: Route[] = [
     path: "/api/admin/stats",
     level: "admin",
     handler: async ({ db }) => {
-      const [totals, porPortal] = await Promise.all([
+      const [totals, porPortal, porDia] = await Promise.all([
         db.query(
           `select
              (select count(*)::int from public.propiedades) as "totalProps",
@@ -350,8 +350,20 @@ export const adminRoutes: Route[] = [
           `select portal, count(*)::int as count
              from public.propiedades group by portal order by count desc`
         ),
+        // Avisos nuevos por día (hora de Lima) en los últimos 30 días, con ceros incluidos.
+        db.query(
+          `select to_char(d.dia, 'YYYY-MM-DD') as dia, count(p.id)::int as total
+             from generate_series(
+                    (now() at time zone 'America/Lima')::date - 29,
+                    (now() at time zone 'America/Lima')::date,
+                    interval '1 day') as d(dia)
+             left join public.propiedades p
+               on (p.creado_en at time zone 'America/Lima')::date = d.dia::date
+            group by d.dia
+            order by d.dia`
+        ),
       ])
-      return { ...totals[0], porPortal }
+      return { ...totals[0], porPortal, porDia }
     },
   },
   {

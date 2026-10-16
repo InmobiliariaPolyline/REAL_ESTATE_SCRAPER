@@ -1,6 +1,9 @@
-import { LogOut, Menu, X } from 'lucide-react'
-import { useState } from 'react'
-import { ADMIN_TABS, type AdminTab } from './tabs'
+import { LogOut, Menu, X } from "lucide-react"
+import { useState } from "react"
+import Avatar from "@/components/common/Avatar"
+import Logo from "@/components/common/Logo"
+import { cn } from "@/lib/utils"
+import { ADMIN_TABS, type AdminTab } from "./tabs"
 
 interface AdminSidebarProps {
   activeTab: AdminTab
@@ -17,187 +20,85 @@ export default function AdminSidebar({
 }: AdminSidebarProps) {
   const [isOpen, setIsOpen] = useState(false)
 
-  const renderMenuItems = () => {
-    const sections: Record<string, typeof ADMIN_TABS> = {}
-
-    ADMIN_TABS.forEach(item => {
-      if (!sections[item.section]) {
-        sections[item.section] = []
-      }
-
-      sections[item.section].push(item)
-    })
-
-    return Object.entries(sections).map(
-      ([section, items]) => (
-        <div key={section}>
-          <div
-            className="px-6 py-3 text-xs font-semibold uppercase tracking-wider"
-            style={{
-              color: '#6B6B6B',
-              fontFamily: 'DM Sans',
-            }}
-          >
-            {section}
-          </div>
-
-          {items.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => {
-                onTabChange(item.id)
-                setIsOpen(false)
-              }}
-              className="w-full text-left px-6 py-3 transition flex items-center gap-3"
-              style={{
-                backgroundColor:
-                  activeTab === item.id
-                    ? '#1A1A1A'
-                    : 'transparent',
-
-                borderLeft:
-                  activeTab === item.id
-                    ? '3px solid #C9A96E'
-                    : '3px solid transparent',
-
-                color:
-                  activeTab === item.id
-                    ? '#C9A96E'
-                    : '#6B6B6B',
-
-                fontFamily: 'DM Sans',
-                fontSize: '0.875rem',
-              }}
-            >
-              <span>{item.icon}</span>
-              <span>{item.label}</span>
-            </button>
-          ))}
-        </div>
-      )
-    )
-  }
+  const sections = ADMIN_TABS.reduce<Record<string, typeof ADMIN_TABS>>((acc, tab) => {
+    ;(acc[tab.section] ??= []).push(tab)
+    return acc
+  }, {})
 
   return (
     <>
-      {/* Hamburger button (mobile) */}
+      {/* Botón de menú (móvil) */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        aria-label={
-          isOpen
-            ? 'Cerrar menú de administración'
-            : 'Abrir menú de administración'
-        }
-        className="fixed top-4 right-4 z-50 md:hidden p-2 rounded min-w-[44px] min-h-[44px] flex items-center justify-center"
-        style={{
-          backgroundColor: '#1A1A1A',
-          color: '#C9A96E',
-        }}
+        aria-label={isOpen ? "Cerrar menú de administración" : "Abrir menú de administración"}
+        aria-expanded={isOpen}
+        className="btn btn-secondary btn-icon fixed right-4 top-4 z-50 shadow-lg md:hidden"
       >
-        {isOpen ? (
-          <X size={24} />
-        ) : (
-          <Menu size={24} />
-        )}
+        {isOpen ? <X className="size-5" /> : <Menu className="size-5" />}
       </button>
 
-      {/* Overlay (mobile) */}
+      {/* Fondo (móvil) */}
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          className="animate-fadeIn fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
           onClick={() => setIsOpen(false)}
-        ></div>
+        />
       )}
 
-      {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 h-screen w-60 flex flex-col z-40 transition-transform md:translate-x-0 ${
-          isOpen
-            ? 'translate-x-0'
-            : '-translate-x-full'
-        }`}
-        style={{
-          backgroundColor: '#0A0A0A',
-          borderRight: '1px solid #1F1F1F',
-          fontFamily: 'DM Sans',
-        }}
+        className={cn(
+          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-line bg-surface-1 px-3 py-5 transition-transform duration-300 md:translate-x-0",
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        )}
       >
-        {/* Header */}
-        <div
-          className="px-6 py-6 border-b"
-          style={{
-            borderColor: '#1F1F1F',
-          }}
-        >
-          <div className="flex items-center gap-3">
-            <img
-              src="/logo.png"
-              alt="REAL ESTATE SCRAPER Logo"
-              className="w-8 h-8 object-contain"
-              decoding="async"
-            />
-
-            <h1
-              className="text-lg font-bold"
-              style={{
-                fontFamily: 'Cormorant Garamond',
-                color: '#C9A96E',
-              }}
-            >
-              REAL ESTATE SCRAPER
-            </h1>
-          </div>
-
-          <p
-            className="text-xs"
-            style={{
-              color: '#6B6B6B',
-            }}
-          >
-            [Admin]
-          </p>
+        <div className="px-3 pb-5">
+          <Logo />
         </div>
 
-        {/* Menu */}
-        <nav className="flex-1 overflow-y-auto py-6">
-          {renderMenuItems()}
+        {/* Perfil */}
+        <div className="mx-1 mb-2 flex items-center gap-3 rounded-2xl border border-line bg-surface-2 p-3">
+          <Avatar name={adminName} />
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-text">{adminName}</p>
+            <p className="text-xs text-text-muted">Administrador</p>
+          </div>
+        </div>
+
+        <nav className="-mr-1 flex-1 overflow-y-auto pr-1" aria-label="Administración">
+          {Object.entries(sections).map(([section, tabs]) => (
+            <div key={section}>
+              <p className="nav-label">{section}</p>
+              <div className="space-y-1 pl-3 -ml-3 pr-0">
+                {tabs.map(tab => {
+                  const Icon = tab.icon
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => {
+                        onTabChange(tab.id)
+                        setIsOpen(false)
+                      }}
+                      aria-current={activeTab === tab.id ? "page" : undefined}
+                      className="nav-item ml-3 w-[calc(100%-0.75rem)]"
+                    >
+                      <Icon className="size-[1.15rem] shrink-0" strokeWidth={1.75} />
+                      <span>{tab.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
         </nav>
 
-        {/* Divider */}
-        <div
-          style={{
-            borderTop: '1px solid #1F1F1F',
-          }}
-        ></div>
-
-        {/* Footer */}
-        <div className="px-6 py-6 space-y-3">
-          <div
-            className="text-sm"
-            style={{
-              color: '#F0EDE8',
-            }}
-          >
-            👤 {adminName}
-          </div>
-
-          <button
-            onClick={onLogout}
-            className="w-full px-4 py-2 rounded text-sm font-medium transition flex items-center justify-center gap-2"
-            style={{
-              backgroundColor: 'transparent',
-              border: '1px solid #C9A96E',
-              color: '#C9A96E',
-            }}
-          >
-            <LogOut size={16} />
-            Cerrar sesión
-          </button>
-        </div>
+        <button onClick={onLogout} className="btn btn-secondary mx-1 mt-3">
+          <LogOut className="size-4" />
+          Cerrar sesión
+        </button>
       </aside>
 
-      {/* Spacer (desktop) */}
-      <div className="hidden md:block w-60"></div>
+      {/* Espaciador (escritorio) */}
+      <div className="hidden w-64 shrink-0 md:block" aria-hidden="true" />
     </>
   )
 }

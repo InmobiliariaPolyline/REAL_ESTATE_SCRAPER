@@ -1,3 +1,4 @@
+import { Bookmark, Loader2 } from "lucide-react"
 import { useEffect, useState } from "react"
 
 interface GuardarBusquedaModalProps {
@@ -28,8 +29,7 @@ export default function GuardarBusquedaModal({
 
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center z-50"
-      style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
+      className="animate-fadeIn fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
       onClick={() => !busy && onCancel()}
       role="presentation"
     >
@@ -38,59 +38,37 @@ export default function GuardarBusquedaModal({
         aria-modal="true"
         aria-label="Guardar esta búsqueda"
         onSubmit={submit}
-        className="p-6 rounded max-w-sm w-full mx-4"
-        style={{ backgroundColor: "#111111", border: "1px solid #2A2A2A" }}
+        className="animate-popIn card w-full max-w-md p-6 shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
-        <h3
-          style={{
-            color: "#F0EDE8",
-            fontFamily: "DM Sans",
-            fontSize: "1.125rem",
-            fontWeight: "bold",
-            marginBottom: "1rem",
-          }}
-        >
-          Guardar esta búsqueda
-        </h3>
+        <div className="mb-5 flex items-center gap-4">
+          <span className="inline-flex size-11 items-center justify-center rounded-2xl bg-gold-soft ring-1 ring-gold/25">
+            <Bookmark className="size-5 text-gold" strokeWidth={1.75} />
+          </span>
+          <div>
+            <h3 className="text-lg font-semibold text-text">Guardar esta búsqueda</h3>
+            <p className="text-sm text-text-muted">Se guardan los filtros actuales.</p>
+          </div>
+        </div>
 
+        <label htmlFor="busqueda-nombre" className="field-label">Nombre</label>
         <input
+          id="busqueda-nombre"
           type="text"
           value={nombre}
           onChange={e => setNombre(e.target.value)}
           placeholder="Ej: Depas en venta San Miguel"
-          className="input-underline w-full text-sm mb-4"
+          className="field"
           maxLength={80}
           autoFocus
         />
 
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={busy}
-            className="flex-1 px-4 py-2 rounded text-sm font-medium"
-            style={{
-              backgroundColor: "transparent",
-              border: "1px solid #2A2A2A",
-              color: "#6B6B6B",
-              fontFamily: "DM Sans",
-            }}
-          >
+        <div className="mt-6 flex justify-end gap-2">
+          <button type="button" onClick={onCancel} disabled={busy} className="btn btn-ghost">
             Cancelar
           </button>
-
-          <button
-            type="submit"
-            disabled={busy}
-            className="flex-1 px-4 py-2 rounded text-sm font-medium"
-            style={{
-              backgroundColor: "#C9A96E",
-              color: "#0F0F0F",
-              fontFamily: "DM Sans",
-              opacity: busy ? 0.6 : 1,
-            }}
-          >
+          <button type="submit" disabled={busy} className="btn btn-primary">
+            {busy && <Loader2 className="size-4 animate-spin" />}
             {busy ? "Guardando..." : "Guardar"}
           </button>
         </div>

@@ -385,6 +385,11 @@ describe("admin: métricas y utilidades", () => {
     expect(s.body.added24h).toBeGreaterThanOrEqual(1)
     expect(s.body.porPortal.find((p: any) => p.portal === "urbania").count).toBe(2)
 
+    // Serie diaria: 30 días consecutivos, con ceros, que suman los avisos recientes.
+    expect(s.body.porDia).toHaveLength(30)
+    expect(s.body.porDia[0].dia < s.body.porDia[29].dia).toBe(true)
+    expect(s.body.porDia.reduce((n: number, d: any) => n + d.total, 0)).toBe(4)
+
     const logs = await call("GET", "/api/admin/accesos", { token: adminTok })
     expect(logs.body[0]).toMatchObject({ usuario: expect.any(String) })
     expect(typeof logs.body[0].id).toBe("number")

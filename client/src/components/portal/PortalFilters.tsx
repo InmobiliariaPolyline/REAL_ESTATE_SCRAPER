@@ -1,6 +1,7 @@
-import { Search, X } from "lucide-react"
-import { useState } from "react"
+import { ChevronDown, Search, SlidersHorizontal, X } from "lucide-react"
+import { useEffect, useRef, useState } from "react"
 import { PORTALS } from "@/lib/portals"
+import { cn } from "@/lib/utils"
 import { DEFAULT_FILTERS, type FilterState } from "@/types"
 
 export type { FilterState }
@@ -19,20 +20,75 @@ interface PortalFiltersProps {
 const PORTALES_OPCIONES = PORTALS.map(p => p.label)
 
 const PRINCIPALES_DISTRITOS = [
-  'Ancón', 'Ate', 'Barranco', 'Bellavista', 'Breña', 'Callao', 'Carabayllo', 
-  'Carmen de la Legua', 'Chaclacayo', 'Chorrillos', 'Cieneguilla', 'Comas', 
-  'El Agustino', 'Independencia', 'Jesús María', 'La Molina', 'La Perla', 
-  'La Punta', 'La Victoria', 'Lima', 'Lince', 'Los Olivos', 'Lurigancho', 
-  'Lurín', 'Magdalena del Mar', 'Mi Perú', 'Miraflores', 'Pachacámac', 
-  'Pucusana', 'Pueblo Libre', 'Puente Piedra', 'Punta Hermosa', 'Punta Negra', 
-  'Rímac', 'San Bartolo', 'San Borja', 'San Isidro', 'San Juan de Lurigancho', 
-  'San Juan de Miraflores', 'San Luis', 'San Martín de Porres', 'San Miguel', 
-  'Santa Anita', 'Santa María del Mar', 'Santa Rosa', 'Santiago de Surco', 
+  'Ancón', 'Ate', 'Barranco', 'Bellavista', 'Breña', 'Callao', 'Carabayllo',
+  'Carmen de la Legua', 'Chaclacayo', 'Chorrillos', 'Cieneguilla', 'Comas',
+  'El Agustino', 'Independencia', 'Jesús María', 'La Molina', 'La Perla',
+  'La Punta', 'La Victoria', 'Lima', 'Lince', 'Los Olivos', 'Lurigancho',
+  'Lurín', 'Magdalena del Mar', 'Mi Perú', 'Miraflores', 'Pachacámac',
+  'Pucusana', 'Pueblo Libre', 'Puente Piedra', 'Punta Hermosa', 'Punta Negra',
+  'Rímac', 'San Bartolo', 'San Borja', 'San Isidro', 'San Juan de Lurigancho',
+  'San Juan de Miraflores', 'San Luis', 'San Martín de Porres', 'San Miguel',
+  'Santa Anita', 'Santa María del Mar', 'Santa Rosa', 'Santiago de Surco',
   'Surquillo', 'Ventanilla', 'Villa El Salvador', 'Villa María del Triunfo',
-  'Arequipa', 'Cayma', 'Cerro Colorado', 'Trujillo', 'Víctor Larco Herrera', 
-  'Chiclayo', 'Cusco', 'Piura', 'Tarapoto', 'Chimbote', 'Huancayo', 
+  'Arequipa', 'Cayma', 'Cerro Colorado', 'Trujillo', 'Víctor Larco Herrera',
+  'Chiclayo', 'Cusco', 'Piura', 'Tarapoto', 'Chimbote', 'Huancayo',
   'Iquitos', 'Pucallpa', 'Tacna'
 ].sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }))
+
+const OPERACIONES: { value: FilterState['operacion']; label: string }[] = [
+  { value: 'todos', label: 'Todos' },
+  { value: 'ALQUILER', label: 'Alquiler' },
+  { value: 'VENTA', label: 'Venta' },
+]
+
+const TIPOS: { value: FilterState['inmueble']; label: string }[] = [
+  { value: 'todos', label: 'Todos' },
+  { value: 'Departamento', label: 'Depto.' },
+  { value: 'Casa', label: 'Casa' },
+]
+
+const DORMITORIOS: { value: FilterState['dormitorios']; label: string }[] = [
+  { value: 'todos', label: 'Todos' },
+  { value: '1', label: '1' },
+  { value: '2', label: '2' },
+  { value: '3', label: '3' },
+  { value: '4+', label: '4+' },
+]
+
+const removeAccents = (str: string) =>
+  str.normalize("NFD").replace(/[̀-ͯ]/g, "")
+
+/** Grupo de opciones excluyentes con estilo segmentado. */
+function Segmented<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string
+  value: T
+  options: { value: T; label: string }[]
+  onChange: (value: T) => void
+}) {
+  return (
+    <div>
+      <span className="field-label" id={`seg-${label}`}>{label}</span>
+      <div className="segmented" role="group" aria-labelledby={`seg-${label}`}>
+        {options.map(opt => (
+          <button
+            key={opt.value}
+            type="button"
+            aria-pressed={value === opt.value}
+            onClick={() => onChange(opt.value)}
+            className="segmented-option"
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 export default function PortalFilters({
   filters,
@@ -43,14 +99,20 @@ export default function PortalFilters({
 }: PortalFiltersProps) {
   const [showPortalDropdown, setShowPortalDropdown] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const portalRef = useRef<HTMLDivElement>(null)
 
   const update = (patch: Partial<FilterState>) =>
     onFiltersChange({ ...filters, ...patch })
 
-  const handleDistritoChange = (value: string) => update({ distrito: value })
-
-  const removeAccents = (str: string) =>
-    str.normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+  // Cierra el selector de portales al hacer clic fuera.
+  useEffect(() => {
+    if (!showPortalDropdown) return
+    const onDown = (e: MouseEvent) => {
+      if (!portalRef.current?.contains(e.target as Node)) setShowPortalDropdown(false)
+    }
+    document.addEventListener('mousedown', onDown)
+    return () => document.removeEventListener('mousedown', onDown)
+  }, [showPortalDropdown])
 
   const suggestions =
     filters.distrito.trim() === ""
@@ -61,12 +123,6 @@ export default function PortalFilters({
           )
         )
 
-  const handleOperacionChange = (operacion: FilterState["operacion"]) =>
-    update({ operacion })
-
-  const handleInmuebleChange = (inmueble: FilterState["inmueble"]) =>
-    update({ inmueble })
-
   const handlePortalToggle = (portal: string) =>
     update({
       portales: filters.portales.includes(portal)
@@ -74,15 +130,8 @@ export default function PortalFilters({
         : [...filters.portales, portal],
     })
 
-  const handleMonedaChange = (moneda: FilterState["moneda"]) => update({ moneda })
-
-  const handlePrecioChange = (
-    field: "precioMin" | "precioMax",
-    value: string
-  ) => update({ [field]: value === "" ? "" : Number(value) })
-
-  const handleDormitoriosChange = (dormitorios: FilterState["dormitorios"]) =>
-    update({ dormitorios })
+  const handlePrecioChange = (field: "precioMin" | "precioMax", value: string) =>
+    update({ [field]: value === "" ? "" : Number(value) })
 
   const handleClear = () => {
     const cleared: FilterState = { ...DEFAULT_FILTERS, portales: [] }
@@ -90,171 +139,120 @@ export default function PortalFilters({
     onClear(cleared)
   }
 
+  const currency = filters.moneda === 'PEN' ? 'S/' : 'USD'
+
   return (
-    <div
-      className={isMobileDrawer ? "px-6 py-6 space-y-6" : "sticky top-16 px-6 py-4 space-y-4"}
-      style={isMobileDrawer ? { backgroundColor: 'transparent' } : { backgroundColor: '#1A1A1A', borderBottom: '1px solid #2A2A2A' }}
+    <form
+      onSubmit={e => {
+        e.preventDefault()
+        onSearch()
+      }}
+      className={cn(
+        isMobileDrawer ? 'space-y-5 p-5' : 'card space-y-5 p-5 sm:p-6'
+      )}
+      role="search"
+      aria-label="Filtros de propiedades"
     >
-      {/* Fila 1: Distrito + Operación + Inmueble */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {!isMobileDrawer && (
+        <div className="flex items-center gap-2 text-sm font-semibold text-text">
+          <SlidersHorizontal className="size-4 text-gold" />
+          Filtros
+        </div>
+      )}
+
+      <div className={cn('grid gap-4', isMobileDrawer ? 'grid-cols-1' : 'md:grid-cols-2 xl:grid-cols-4')}>
         {/* Distrito */}
-        <div>
-          <label
-            className="block text-xs font-semibold mb-2"
-            style={{ color: '#C9A96E', fontFamily: 'DM Sans' }}
-          >
-            Distrito
-          </label>
-          <div className="relative">
-            <Search
-              size={16}
-              className="absolute left-3 top-1/2 transform -translate-y-1/2"
-              style={{ color: '#6B6B6B' }}
-            />
+        <div className="relative">
+          <label className="field-label" htmlFor="flt-distrito">Distrito</label>
+          <div className="field-icon">
+            <Search className="size-4" />
             <input
+              id="flt-distrito"
               type="text"
               value={filters.distrito}
-              onChange={(e) => {
-                handleDistritoChange(e.target.value)
+              onChange={e => {
+                update({ distrito: e.target.value })
                 setShowSuggestions(true)
               }}
               onFocus={() => setShowSuggestions(true)}
-              onBlur={() => {
-                setTimeout(() => setShowSuggestions(false), 200)
-              }}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
               placeholder="Buscar distrito..."
-              className="input-underline w-full pl-8"
-              style={{ fontSize: '1rem', height: '44px', padding: '8px 0 8px 32px' }}
+              className="field"
+              autoComplete="off"
             />
-            {showSuggestions && suggestions.length > 0 && (
-              <div
-                className="absolute top-full left-0 right-0 mt-1 max-h-60 overflow-y-auto rounded shadow-lg z-20 border"
-                style={{
-                  backgroundColor: '#252525',
-                  borderColor: '#2A2A2A',
-                  fontFamily: 'DM Sans',
-                }}
-              >
-                {suggestions.map((dist) => (
+          </div>
+          {showSuggestions && suggestions.length > 0 && (
+            <ul className="animate-popIn absolute left-0 right-0 top-full z-30 mt-2 max-h-60 overflow-y-auto rounded-2xl border border-line-strong bg-surface-2 p-1.5 shadow-2xl">
+              {suggestions.map(dist => (
+                <li key={dist}>
                   <button
-                    key={dist}
                     type="button"
+                    onMouseDown={e => e.preventDefault()}
                     onClick={() => {
-                      handleDistritoChange(dist)
+                      update({ distrito: dist })
                       setShowSuggestions(false)
                     }}
-                    className="w-full text-left px-4 py-3 hover:bg-black/30 text-sm transition min-h-[44px] flex items-center"
-                    style={{ color: '#F0EDE8' }}
+                    className="flex w-full items-center rounded-xl px-3 py-2 text-left text-sm text-text transition hover:bg-surface-3"
                   >
                     {dist}
                   </button>
-                ))}
-              </div>
-            )}
-          </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
-        {/* Operación */}
-        <div>
-          <label
-            className="block text-xs font-semibold mb-2"
-            style={{ color: '#C9A96E', fontFamily: 'DM Sans' }}
-          >
-            Operación
-          </label>
-          <div className="flex gap-2">
-            {['todos', 'ALQUILER', 'VENTA'].map((op) => (
-              <button
-                key={op}
-                onClick={() =>
-                  handleOperacionChange(op as FilterState['operacion'])
-                }
-                className="px-4 py-2.5 rounded text-sm font-medium transition min-h-[44px] flex-1 flex items-center justify-center"
-                style={{
-                  backgroundColor:
-                    filters.operacion === op ? '#C9A96E' : 'transparent',
-                  color: filters.operacion === op ? '#0F0F0F' : '#6B6B6B',
-                  border: '1px solid #2A2A2A',
-                  fontFamily: 'DM Sans',
-                }}
-              >
-                {op === 'todos' ? 'Todos' : op}
-              </button>
-            ))}
-          </div>
-        </div>
+        <Segmented
+          label="Operación"
+          value={filters.operacion}
+          options={OPERACIONES}
+          onChange={operacion => update({ operacion })}
+        />
 
-        {/* Inmueble */}
-        <div>
-          <label
-            className="block text-xs font-semibold mb-2"
-            style={{ color: '#C9A96E', fontFamily: 'DM Sans' }}
-          >
-            Tipo
-          </label>
-          <div className="flex gap-2">
-            {['todos', 'Departamento', 'Casa'].map((inm) => (
-              <button
-                key={inm}
-                onClick={() =>
-                  handleInmuebleChange(inm as FilterState['inmueble'])
-                }
-                className="px-4 py-2.5 rounded text-sm font-medium transition min-h-[44px] flex-1 flex items-center justify-center"
-                style={{
-                  backgroundColor:
-                    filters.inmueble === inm ? '#C9A96E' : 'transparent',
-                  color: filters.inmueble === inm ? '#0F0F0F' : '#6B6B6B',
-                  border: '1px solid #2A2A2A',
-                  fontFamily: 'DM Sans',
-                }}
-              >
-                {inm === 'todos' ? 'Todos' : inm}
-              </button>
-            ))}
-          </div>
-        </div>
+        <Segmented
+          label="Tipo"
+          value={filters.inmueble}
+          options={TIPOS}
+          onChange={inmueble => update({ inmueble })}
+        />
 
-        {/* Portal Multi-select */}
-        <div className="relative">
-          <label
-            className="block text-xs font-semibold mb-2"
-            style={{ color: '#C9A96E', fontFamily: 'DM Sans' }}
-          >
-            Portal
-          </label>
+        {/* Portales */}
+        <div className="relative" ref={portalRef}>
+          <span className="field-label" id="flt-portal-label">Portal</span>
           <button
+            type="button"
             onClick={() => setShowPortalDropdown(!showPortalDropdown)}
-            className="w-full px-3 py-2.5 rounded text-sm text-left min-h-[44px] flex items-center justify-between"
-            style={{
-              backgroundColor: '#252525',
-              color: '#F0EDE8',
-              border: '1px solid #2A2A2A',
-              fontFamily: 'DM Sans',
-            }}
+            aria-haspopup="listbox"
+            aria-expanded={showPortalDropdown}
+            aria-labelledby="flt-portal-label"
+            className="field flex items-center justify-between text-left"
           >
-            <span>
+            <span className={filters.portales.length === 0 ? 'text-text-faint' : ''}>
               {filters.portales.length === 0
-                ? 'Seleccionar...'
+                ? 'Todos los portales'
                 : `${filters.portales.length} seleccionado(s)`}
             </span>
-            <span className="text-xs text-[#6B6B6B]">{showPortalDropdown ? '▲' : '▼'}</span>
+            <ChevronDown
+              className={cn('size-4 text-text-muted transition', showPortalDropdown && 'rotate-180')}
+            />
           </button>
           {showPortalDropdown && (
             <div
-              className={isMobileDrawer ? "mt-2 rounded z-50 w-full" : "absolute top-full left-0 right-0 mt-1 rounded shadow-lg z-50"}
-              style={{ backgroundColor: '#252525', border: '1px solid #2A2A2A' }}
+              className={cn(
+                'animate-popIn z-30 mt-2 w-full rounded-2xl border border-line-strong bg-surface-2 p-1.5 shadow-2xl',
+                isMobileDrawer ? '' : 'absolute left-0 right-0 top-full'
+              )}
             >
-              {PORTALES_OPCIONES.map((portal) => (
+              {PORTALES_OPCIONES.map(portal => (
                 <label
                   key={portal}
-                  className="flex items-center gap-3 px-4 py-3 hover:bg-black/30 cursor-pointer min-h-[44px]"
-                  style={{ fontFamily: 'DM Sans', fontSize: '0.875rem' }}
+                  className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-text transition hover:bg-surface-3"
                 >
                   <input
                     type="checkbox"
                     checked={filters.portales.includes(portal)}
                     onChange={() => handlePortalToggle(portal)}
-                    className="w-5 h-5 cursor-pointer accent-[#C9A96E]"
+                    className="size-4 cursor-pointer accent-[#d4b782]"
                   />
                   <span>{portal}</span>
                 </label>
@@ -264,130 +262,68 @@ export default function PortalFilters({
         </div>
       </div>
 
-      {/* Fila 2: Moneda + Precio + Dormitorios */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        {/* Moneda */}
-        <div>
-          <label
-            className="block text-xs font-semibold mb-2"
-            style={{ color: '#C9A96E', fontFamily: 'DM Sans' }}
-          >
-            Moneda
-          </label>
-          <div className="flex gap-2">
-            {['PEN', 'USD'].map((mon) => (
-              <button
-                key={mon}
-                onClick={() => handleMonedaChange(mon as 'PEN' | 'USD')}
-                className="flex-1 px-3 py-2.5 rounded text-sm font-medium transition min-h-[44px] flex items-center justify-center"
-                style={{
-                  backgroundColor:
-                    filters.moneda === mon ? '#C9A96E' : 'transparent',
-                  color: filters.moneda === mon ? '#0F0F0F' : '#6B6B6B',
-                  border: '1px solid #2A2A2A',
-                  fontFamily: 'DM Sans',
-                }}
-              >
-                {mon}
-              </button>
-            ))}
-          </div>
-        </div>
+      <div className={cn('grid items-end gap-4', isMobileDrawer ? 'grid-cols-1' : 'md:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1.4fr_auto]')}>
+        <Segmented
+          label="Moneda"
+          value={filters.moneda}
+          options={[
+            { value: 'PEN', label: 'Soles' },
+            { value: 'USD', label: 'Dólares' },
+          ]}
+          onChange={moneda => update({ moneda })}
+        />
 
-        {/* Precio Mín */}
         <div>
-          <label
-            className="block text-xs font-semibold mb-2"
-            style={{ color: '#C9A96E', fontFamily: 'DM Sans' }}
-          >
-            Precio Mín
-          </label>
+          <label className="field-label" htmlFor="flt-min">Precio mín. ({currency})</label>
           <input
+            id="flt-min"
             type="number"
+            min={0}
+            inputMode="numeric"
             value={filters.precioMin}
-            onChange={(e) => handlePrecioChange('precioMin', e.target.value)}
+            onChange={e => handlePrecioChange('precioMin', e.target.value)}
             placeholder="0"
-            className="input-underline w-full"
-            style={{ fontSize: '1rem', height: '44px', padding: '8px 0' }}
+            className="field mono"
           />
         </div>
 
-        {/* Precio Máx */}
         <div>
-          <label
-            className="block text-xs font-semibold mb-2"
-            style={{ color: '#C9A96E', fontFamily: 'DM Sans' }}
-          >
-            Precio Máx
-          </label>
+          <label className="field-label" htmlFor="flt-max">Precio máx. ({currency})</label>
           <input
+            id="flt-max"
             type="number"
+            min={0}
+            inputMode="numeric"
             value={filters.precioMax}
-            onChange={(e) => handlePrecioChange('precioMax', e.target.value)}
-            placeholder="∞"
-            className="input-underline w-full"
-            style={{ fontSize: '1rem', height: '44px', padding: '8px 0' }}
+            onChange={e => handlePrecioChange('precioMax', e.target.value)}
+            placeholder="Sin límite"
+            className="field mono"
           />
         </div>
 
-        {/* Dormitorios */}
-        <div>
-          <label
-            className="block text-xs font-semibold mb-2"
-            style={{ color: '#C9A96E', fontFamily: 'DM Sans' }}
-          >
-            Dormitorios
-          </label>
-          <div className="flex gap-1">
-            {['todos', '1', '2', '3', '4+'].map((dorm) => (
-              <button
-                key={dorm}
-                onClick={() =>
-                  handleDormitoriosChange(dorm as FilterState['dormitorios'])
-                }
-                className="flex-1 px-2 py-2.5 rounded text-sm font-medium transition min-h-[44px] flex items-center justify-center"
-                style={{
-                  backgroundColor:
-                    filters.dormitorios === dorm ? '#C9A96E' : 'transparent',
-                  color: filters.dormitorios === dorm ? '#0F0F0F' : '#6B6B6B',
-                  border: '1px solid #2A2A2A',
-                  fontFamily: 'DM Sans',
-                }}
-              >
-                {dorm === 'todos' ? 'T' : dorm}
-              </button>
-            ))}
-          </div>
-        </div>
+        <Segmented
+          label="Dormitorios"
+          value={filters.dormitorios}
+          options={DORMITORIOS}
+          onChange={dormitorios => update({ dormitorios })}
+        />
 
-        {/* Acciones */}
-        <div className="flex items-end gap-2 w-full pt-2 md:pt-0">
-          <button
-            onClick={onSearch}
-            className="flex-grow h-11 rounded font-semibold transition hover:opacity-90 flex items-center justify-center"
-            style={{
-              backgroundColor: '#C9A96E',
-              color: '#0F0F0F',
-              fontFamily: 'DM Sans',
-              fontSize: '0.9rem',
-            }}
-          >
+        <div className="flex gap-2">
+          <button type="submit" className="btn btn-primary flex-1 xl:flex-none">
+            <Search className="size-4" />
             Buscar
           </button>
           <button
+            type="button"
             onClick={handleClear}
-            className="px-4 h-11 rounded transition hover:bg-white/5 flex items-center justify-center"
-            style={{
-              backgroundColor: 'transparent',
-              border: '1px solid #2A2A2A',
-              color: '#6B6B6B',
-              fontFamily: 'DM Sans',
-            }}
+            className="btn btn-secondary btn-icon"
+            aria-label="Limpiar filtros"
+            title="Limpiar filtros"
           >
-            <X size={18} />
+            <X className="size-4" />
           </button>
         </div>
       </div>
-    </div>
+    </form>
   )
 }

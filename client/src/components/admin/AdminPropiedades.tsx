@@ -1,5 +1,7 @@
+import { Bookmark, BookmarkPlus, Building2, Eye, EyeOff, Heart, History, Search, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import ConfirmModal from '@/components/common/ConfirmModal'
+import EmptyState from '@/components/common/EmptyState'
 import Pagination from '@/components/properties/Pagination'
 import PropertyCard from '@/components/properties/PropertyCard'
 import BusquedasGuardadasList, {
@@ -12,8 +14,6 @@ import {
   useAdminPropiedades,
   type PropiedadesTab,
 } from './propiedades/useAdminPropiedades'
-
-const muted = { color: '#6B6B6B', fontFamily: 'DM Sans' } as const
 
 export default function AdminPropiedades() {
   const p = useAdminPropiedades()
@@ -33,17 +33,11 @@ export default function AdminPropiedades() {
     }
   }
 
-  const tabs: { id: PropiedadesTab; label: string }[] = [
-    { id: 'buscar', label: '🔍 Buscar propiedades' },
-    {
-      id: 'favoritos',
-      label: `❤️ Mis favoritos${p.favoritos.size > 0 ? ` (${p.favoritos.size})` : ''}`,
-    },
-    { id: 'historial', label: '🕐 Historial' },
-    {
-      id: 'guardadas',
-      label: `🔖 Búsquedas guardadas${p.busquedas.length > 0 ? ` (${p.busquedas.length})` : ''}`,
-    },
+  const tabs: { id: PropiedadesTab; label: string; icon: typeof Search; count?: number }[] = [
+    { id: 'buscar', label: 'Buscar', icon: Search },
+    { id: 'favoritos', label: 'Favoritos', icon: Heart, count: p.favoritos.size },
+    { id: 'historial', label: 'Historial', icon: History },
+    { id: 'guardadas', label: 'Búsquedas guardadas', icon: Bookmark, count: p.busquedas.length },
   ]
 
   const emptyMessage =
@@ -58,52 +52,37 @@ export default function AdminPropiedades() {
   return (
     <div className="space-y-6">
       {/* Pestañas */}
-      <div className="flex gap-2 border-b flex-wrap" style={{ borderColor: '#2A2A2A' }} role="tablist">
-        {tabs.map(({ id, label }) => (
+      <div className="segmented w-fit max-w-full overflow-x-auto" role="tablist">
+        {tabs.map(({ id, label, icon: Icon, count }) => (
           <button
             key={id}
             role="tab"
             aria-selected={p.tab === id}
             onClick={() => p.setTab(id)}
-            className="px-4 py-2 text-sm font-medium transition"
-            style={{
-              color: p.tab === id ? '#C9A96E' : '#6B6B6B',
-              borderBottom: p.tab === id ? '2px solid #C9A96E' : '2px solid transparent',
-              fontFamily: 'DM Sans',
-            }}
+            className="segmented-option !flex-none !px-4"
           >
+            <Icon className="size-4" />
             {label}
+            {!!count && count > 0 && (
+              <span className="mono rounded-full bg-black/20 px-1.5 py-0.5 text-[0.6875rem]">
+                {count}
+              </span>
+            )}
           </button>
         ))}
       </div>
 
       {p.tab === 'buscar' && (
         <>
-          <div className="flex justify-between items-center flex-wrap gap-2">
-            <button
-              onClick={() => setShowLimpieza(true)}
-              className="px-4 py-2 rounded text-sm font-medium transition"
-              style={{
-                backgroundColor: '#450a0a',
-                border: '1px solid #7f1d1d',
-                color: '#fca5a5',
-                fontFamily: 'DM Sans',
-              }}
-            >
-              ⚠️ Ejecutar Limpieza de Inactivos
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <button onClick={() => setShowLimpieza(true)} className="btn btn-danger btn-sm">
+              <Trash2 className="size-4" />
+              Limpieza de inactivos
             </button>
 
-            <button
-              onClick={() => setShowGuardar(true)}
-              className="px-4 py-2 rounded text-sm font-medium transition"
-              style={{
-                backgroundColor: 'transparent',
-                border: '1px solid #C9A96E',
-                color: '#C9A96E',
-                fontFamily: 'DM Sans',
-              }}
-            >
-              🔖 Guardar esta búsqueda
+            <button onClick={() => setShowGuardar(true)} className="btn btn-outline btn-sm">
+              <BookmarkPlus className="size-4" />
+              Guardar búsqueda
             </button>
           </div>
 
@@ -115,12 +94,10 @@ export default function AdminPropiedades() {
           />
 
           {p.activeSavedSearch && (
-            <div
-              className="flex items-center justify-between flex-wrap gap-2 px-4 py-3 rounded"
-              style={{ backgroundColor: '#1A1A1A', border: '1px solid #2A2A2A' }}
-            >
-              <span style={{ color: '#C9A96E', fontFamily: 'DM Sans', fontSize: '0.875rem' }}>
-                🔖 Mostrando resultados de una búsqueda guardada
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-gold/30 bg-gold-soft px-5 py-3.5">
+              <span className="flex items-center gap-2 text-sm text-gold">
+                <Bookmark className="size-4" />
+                Mostrando resultados de una búsqueda guardada
                 {p.cantidadOcultas > 0 &&
                   !p.showHidden &&
                   ` — ${p.cantidadOcultas} ya vistas ocultas`}
@@ -129,9 +106,9 @@ export default function AdminPropiedades() {
               {p.cantidadOcultas > 0 && (
                 <button
                   onClick={() => p.setShowHidden(!p.showHidden)}
-                  className="px-3 py-1 rounded text-xs font-medium"
-                  style={{ border: '1px solid #C9A96E', color: '#C9A96E', fontFamily: 'DM Sans' }}
+                  className="btn btn-outline btn-sm"
                 >
+                  {p.showHidden ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                   {p.showHidden ? 'Ocultar ya vistas' : 'Mostrar ya vistas también'}
                 </button>
               )}
@@ -148,21 +125,27 @@ export default function AdminPropiedades() {
         />
       ) : (
         <>
-          <div style={{ ...muted, fontSize: '0.875rem' }}>
-            {!p.loading &&
-              `Mostrando ${p.visibles.length} de ${p.totalCount} propiedades`}
-          </div>
+          <p className="text-sm text-text-muted" aria-live="polite">
+            {!p.loading && (
+              <>
+                Mostrando <strong className="mono font-medium text-text">{p.visibles.length}</strong> de{' '}
+                <strong className="mono font-medium text-text">{p.totalCount}</strong> propiedades
+              </>
+            )}
+          </p>
 
           {p.loading ? (
-            <div className="text-center py-12" style={muted}>
-              Cargando propiedades...
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+              {Array.from({ length: 8 }, (_, i) => (
+                <div key={i} className="skeleton h-[26rem]" />
+              ))}
             </div>
           ) : p.visibles.length === 0 ? (
-            <div className="text-center py-12" style={muted}>
-              {emptyMessage}
+            <div className="card">
+              <EmptyState icon={Building2} title={emptyMessage} />
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {p.visibles.map((prop, idx) => (
                 <PropertyCard
                   key={prop.id}

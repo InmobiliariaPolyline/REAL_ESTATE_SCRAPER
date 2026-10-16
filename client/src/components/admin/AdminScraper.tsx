@@ -1,9 +1,11 @@
+import { History, Loader2, Play, RefreshCw, Rocket } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
-import { RefreshCw } from "lucide-react"
+import Avatar from "@/components/common/Avatar"
 import ConfirmModal from "@/components/common/ConfirmModal"
+import EmptyState from "@/components/common/EmptyState"
 import { useToast } from "@/contexts/ToastContext"
-import { formatDateTime } from "@/lib/dates"
 import { ApiError, api } from "@/lib/api"
+import { formatDateTime } from "@/lib/dates"
 
 interface AccessLog {
   id: number
@@ -44,12 +46,12 @@ export default function AdminScraper() {
 
       // El GITHUB_PAT vive en las variables de entorno del servidor, NUNCA en el frontend.
       await api.post("/admin/scraper")
-      addToast("✅ Scraper iniciado — resultados en ~45 minutos", "success")
+      addToast("Scraper iniciado: los resultados llegarán en unos 45 minutos", "success")
     } catch (err) {
       addToast(
         err instanceof ApiError && err.status === 501
           ? "El scraper no está configurado en el servidor (GITHUB_PAT / GITHUB_REPO / GITHUB_WORKFLOW)"
-          : "❌ Error al contactar el servidor",
+          : "Error al contactar el servidor",
         "error"
       )
       console.error(err)
@@ -60,98 +62,86 @@ export default function AdminScraper() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)]">
       {/* Ejecución del scraper */}
-      <section className="space-y-3">
-        <h2
-          className="text-lg font-bold"
-          style={{ fontFamily: "Cormorant Garamond", color: "#F0EDE8" }}
-        >
-          Ejecución del scraper
-        </h2>
-        <p className="text-sm" style={{ color: "#6B6B6B", fontFamily: "DM Sans" }}>
-          Lanza una corrida manual sin esperar al horario automático. El estado del
-          scraper (avisos nuevos y última actividad) se ve en el Dashboard.
+      <section className="card flex flex-col p-6">
+        <span className="mb-5 inline-flex size-12 items-center justify-center rounded-2xl bg-gold-soft ring-1 ring-gold/25">
+          <Rocket className="size-6 text-gold" strokeWidth={1.75} />
+        </span>
+        <h2 className="text-base font-semibold text-text">Ejecución del scraper</h2>
+        <p className="mt-2 text-sm leading-relaxed text-text-muted">
+          Lanza una corrida manual sin esperar al horario automático. El estado del scraper
+          (avisos nuevos y última actividad) se ve en el Dashboard.
         </p>
+
         <button
           onClick={() => setConfirmOpen(true)}
           disabled={scraperLoading}
-          className="px-4 py-2 rounded text-sm font-medium transition"
-          style={{
-            backgroundColor: "#C9A96E",
-            color: "#0F0F0F",
-            fontFamily: "DM Sans",
-            opacity: scraperLoading ? 0.6 : 1,
-          }}
+          className="btn btn-primary btn-lg mt-6 self-start"
         >
-          {scraperLoading ? "Iniciando..." : "🔄 Forzar Scraper Ahora"}
+          {scraperLoading ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />}
+          {scraperLoading ? "Iniciando..." : "Forzar scraper ahora"}
         </button>
+
+        <p className="mt-auto pt-6 text-xs leading-relaxed text-text-faint">
+          Seguridad: el botón llama a <code className="text-text-muted">POST /api/admin/scraper</code>,
+          que verifica que quien lo invoca sea administrador. El token de GitHub se guarda en las
+          variables de entorno del servidor, nunca en el navegador.
+        </p>
       </section>
 
       {/* Accesos de usuarios */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2
-          className="text-lg font-bold"
-          style={{ fontFamily: "Cormorant Garamond", color: "#F0EDE8" }}
-        >
-          Accesos de usuarios
-        </h2>
-        <button
-          onClick={loadLogs}
-          disabled={loading}
-          className="px-4 py-2 rounded text-sm font-medium transition flex items-center gap-2"
-          style={{
-            backgroundColor: "transparent",
-            border: "1px solid #C9A96E",
-            color: "#C9A96E",
-            fontFamily: "DM Sans",
-            opacity: loading ? 0.5 : 1,
-          }}
-        >
-          <RefreshCw size={16} />
-          Actualizar
-        </button>
-      </div>
+      <section className="card overflow-hidden">
+        <div className="flex items-center justify-between gap-3 border-b border-line px-6 py-4">
+          <div>
+            <h2 className="text-base font-semibold text-text">Accesos de usuarios</h2>
+            <p className="text-sm text-text-muted">Últimos {logs.length || 50} inicios de sesión</p>
+          </div>
+          <button
+            onClick={loadLogs}
+            disabled={loading}
+            className="btn btn-secondary btn-sm"
+            aria-label="Actualizar accesos"
+          >
+            <RefreshCw className={loading ? "size-4 animate-spin" : "size-4"} />
+            Actualizar
+          </button>
+        </div>
 
-      {/* Consola de accesos */}
-      <div
-        className="rounded p-4 font-mono text-sm overflow-y-auto"
-        style={{
-          backgroundColor: "#050505",
-          border: "1px solid #2A2A2A",
-          color: "#22C55E",
-          height: "400px",
-          fontFamily: "JetBrains Mono",
-        }}
-      >
-        {loading ? (
-          <div style={{ color: "#6B6B6B" }}>Cargando accesos...</div>
-        ) : logs.length === 0 ? (
-          <div style={{ color: "#6B6B6B" }}>Sin accesos registrados</div>
-        ) : (
-          logs.map(log => (
-            <div key={log.id} className="mb-2">
-              [{formatDateTime(log.fecha_acceso)}] Usuario:{" "}
-              <span style={{ color: "#C9A96E" }}>{usernameOf(log)}</span> conectado
+        <div className="max-h-[28rem] overflow-y-auto">
+          {loading ? (
+            <div className="space-y-2 p-4">
+              {Array.from({ length: 5 }, (_, i) => (
+                <div key={i} className="skeleton h-14" />
+              ))}
             </div>
-          ))
-        )}
-      </div>
-
-      <div
-        className="p-4 rounded text-xs"
-        style={{
-          backgroundColor: "#1A1A1A",
-          border: "1px solid #2A2A2A",
-          color: "#6B6B6B",
-          fontFamily: "DM Sans",
-        }}
-      >
-        <strong style={{ color: "#C9A96E" }}>Nota de seguridad:</strong> El botón
-        "Forzar Scraper" llama a la API (<code>POST /api/admin/scraper</code>), que verifica
-        que quien la invoca sea administrador. El GITHUB_PAT se guarda en las variables de
-        entorno del servidor, NUNCA en el frontend.
-      </div>
+          ) : logs.length === 0 ? (
+            <EmptyState
+              icon={History}
+              title="Sin accesos registrados"
+              description="Los inicios de sesión aparecerán aquí."
+            />
+          ) : (
+            <ul className="divide-y divide-line">
+              {logs.map(log => (
+                <li
+                  key={log.id}
+                  className="flex items-center gap-3 px-6 py-3.5 transition hover:bg-white/[0.025]"
+                >
+                  <Avatar name={usernameOf(log)} size="sm" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-text">{usernameOf(log)}</p>
+                    <p className="text-xs text-text-muted">Inició sesión</p>
+                  </div>
+                  <time className="mono shrink-0 text-xs text-text-muted" dateTime={log.fecha_acceso}>
+                    {formatDateTime(log.fecha_acceso)}
+                  </time>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
 
       {confirmOpen && (
         <ConfirmModal

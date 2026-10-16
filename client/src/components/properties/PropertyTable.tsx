@@ -1,4 +1,4 @@
-import { Eye } from 'lucide-react'
+import { Building2, ExternalLink } from 'lucide-react'
 import { getOperacionColor, getPortalColor } from '@/lib/portals'
 import {
   currencyLabel,
@@ -14,193 +14,92 @@ interface PropertyTableProps {
   moneda: Currency
 }
 
-export default function PropertyTable({
-  properties,
-  moneda,
-}: PropertyTableProps) {
+export default function PropertyTable({ properties, moneda }: PropertyTableProps) {
   return (
-    <div
-      className="overflow-x-auto rounded"
-      style={{ backgroundColor: '#111111' }}
-    >
-      <table className="w-full text-sm" style={{ fontFamily: 'DM Sans' }}>
-        <thead>
-          <tr style={{ backgroundColor: '#1A1A1A', borderBottom: '1px solid #2A2A2A' }}>
-            <th
-              className="px-4 py-3 text-left font-semibold"
-              style={{ color: '#C9A96E' }}
-            >
-              Thumb
-            </th>
-            <th
-              className="px-4 py-3 text-left font-semibold"
-              style={{ color: '#C9A96E' }}
-            >
-              Portal
-            </th>
-            <th
-              className="px-4 py-3 text-left font-semibold"
-              style={{ color: '#C9A96E' }}
-            >
-              Título
-            </th>
-            <th
-              className="px-4 py-3 text-left font-semibold"
-              style={{ color: '#C9A96E' }}
-            >
-              Precio {currencyLabel(moneda)}
-            </th>
-            <th
-              className="px-4 py-3 text-left font-semibold"
-              style={{ color: '#C9A96E' }}
-            >
-              Distrito
-            </th>
-            <th
-              className="px-4 py-3 text-left font-semibold"
-              style={{ color: '#C9A96E' }}
-            >
-              Tipo
-            </th>
-            <th
-              className="px-4 py-3 text-left font-semibold"
-              style={{ color: '#C9A96E' }}
-            >
-              Dorms
-            </th>
-            <th
-              className="px-4 py-3 text-left font-semibold"
-              style={{ color: '#C9A96E' }}
-            >
-              Área
-            </th>
-            <th
-              className="px-4 py-3 text-center font-semibold"
-              style={{ color: '#C9A96E' }}
-            >
-              Acciones
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {properties.map((prop, idx) => (
-            <tr
-              key={prop.id}
-              style={{
-                borderBottom: '1px solid #2A2A2A',
-                backgroundColor: idx % 2 === 0 ? '#0F0F0F' : '#111111',
-              }}
-            >
-              {/* Thumb */}
-              <td className="px-4 py-3">
-                {safeHttpUrl(prop.imagen) ? (
-                  <img
-                    src={safeHttpUrl(prop.imagen) ?? undefined}
-                    alt={prop.titulo}
-                    className="w-12 h-12 object-cover rounded"
-                    loading="lazy"
-                    decoding="async"
-                  />
-                ) : (
-                  <div
-                    className="w-12 h-12 rounded flex items-center justify-center"
-                    style={{ backgroundColor: '#252525' }}
-                  >
-                    <svg
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1"
-                      style={{ color: '#6B6B6B' }}
-                    >
-                      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-                      <polyline points="9 22 9 12 15 12 15 22"></polyline>
-                    </svg>
-                  </div>
-                )}
-              </td>
-
-              {/* Portal */}
-              <td className="px-4 py-3">
-                <span
-                  className="badge-portal px-2 py-1 text-xs"
-                  style={{
-                    backgroundColor: getPortalColor(prop.portal),
-                  }}
-                >
-                  {prop.portal}
-                </span>
-              </td>
-
-              {/* Título */}
-              <td
-                className="px-4 py-3 truncate max-w-xs"
-                style={{ color: '#F0EDE8' }}
-              >
-                {prop.titulo}
-              </td>
-
-              {/* Precio */}
-              <td
-                className="px-4 py-3 font-semibold"
-                style={{
-                  color: '#C9A96E',
-                  fontFamily: 'JetBrains Mono',
-                }}
-              >
-                {formatDisplayPrice(
-                  getDisplayPrice(prop.precio, prop.precio_usd, moneda)
-                )}
-              </td>
-
-              {/* Distrito */}
-              <td className="px-4 py-3" style={{ color: '#6B6B6B' }}>
-                {prop.distrito}
-              </td>
-
-              {/* Tipo */}
-              <td className="px-4 py-3">
-                <span
-                  className="badge-operacion px-2 py-1 text-xs"
-                  style={{
-                    backgroundColor: getOperacionColor(prop.operacion),
-                  }}
-                >
-                  {prop.operacion}
-                </span>
-              </td>
-
-              {/* Dorms */}
-              <td className="px-4 py-3" style={{ color: '#F0EDE8' }}>
-                {prop.dormitorios}
-              </td>
-
-              {/* Área */}
-              <td className="px-4 py-3" style={{ color: '#F0EDE8' }}>
-                {prop.area}
-              </td>
-
-              {/* Acciones */}
-              <td className="px-4 py-3 text-center">
-                <div className="flex items-center justify-center gap-2">
-                  <a
-                    href={safeHttpUrl(prop.url) ?? undefined}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label="Ver anuncio"
-                    className="p-1 hover:opacity-70 transition"
-                    style={{ color: '#C9A96E' }}
-                  >
-                    <Eye size={16} />
-                  </a>
-                </div>
-              </td>
+    <div className="card overflow-hidden">
+      <div className="overflow-x-auto">
+        <table className="table-modern min-w-[860px]">
+          <thead>
+            <tr>
+              <th>Propiedad</th>
+              <th>Portal</th>
+              <th>Operación</th>
+              <th>Precio {currencyLabel(moneda)}</th>
+              <th>Distrito</th>
+              <th>Dorm.</th>
+              <th>Área</th>
+              <th className="text-center">Aviso</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {properties.map(prop => {
+              const image = safeHttpUrl(prop.imagen)
+              const url = safeHttpUrl(prop.url)
+              const price = getDisplayPrice(prop.precio, prop.precio_usd, moneda)
+              return (
+                <tr key={prop.id}>
+                  <td className="max-w-[22rem]">
+                    <div className="flex items-center gap-3">
+                      {image ? (
+                        <img
+                          src={image}
+                          alt=""
+                          className="size-12 shrink-0 rounded-xl object-cover"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      ) : (
+                        <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-surface-3">
+                          <Building2 className="size-5 text-text-faint" strokeWidth={1.5} />
+                        </span>
+                      )}
+                      <span className="line-clamp-2 text-sm font-medium text-text">
+                        {prop.titulo}
+                      </span>
+                    </div>
+                  </td>
+                  <td>
+                    <span className="badge badge-muted capitalize">
+                      <span className="dot" style={{ color: getPortalColor(prop.portal) }} />
+                      {prop.portal}
+                    </span>
+                  </td>
+                  <td>
+                    <span
+                      className="badge"
+                      style={{
+                        color: getOperacionColor(prop.operacion),
+                        borderColor: `${getOperacionColor(prop.operacion)}40`,
+                        backgroundColor: `${getOperacionColor(prop.operacion)}1a`,
+                      }}
+                    >
+                      {prop.operacion}
+                    </span>
+                  </td>
+                  <td className="mono whitespace-nowrap font-semibold text-gold">
+                    {formatDisplayPrice(price)}
+                  </td>
+                  <td className="text-text-muted">{prop.distrito}</td>
+                  <td className="text-text">{prop.dormitorios}</td>
+                  <td className="whitespace-nowrap text-text">{prop.area}</td>
+                  <td className="text-center">
+                    <a
+                      href={url ?? undefined}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`Ver aviso: ${prop.titulo}`}
+                      aria-disabled={!url}
+                      className="btn btn-ghost btn-icon btn-sm text-gold"
+                    >
+                      <ExternalLink className="size-4" />
+                    </a>
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

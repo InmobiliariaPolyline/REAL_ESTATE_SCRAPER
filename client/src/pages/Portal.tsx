@@ -1,8 +1,10 @@
+import { Grid3X3, List, SearchX, SlidersHorizontal } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Filter, Grid3X3, List } from "lucide-react"
-import Pagination from "@/components/properties/Pagination"
+import EmptyState from "@/components/common/EmptyState"
+import PageHeader from "@/components/common/PageHeader"
 import PortalFilters from "@/components/portal/PortalFilters"
 import PortalHeader from "@/components/portal/PortalHeader"
+import Pagination from "@/components/properties/Pagination"
 import PropertyCard from "@/components/properties/PropertyCard"
 import PropertyTable from "@/components/properties/PropertyTable"
 import {
@@ -109,10 +111,7 @@ export default function Portal({
   )
 
   return (
-    <div
-      className="overflow-x-hidden max-w-full"
-      style={{ backgroundColor: "#0F0F0F", minHeight: "100vh", paddingTop: "64px" }}
-    >
+    <div className="min-h-screen pt-16">
       <PortalHeader
         usuario={usuario}
         planType={planType}
@@ -120,133 +119,99 @@ export default function Portal({
         onLogout={onLogout}
       />
 
-      {/* Mobile Sticky Filter Trigger (below navigation header) */}
-      <div
-        className="sticky top-16 md:hidden z-30 px-6 py-3 flex items-center justify-between border-b"
-        style={{
-          backgroundColor: "#1A1A1A",
-          borderColor: "#2A2A2A",
-          fontFamily: "DM Sans",
-        }}
-      >
-        <span style={{ color: "#6B6B6B", fontSize: "0.875rem" }}>
-          Mostrando <strong style={{ color: "#C9A96E" }}>{totalCount}</strong>{" "}
-          propiedades
-        </span>
-        <button
-          onClick={() => setIsFilterDrawerOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded font-semibold text-sm transition hover:opacity-90 cursor-pointer"
-          style={{
-            backgroundColor: "#C9A96E",
-            color: "#0F0F0F",
-            height: "44px",
-            minHeight: "44px",
-          }}
-        >
-          <Filter size={16} />
-          Filtrar
-        </button>
-      </div>
+      <main className="mx-auto w-full max-w-[1500px] px-4 pb-14 pt-8 sm:px-8">
+        <PageHeader
+          eyebrow="Catálogo"
+          title={
+            <>
+              Hola, <span className="text-gold">{usuario}</span>
+            </>
+          }
+          description="Explora los avisos de todos los portales con precios normalizados en soles y dólares."
+        />
 
-      {/* Filtros (Desktop) */}
-      <div className="hidden md:block relative z-40">{filtersPanel(false)}</div>
+        {/* Filtros (escritorio) */}
+        <div className="relative z-20 hidden md:block">{filtersPanel(false)}</div>
 
-      {/* Filtros (Mobile Drawer) */}
-      <Sheet open={isFilterDrawerOpen} onOpenChange={setIsFilterDrawerOpen}>
-        <SheetContent
-          side="right"
-          className="w-full sm:max-w-md border-l border-[#2A2A2A] p-0 flex flex-col h-full"
-          style={{ backgroundColor: "#1A1A1A" }}
-        >
-          <SheetHeader className="px-6 py-4 border-b border-[#2A2A2A] flex flex-row items-center justify-between text-left">
-            <SheetTitle
-              className="text-xl font-bold"
-              style={{ fontFamily: "Cormorant Garamond", color: "#C9A96E" }}
+        {/* Filtros (móvil) */}
+        <Sheet open={isFilterDrawerOpen} onOpenChange={setIsFilterDrawerOpen}>
+          <SheetContent
+            side="right"
+            className="flex h-full w-full flex-col border-l border-line bg-surface-1 p-0 sm:max-w-md"
+          >
+            <SheetHeader className="border-b border-line px-5 py-4 text-left">
+              <SheetTitle className="flex items-center gap-2 text-lg font-semibold text-text">
+                <SlidersHorizontal className="size-4 text-gold" />
+                Filtros
+              </SheetTitle>
+            </SheetHeader>
+            <div className="flex-1 overflow-y-auto">{filtersPanel(true)}</div>
+          </SheetContent>
+        </Sheet>
+
+        {/* Barra de resultados */}
+        <div className="mb-5 mt-8 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-text-muted" aria-live="polite">
+            Mostrando <strong className="mono font-medium text-text">{properties.length}</strong> de{" "}
+            <strong className="mono font-medium text-text">{totalCount}</strong> propiedades
+          </p>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsFilterDrawerOpen(true)}
+              className="btn btn-secondary btn-sm md:hidden"
             >
-              Filtros
-            </SheetTitle>
-          </SheetHeader>
-          <div className="flex-1 overflow-y-auto">{filtersPanel(true)}</div>
-        </SheetContent>
-      </Sheet>
+              <SlidersHorizontal className="size-4" />
+              Filtrar
+            </button>
 
-      <main className="pt-4 pb-8 overflow-x-hidden max-w-full">
-        {/* Controles de vista */}
-        <div
-          className="flex items-center justify-between px-6 mb-6"
-          style={{ fontFamily: "DM Sans" }}
-        >
-          <span style={{ color: "#6B6B6B", fontSize: "0.875rem" }}>
-            Mostrando{" "}
-            <strong style={{ color: "#C9A96E" }}>{properties.length}</strong> de{" "}
-            <strong style={{ color: "#C9A96E" }}>{totalCount}</strong>{" "}
-            propiedades
-          </span>
-          <div className="flex gap-2">
-            {(
-              [
-                ["grid", Grid3X3, "Vista en cuadrícula"],
-                ["list", List, "Vista en lista"],
-              ] as const
-            ).map(([mode, Icon, label]) => (
-              <button
-                key={mode}
-                onClick={() => setViewMode(mode)}
-                aria-label={label}
-                aria-pressed={viewMode === mode}
-                className="p-2 rounded transition"
-                style={{
-                  backgroundColor: viewMode === mode ? "#C9A96E" : "transparent",
-                  color: viewMode === mode ? "#0F0F0F" : "#6B6B6B",
-                  border: "1px solid #2A2A2A",
-                }}
-              >
-                <Icon size={18} />
-              </button>
-            ))}
+            <div className="segmented" role="group" aria-label="Tipo de vista">
+              {(
+                [
+                  ["grid", Grid3X3, "Vista en cuadrícula"],
+                  ["list", List, "Vista en lista"],
+                ] as const
+              ).map(([mode, Icon, label]) => (
+                <button
+                  key={mode}
+                  onClick={() => setViewMode(mode)}
+                  aria-label={label}
+                  title={label}
+                  aria-pressed={viewMode === mode}
+                  className="segmented-option !flex-none !px-3"
+                >
+                  <Icon className="size-4" />
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
         {loading && (
-          <div className="flex justify-center py-12">
-            <div
-              className="skeleton w-full h-96"
-              style={{ borderRadius: "8px" }}
-            ></div>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+            {Array.from({ length: 8 }, (_, i) => (
+              <div key={i} className="skeleton h-[26rem]" />
+            ))}
           </div>
         )}
 
         {!loading && properties.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-12">
-            <svg
-              width="64"
-              height="64"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1"
-              style={{ color: "#6B6B6B", marginBottom: "1rem" }}
-            >
-              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-              <polyline points="9 22 9 12 15 12 15 22"></polyline>
-            </svg>
-            <p
-              style={{
-                color: "#6B6B6B",
-                fontFamily: "DM Sans",
-                marginBottom: "1rem",
-              }}
-            >
-              Sin propiedades para estos filtros
-            </p>
-            <button onClick={() => handleClear()} className="btn-outline-gold">
-              Limpiar filtros
-            </button>
+          <div className="card">
+            <EmptyState
+              icon={SearchX}
+              title="Sin propiedades para estos filtros"
+              description="Prueba ampliando el rango de precio o quitando algún filtro."
+              action={
+                <button onClick={() => handleClear()} className="btn btn-outline">
+                  Limpiar filtros
+                </button>
+              }
+            />
           </div>
         )}
 
         {!loading && properties.length > 0 && viewMode === "grid" && (
-          <div className="px-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {properties.map((prop, idx) => (
               <PropertyCard
                 key={prop.id}
@@ -270,21 +235,19 @@ export default function Portal({
         )}
 
         {!loading && properties.length > 0 && viewMode === "list" && (
-          <div className="px-6">
-            <PropertyTable properties={properties} moneda={applied.moneda} />
-          </div>
+          <PropertyTable properties={properties} moneda={applied.moneda} />
+        )}
+
+        {!loading && properties.length > 0 && (
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={page => loadProperties(applied, page)}
+            totalItems={totalCount}
+            itemsPerPage={ITEMS_PER_PAGE}
+          />
         )}
       </main>
-
-      {!loading && properties.length > 0 && (
-        <Pagination
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={page => loadProperties(applied, page)}
-          totalItems={totalCount}
-          itemsPerPage={ITEMS_PER_PAGE}
-        />
-      )}
     </div>
   )
 }

@@ -1,6 +1,8 @@
 import { safeHttpUrl } from "@shared/url"
 
-export { TIPOS_ENLACE } from "@shared/constants"
+import { TIPOS_ENLACE, type TipoEnlace } from "@shared/constants"
+
+export { TIPOS_ENLACE }
 export { validateEnlace, type EnlaceInput } from "@shared/validation"
 
 export interface Enlace {
@@ -11,6 +13,13 @@ export interface Enlace {
   url: string
   tipo: string
   creado_en: string | null
+}
+
+export const TIPO_LABELS: Record<TipoEnlace, string> = {
+  OTRO: "Otro",
+  INFORMACION_ESTADISTICA: "Información estadística",
+  INFORMACION_LEGAL: "Información legal",
+  DOCUMENTACION: "Documentación",
 }
 
 /** Abre un enlace en una pestaña nueva solo si es una URL http(s) válida. */

@@ -6,6 +6,7 @@ import AdminScraper from "@/components/admin/AdminScraper"
 import AdminSidebar from "@/components/admin/AdminSidebar"
 import AdminUsuarios from "@/components/admin/AdminUsuarios"
 import { ADMIN_TABS, type AdminTab } from "@/components/admin/tabs"
+import PageHeader from "@/components/common/PageHeader"
 
 interface AdminProps {
   usuario: string
@@ -14,6 +15,9 @@ interface AdminProps {
 
 export default function Admin({ usuario, onLogout }: AdminProps) {
   const [activeTab, setActiveTab] = useState<AdminTab>("dashboard")
+
+  const current = ADMIN_TABS.find(tab => tab.id === activeTab) ?? ADMIN_TABS[0]
+  const isDashboard = activeTab === "dashboard"
 
   const renderContent = () => {
     switch (activeTab) {
@@ -27,14 +31,12 @@ export default function Admin({ usuario, onLogout }: AdminProps) {
         return <AdminScraper />
       case "dashboard":
       default:
-        return <AdminDashboard />
+        return <AdminDashboard onNavigate={setActiveTab} />
     }
   }
 
-  const title = ADMIN_TABS.find(tab => tab.id === activeTab)?.title ?? ""
-
   return (
-    <div className="flex h-screen" style={{ backgroundColor: "#0F0F0F" }}>
+    <div className="flex min-h-screen">
       <AdminSidebar
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -42,16 +44,25 @@ export default function Admin({ usuario, onLogout }: AdminProps) {
         onLogout={onLogout}
       />
 
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-4 sm:p-8">
-          <h1
-            className="text-3xl font-bold mb-8"
-            style={{ fontFamily: "Cormorant Garamond", color: "#C9A96E" }}
-          >
-            {title}
-          </h1>
+      <main className="min-w-0 flex-1">
+        <div className="mx-auto w-full max-w-[1400px] px-4 pb-12 pt-16 sm:px-8 md:pt-10">
+          <PageHeader
+            eyebrow={isDashboard ? "Panel de administración" : current.section}
+            title={
+              isDashboard ? (
+                <>
+                  Hola, <span className="text-gold">{usuario}</span>
+                </>
+              ) : (
+                current.title
+              )
+            }
+            description={current.description}
+          />
 
-          {renderContent()}
+          <div key={activeTab} className="animate-slideInUp">
+            {renderContent()}
+          </div>
         </div>
       </main>
     </div>

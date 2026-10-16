@@ -1,4 +1,6 @@
+import { AlertTriangle, Info } from "lucide-react"
 import { useEffect, type ReactNode } from "react"
+import { cn } from "@/lib/utils"
 
 interface ConfirmModalProps {
   title: string
@@ -34,10 +36,12 @@ export default function ConfirmModal({
     return () => window.removeEventListener("keydown", onKey)
   }, [busy, onCancel])
 
+  const danger = tone === "danger"
+  const Icon = danger ? AlertTriangle : Info
+
   return (
     <div
-      className="fixed inset-0 flex items-center justify-center z-50"
-      style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
+      className="animate-fadeIn fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
       onClick={() => !busy && onCancel()}
       role="presentation"
     >
@@ -45,64 +49,32 @@ export default function ConfirmModal({
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="p-6 rounded max-w-sm w-full mx-4"
-        style={{
-          backgroundColor: "#111111",
-          border: "1px solid #2A2A2A",
-          boxShadow: "0 20px 60px rgba(0,0,0,0.6)",
-        }}
+        className="animate-popIn card w-full max-w-md p-6 shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
-        <h3
-          style={{
-            color: "#F0EDE8",
-            fontFamily: "DM Sans",
-            fontSize: "1.125rem",
-            fontWeight: "bold",
-            marginBottom: "0.75rem",
-          }}
-        >
-          {title}
-        </h3>
-
-        {children && (
-          <div
-            style={{
-              color: "#6B6B6B",
-              fontFamily: "DM Sans",
-              marginBottom: "1.5rem",
-              fontSize: "0.875rem",
-            }}
+        <div className="flex gap-4">
+          <span
+            className={cn(
+              "inline-flex size-11 shrink-0 items-center justify-center rounded-2xl ring-1",
+              danger ? "bg-rose/10 text-rose ring-rose/25" : "bg-gold-soft text-gold ring-gold/25"
+            )}
           >
-            {children}
+            <Icon className="size-5" strokeWidth={1.75} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-lg font-semibold leading-snug text-text">{title}</h3>
+            {children && <div className="mt-2 text-sm text-text-muted">{children}</div>}
           </div>
-        )}
+        </div>
 
-        <div className="flex gap-3">
-          <button
-            onClick={onCancel}
-            disabled={busy}
-            className="flex-1 px-4 py-2 rounded text-sm font-medium"
-            style={{
-              backgroundColor: "transparent",
-              border: "1px solid #2A2A2A",
-              color: "#6B6B6B",
-              fontFamily: "DM Sans",
-              opacity: busy ? 0.5 : 1,
-            }}
-          >
+        <div className="mt-6 flex justify-end gap-2">
+          <button onClick={onCancel} disabled={busy} className="btn btn-ghost">
             {cancelLabel}
           </button>
           <button
             onClick={onConfirm}
             disabled={busy}
-            className="flex-1 px-4 py-2 rounded text-sm font-medium transition"
-            style={{
-              backgroundColor: tone === "danger" ? "#EF4444" : "#C9A96E",
-              color: tone === "danger" ? "white" : "#0F0F0F",
-              fontFamily: "DM Sans",
-              opacity: busy ? 0.6 : 1,
-            }}
+            className={cn("btn", danger ? "btn-danger" : "btn-primary")}
           >
             {busy ? busyLabel : confirmLabel}
           </button>

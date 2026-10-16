@@ -1,6 +1,5 @@
+import { Bath, BedDouble, Building2, ExternalLink, Heart, Link2, MapPin, Ruler, Trash2 } from 'lucide-react'
 import { useState } from 'react'
-import { Eye, Heart, Link, Trash2 } from 'lucide-react'
-import EnlacesPropiedad from './EnlacesPropiedad'
 import { getOperacionColor, getPortalColor } from '@/lib/portals'
 import {
   formatDisplayPrice,
@@ -8,6 +7,8 @@ import {
   type Currency,
 } from '@/lib/prices'
 import { safeHttpUrl } from '@/lib/url'
+import { cn } from '@/lib/utils'
+import EnlacesPropiedad from './EnlacesPropiedad'
 
 interface PropertyCardProps {
   id: string
@@ -28,6 +29,21 @@ interface PropertyCardProps {
   onToggleFavorite?: (id: string) => void
   onDelete?: (id: string) => void
   onView?: (id: string) => void
+}
+
+/** Dato de ficha (dormitorios, baños, área) con icono; se oculta si no hay valor. */
+function Meta({ icon: Icon, value, label }: { icon: typeof Bath; value: string; label: string }) {
+  if (!value) return null
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-lg bg-surface-3 px-2.5 py-1.5 text-xs text-text"
+      title={label}
+    >
+      <Icon className="size-3.5 text-text-muted" strokeWidth={1.75} aria-hidden="true" />
+      <span className="sr-only">{label}: </span>
+      {value}
+    </span>
+  )
 }
 
 export default function PropertyCard({
@@ -53,211 +69,137 @@ export default function PropertyCard({
   const [mostrarEnlaces, setMostrarEnlaces] = useState(false)
 
   const price = getDisplayPrice(precio, precioUsd, moneda)
+  const hasPrice = price.amount > 0
   const safeUrl = safeHttpUrl(url)
   const safeImage = safeHttpUrl(imagen)
 
   return (
     <>
-      <div
-        className="rounded overflow-hidden transition-all hover:shadow-lg"
-        style={{
-          backgroundColor: '#111111',
-          animation: `slideInUp 0.5s ease forwards`,
-          animationDelay: `${index * 40}ms`,
-          opacity: 0,
-          boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.transform = 'translateY(-3px)'
-          e.currentTarget.style.boxShadow =
-            '0 8px 32px rgba(201, 169, 110, 0.18)'
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'translateY(0)'
-          e.currentTarget.style.boxShadow =
-            '0 4px 12px rgba(0,0,0,0.3)'
-        }}
+      <article
+        className="card card-interactive animate-slideInUp group flex flex-col overflow-hidden"
+        style={{ animationDelay: `${Math.min(index, 12) * 40}ms` }}
       >
         {/* Imagen */}
-        <div className="relative w-full h-48 bg-gray-800 overflow-hidden">
+        <div className="relative aspect-[16/10] overflow-hidden bg-surface-3">
           {safeImage ? (
             <img
               src={safeImage}
               alt={titulo}
-              className="w-full h-full object-cover"
+              className="size-full object-cover transition duration-500 group-hover:scale-105"
               loading="lazy"
               decoding="async"
             />
           ) : (
-            <div
-              className="w-full h-full flex items-center justify-center"
-              style={{ backgroundColor: '#252525' }}
-            >
-              <svg
-                width="48"
-                height="48"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1"
-                style={{ color: '#6B6B6B' }}
-              >
-                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-                <polyline points="9 22 9 12 15 12 15 22"></polyline>
-              </svg>
+            <div className="flex size-full items-center justify-center bg-[radial-gradient(circle_at_30%_20%,var(--surface-4),var(--surface-3))]">
+              <Building2 className="size-10 text-text-faint" strokeWidth={1.25} />
             </div>
           )}
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/60 to-transparent" />
 
-          {/* Badges */}
-          <div
-            className="absolute top-3 left-3 flex gap-2"
-            style={{ zIndex: 10 }}
-          >
+          <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-xs font-medium capitalize text-white backdrop-blur-md">
+            <span className="dot" style={{ color: getPortalColor(portal) }} />
+            {portal}
+          </span>
+
+          <div className="absolute right-3 top-3 flex items-center gap-2">
             <span
-              className="badge-portal"
-              style={{ backgroundColor: getPortalColor(portal) }}
+              className="rounded-full px-2.5 py-1 text-[0.6875rem] font-semibold uppercase tracking-wide text-[#10131a]"
+              style={{ backgroundColor: getOperacionColor(operacion) }}
             >
-              {portal}
+              {operacion}
             </span>
-          </div>
-
-          <div
-            className="absolute top-3 right-3 flex flex-col items-end gap-2"
-            style={{ zIndex: 10 }}
-          >
             {onToggleFavorite && (
               <button
-                onClick={(e) => {
+                type="button"
+                onClick={e => {
                   e.preventDefault()
                   e.stopPropagation()
                   onToggleFavorite(id)
                 }}
-                className="w-8 h-8 rounded-full flex items-center justify-center transition"
-                style={{ backgroundColor: 'rgba(15,15,15,0.7)' }}
-                title={
-                  isFavorite
-                    ? 'Quitar de favoritos'
-                    : 'Agregar a favoritos'
-                }
+                aria-pressed={!!isFavorite}
+                className="inline-flex size-8 items-center justify-center rounded-full bg-black/55 backdrop-blur-md transition hover:bg-black/75"
+                title={isFavorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}
               >
                 <Heart
-                  size={16}
-                  style={{
-                    color: isFavorite ? '#EF4444' : '#F0EDE8',
-                    fill: isFavorite ? '#EF4444' : 'none',
-                  }}
+                  className={cn('size-4', isFavorite ? 'fill-rose text-rose' : 'text-white')}
                 />
+                <span className="sr-only">
+                  {isFavorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}
+                </span>
               </button>
             )}
-
-            <span
-              className="badge-operacion"
-              style={{
-                backgroundColor: getOperacionColor(operacion),
-              }}
-            >
-              {operacion}
-            </span>
           </div>
         </div>
 
         {/* Contenido */}
-        <div className="p-4">
-          {/* Precio */}
-          <div
-            className="text-2xl font-bold mb-2"
-            style={{
-              fontFamily: 'JetBrains Mono',
-              color: '#C9A96E',
-            }}
+        <div className="flex flex-1 flex-col gap-3 p-5">
+          <p
+            className={cn(
+              'mono text-2xl font-semibold tracking-tight',
+              hasPrice ? 'text-gold' : 'text-text-faint'
+            )}
           >
             {formatDisplayPrice(price)}
-          </div>
+          </p>
 
-          {/* Título */}
-          <h3
-            className="text-sm font-medium mb-3 truncate"
-            style={{
-              color: '#F0EDE8',
-              fontFamily: 'DM Sans',
-            }}
-          >
+          <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-medium leading-snug text-text">
             {titulo}
           </h3>
 
-          {/* Pills */}
-          <div className="flex gap-2 mb-3 flex-wrap">
-            <span className="pill">🛏 {dormitorios}</span>
-            <span className="pill">🚿 {banios}</span>
-            <span className="pill">📐 {area}</span>
+          <div className="flex flex-wrap gap-2">
+            <Meta icon={BedDouble} value={dormitorios} label="Dormitorios" />
+            <Meta icon={Bath} value={banios} label="Baños" />
+            <Meta icon={Ruler} value={area} label="Área" />
           </div>
 
-          {/* Distrito */}
-          <div
-            className="text-xs mb-4"
-            style={{
-              color: '#6B6B6B',
-              fontFamily: 'DM Sans',
-            }}
-          >
-            📍 {distrito}
-          </div>
+          {distrito && (
+            <p className="flex items-center gap-1.5 text-xs text-text-muted">
+              <MapPin className="size-3.5 shrink-0" strokeWidth={1.75} />
+              <span className="truncate">{distrito}</span>
+            </p>
+          )}
 
-          {/* Botones */}
-          <div className="flex gap-2">
-            {/* Ver anuncio */}
+          <div className="mt-auto flex gap-2 pt-1">
             <a
               href={safeUrl ?? undefined}
               target="_blank"
               rel="noopener noreferrer"
-              onClick={() => onView && onView(id)}
+              onClick={() => onView?.(id)}
               aria-disabled={!safeUrl}
-              className="btn-outline-gold flex-1 flex items-center justify-center gap-2 h-11 md:h-10 text-sm"
-              style={{ padding: 0, ...(safeUrl ? {} : { opacity: 0.5, pointerEvents: 'none' }) }}
+              className={cn(
+                'btn btn-primary btn-sm flex-1',
+                !safeUrl && 'pointer-events-none opacity-50'
+              )}
             >
-              <Eye size={16} />
-              Ver anuncio
+              <ExternalLink className="size-4" />
+              Ver aviso
             </a>
 
-            {/* Enlaces */}
             <button
               onClick={() => setMostrarEnlaces(true)}
-              className="flex-1 flex items-center justify-center gap-2 h-11 md:h-10 rounded transition text-sm"
-              style={{
-                border: '1px solid #C9A96E',
-                color: '#C9A96E',
-                backgroundColor: 'transparent',
-              }}
-              title="Ver enlaces"
+              className="btn btn-secondary btn-sm"
+              title="Ver enlaces de apoyo"
             >
-              <Link size={16} />
+              <Link2 className="size-4" />
               Enlaces
             </button>
 
-            {/* Eliminar */}
             {onDelete && (
               <button
                 onClick={() => onDelete(id)}
-                className="flex items-center justify-center h-11 md:h-10 w-11 md:w-10 rounded transition"
-                style={{
-                  border: '1px solid #2A2A2A',
-                  color: '#EF4444',
-                }}
-                title="Ocultar/Eliminar"
+                className="btn btn-danger btn-sm btn-icon"
+                title="Eliminar propiedad"
+                aria-label="Eliminar propiedad"
               >
-                <Trash2 size={16} />
+                <Trash2 className="size-4" />
               </button>
             )}
           </div>
         </div>
-      </div>
+      </article>
 
-      {/* Modal de enlaces */}
       {mostrarEnlaces && (
-        <EnlacesPropiedad
-          propiedadId={id}
-          onClose={() => setMostrarEnlaces(false)}
-        />
+        <EnlacesPropiedad propiedadId={id} onClose={() => setMostrarEnlaces(false)} />
       )}
     </>
   )

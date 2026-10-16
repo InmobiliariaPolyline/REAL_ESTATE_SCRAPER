@@ -1,5 +1,6 @@
+import { BarChart3, Eye, EyeOff, Layers, Loader2, Lock, ShieldCheck, User } from "lucide-react"
 import { useState } from "react"
-import { Eye, EyeOff } from "lucide-react"
+import Logo from "@/components/common/Logo"
 import WhatsAppFab from "@/components/common/WhatsAppFab"
 import { login, type AuthSnapshot, type LoginFailure } from "@/lib/auth"
 
@@ -14,6 +15,12 @@ const ERROR_MESSAGES: Record<LoginFailure, string> = {
   unknown_role: "Tu cuenta no tiene un rol válido. Contacta al administrador.",
   network: "Error al conectar con el servidor",
 }
+
+const HIGHLIGHTS = [
+  { icon: Layers, title: "Todos los portales", text: "Properati, Urbania, Infocasas, Babilonia y Adondevivir en un solo lugar." },
+  { icon: BarChart3, title: "Precios comparables", text: "Soles y dólares normalizados para comparar sin hacer cuentas." },
+  { icon: ShieldCheck, title: "Acceso por suscripción", text: "Datos actualizados y protegidos para tu equipo." },
+]
 
 export default function Login({ onLoginSuccess }: LoginProps) {
   const [usuario, setUsuario] = useState("")
@@ -44,121 +51,124 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   }
 
   return (
-    <div className="flex h-screen bg-black">
-      {/* Mitad izquierda — solo desktop */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
+    <div className="grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
+      {/* Panel de marca (solo escritorio) */}
+      <aside className="relative hidden overflow-hidden lg:block">
         <img
-          src="https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=1200&auto=format&fm=webp&q=80"
-          alt="Lima"
-          className="w-full h-full object-cover"
+          src="https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=1600&auto=format&fm=webp&q=80"
+          alt=""
+          className="absolute inset-0 size-full object-cover"
           decoding="async"
           fetchPriority="high"
         />
-        {/* Overlay */}
-        <div className="absolute inset-0 bg-black/72"></div>
+        <div className="absolute inset-0 bg-[linear-gradient(160deg,rgb(16_18_22/0.6)_0%,rgb(16_18_22/0.9)_55%,#101216_100%)]" />
+        <div className="relative flex h-full flex-col justify-between p-12">
+          <Logo />
+          <div className="max-w-lg">
+            <p className="eyebrow mb-4">Inteligencia inmobiliaria</p>
+            <h2 className="font-display text-5xl font-semibold leading-[1.05] text-text">
+              El mercado inmobiliario peruano, en tiempo real.
+            </h2>
+            <ul className="mt-10 space-y-5">
+              {HIGHLIGHTS.map(({ icon: Icon, title, text }) => (
+                <li key={title} className="flex gap-4">
+                  <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-gold-soft ring-1 ring-gold/25">
+                    <Icon className="size-5 text-gold" strokeWidth={1.75} />
+                  </span>
+                  <span>
+                    <span className="block text-sm font-semibold text-text">{title}</span>
+                    <span className="block text-sm text-text-muted">{text}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <p className="text-xs text-text-faint">Real Estate Scraper</p>
+        </div>
+      </aside>
 
-        {/* Contenido centrado */}
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-          <img
-            src="/logo.png"
-            alt="REAL ESTATE SCRAPER Logo"
-            className="w-24 h-24 mb-6 object-contain"
-            decoding="async"
-          />
-          <h1
-            className="text-6xl font-bold mb-4"
-            style={{ fontFamily: "Cormorant Garamond", color: "#C9A96E" }}
-          >
-            REAL ESTATE SCRAPER
-          </h1>
-          <p className="text-base text-white" style={{ fontFamily: "DM Sans" }}>
-            El mercado inmobiliario peruano, en tiempo real.
+      {/* Formulario */}
+      <main className="flex items-center justify-center px-5 py-10">
+        <div className="animate-slideInUp w-full max-w-md">
+          <Logo className="mb-10 lg:hidden" />
+
+          <div className="card p-8 sm:p-10">
+            <p className="eyebrow mb-3">Acceso</p>
+            <h1 className="font-display text-4xl font-semibold text-text">Bienvenido</h1>
+            <p className="mt-2 text-sm text-text-muted">
+              Ingresa con tu usuario y contraseña para continuar.
+            </p>
+
+            <form onSubmit={handleLogin} className="mt-8 space-y-5" noValidate>
+              <div>
+                <label htmlFor="login-usuario" className="field-label">
+                  Usuario
+                </label>
+                <div className="field-icon">
+                  <User className="size-4" />
+                  <input
+                    id="login-usuario"
+                    type="text"
+                    value={usuario}
+                    onChange={e => setUsuario(e.target.value)}
+                    className="field"
+                    placeholder="Tu usuario"
+                    autoComplete="username"
+                    autoCapitalize="none"
+                    disabled={loading}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="login-password" className="field-label">
+                  Contraseña
+                </label>
+                <div className="field-icon">
+                  <Lock className="size-4" />
+                  <input
+                    id="login-password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    className="field pr-11"
+                    placeholder="Tu contraseña"
+                    autoComplete="current-password"
+                    disabled={loading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-2 top-1/2 inline-flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-text-faint transition hover:bg-surface-4 hover:text-text"
+                    aria-label={showPassword ? "Ocultar contraseña" : "Mostrar contraseña"}
+                    disabled={loading}
+                  >
+                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                  </button>
+                </div>
+              </div>
+
+              {error && (
+                <p
+                  className="error-message rounded-xl border border-rose/25 bg-rose/10 px-3.5 py-2.5"
+                  role="alert"
+                >
+                  {error}
+                </p>
+              )}
+
+              <button type="submit" disabled={loading} className="btn btn-primary btn-lg btn-block">
+                {loading && <Loader2 className="size-4 animate-spin" />}
+                {loading ? "Ingresando..." : "Ingresar"}
+              </button>
+            </form>
+          </div>
+
+          <p className="mt-6 text-center text-xs text-text-faint">
+            ¿No tienes acceso? Escríbenos con el botón de WhatsApp.
           </p>
         </div>
-      </div>
-
-      {/* Mitad derecha — formulario */}
-      <div className="w-full lg:w-1/2 bg-black flex items-center justify-center px-4">
-        <div className="w-full max-w-sm">
-          <h2
-            className="text-4xl font-bold mb-8 text-center"
-            style={{ fontFamily: "Cormorant Garamond", color: "#C9A96E" }}
-          >
-            Bienvenido
-          </h2>
-
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div>
-              <label
-                htmlFor="login-usuario"
-                className="block text-sm font-medium mb-2"
-                style={{ color: "#F0EDE8", fontFamily: "DM Sans" }}
-              >
-                Usuario
-              </label>
-              <input
-                id="login-usuario"
-                type="text"
-                value={usuario}
-                onChange={e => setUsuario(e.target.value)}
-                className="input-underline w-full"
-                placeholder="Tu usuario"
-                autoComplete="username"
-                autoCapitalize="none"
-                disabled={loading}
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="login-password"
-                className="block text-sm font-medium mb-2"
-                style={{ color: "#F0EDE8", fontFamily: "DM Sans" }}
-              >
-                Contraseña
-              </label>
-              <div className="relative">
-                <input
-                  id="login-password"
-                  type={showPassword ? "text" : "password"}
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                  className="input-underline w-full pr-10"
-                  placeholder="Tu contraseña"
-                  autoComplete="current-password"
-                  disabled={loading}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-0 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-300"
-                  aria-label={
-                    showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
-                  }
-                  disabled={loading}
-                >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
-              </div>
-            </div>
-
-            {error && (
-              <p className="error-message" role="alert">
-                {error}
-              </p>
-            )}
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-gold mt-8"
-              style={{ opacity: loading ? 0.6 : 1 }}
-            >
-              {loading ? "Ingresando..." : "Ingresar"}
-            </button>
-          </form>
-        </div>
-      </div>
+      </main>
 
       <WhatsAppFab />
     </div>

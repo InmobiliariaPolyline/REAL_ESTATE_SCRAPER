@@ -1,10 +1,25 @@
-import { useCallback, useEffect, useState } from 'react'
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts'
-import { useIsMobile } from '@/hooks/useMobile'
-import { api } from '@/lib/api'
+import { Activity, ArrowRight, Building2, Crown, Users } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
+import StatCard from '@/components/common/StatCard'
 import { useToast } from '@/contexts/ToastContext'
+import { api } from '@/lib/api'
 import { formatDateTime } from '@/lib/dates'
 import { PORTALS } from '@/lib/portals'
+import { cn } from '@/lib/utils'
+import type { AdminTab } from './tabs'
 
 /** Horas sin avisos nuevos a partir de las cuales se considera inactivo al scraper. */
 const STALE_HOURS = 48
@@ -17,208 +32,270 @@ interface Stats {
   added24h: number
   ultimoAviso: string | null
   porPortal: { portal: string; count: number }[]
+  porDia: { dia: string; total: number }[]
 }
 
-interface MetricaProps {
-  icon: string
-  titulo: string
-  valor: number
-  subtitulo?: string
-  color: string
+const GOLD = '#d4b782'
+const TEAL = '#4fd1b5'
+
+const fmt = (n: number) => n.toLocaleString('es-PE')
+
+/** "2026-10-16" -> "16/10" */
+const shortDay = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`
+
+interface DashboardProps {
+  onNavigate: (tab: AdminTab) => void
 }
 
-function MetricaCard({ icon, titulo, valor, subtitulo, color }: MetricaProps) {
-  return (
-    <div
-      className="p-6 rounded"
-      style={{ backgroundColor: '#111111', border: '1px solid #2A2A2A' }}
-    >
-      <div className="flex items-start justify-between mb-4">
-        <div style={{ fontSize: '2rem' }}>{icon}</div>
-        <div style={{ color, fontSize: '0.75rem', fontFamily: 'DM Sans' }}>
-          {subtitulo}
-        </div>
-      </div>
-      <h3
-        style={{
-          color: '#6B6B6B',
-          fontFamily: 'DM Sans',
-          fontSize: '0.875rem',
-          marginBottom: '0.5rem',
-        }}
-      >
-        {titulo}
-      </h3>
-      <p
-        style={{
-          color,
-          fontFamily: 'JetBrains Mono',
-          fontSize: '1.875rem',
-          fontWeight: 'bold',
-        }}
-      >
-        {valor.toLocaleString('es-PE')}
-      </p>
-    </div>
-  )
-}
-
-interface ChartPoint {
-  name: string
-  value: number
-  color: string
-}
-
-export default function AdminDashboard() {
-  const [metricas, setMetricas] = useState({
-    totalProps: 0,
-    totalUsers: 0,
-    subsActivas: 0,
-    addedHoy: 0,
-    added24h: 0,
-    ultimoAviso: null as string | null,
-  })
-  const [chartData, setChartData] = useState<ChartPoint[]>([])
+export default function AdminDashboard({ onNavigate }: DashboardProps) {
+  const [stats, setStats] = useState<Stats | null>(null)
+  const [loading, setLoading] = useState(true)
   const { addToast } = useToast()
-  const isMobile = useIsMobile()
 
-  const loadMetricas = useCallback(async () => {
+  const load = useCallback(async () => {
     try {
-      const stats = await api.get<Stats>('/admin/stats')
-      const countOf = (key: string) =>
-        stats.porPortal.find(p => p.portal.toLowerCase() === key)?.count ?? 0
-
-      setMetricas({
-        totalProps: stats.totalProps,
-        totalUsers: stats.totalUsers,
-        subsActivas: stats.subsActivas,
-        addedHoy: stats.addedHoy,
-        added24h: stats.added24h,
-        ultimoAviso: stats.ultimoAviso,
-      })
-
-      setChartData(
-        PORTALS.map(portal => ({
-          name: portal.label,
-          value: countOf(portal.key),
-          color: portal.color,
-        })).filter(item => item.value > 0)
-      )
+      setStats(await api.get<Stats>('/admin/stats'))
     } catch (err) {
       addToast('Error al cargar métricas', 'error')
       console.error(err)
+    } finally {
+      setLoading(false)
     }
   }, [addToast])
 
   useEffect(() => {
-    loadMetricas()
-  }, [loadMetricas])
+    load()
+  }, [load])
 
-  const horasDesdeUltimo = metricas.ultimoAviso
-    ? (Date.now() - new Date(metricas.ultimoAviso).getTime()) / 36e5
+  const portals = useMemo(() => {
+    const rows = stats?.porPortal ?? []
+    const total = rows.reduce((n, r) => n + r.count, 0)
+    return PORTALS.map(p => {
+      const count = rows.find(r => r.portal.toLowerCase() === p.key)?.count ?? 0
+      return { ...p, count, share: total ? Math.round((count / total) * 100) : 0 }
+    }).sort((a, b) => b.count - a.count)
+  }, [stats])
+
+  const series = stats?.porDia ?? []
+  const total30 = series.reduce((n, d) => n + d.total, 0)
+  const average = series.length ? total30 / series.length : 0
+  const peak = series.reduce((m, d) => Math.max(m, d.total), 0)
+
+  const hoursSince = stats?.ultimoAviso
+    ? (Date.now() - new Date(stats.ultimoAviso).getTime()) / 36e5
     : null
-  const scraperActivo = horasDesdeUltimo !== null && horasDesdeUltimo <= STALE_HOURS
+  const scraperActive = hoursSince !== null && hoursSince <= STALE_HOURS
 
   return (
-    <div className="space-y-8">
-      {/* Tarjetas de métricas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <MetricaCard
-          icon="🏠"
-          titulo="Total Propiedades"
-          valor={metricas.totalProps}
-          subtitulo={`+${metricas.addedHoy} hoy`}
-          color="#C9A96E"
+    <div className="space-y-6">
+      {/* Métricas */}
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard
+          label="Total de propiedades"
+          icon={Building2}
+          tone="gold"
+          loading={loading}
+          value={fmt(stats?.totalProps ?? 0)}
+          hint={stats ? `+${fmt(stats.addedHoy)} hoy` : undefined}
+          footerLabel="Ver propiedades"
+          onFooterClick={() => onNavigate('propiedades')}
         />
-        <MetricaCard
-          icon="👥"
-          titulo="Usuarios"
-          valor={metricas.totalUsers}
-          color="#60A5FA"
+        <StatCard
+          label="Usuarios"
+          icon={Users}
+          tone="blue"
+          loading={loading}
+          value={fmt(stats?.totalUsers ?? 0)}
+          footerLabel="Gestionar usuarios"
+          onFooterClick={() => onNavigate('usuarios')}
         />
-        <MetricaCard
-          icon="💳"
-          titulo="Suscripciones Activas"
-          valor={metricas.subsActivas}
-          color="#34D399"
+        <StatCard
+          label="Suscripciones activas"
+          icon={Crown}
+          tone="green"
+          loading={loading}
+          value={fmt(stats?.subsActivas ?? 0)}
+          footerLabel="Ver suscripciones"
+          onFooterClick={() => onNavigate('usuarios')}
         />
-        <MetricaCard
-          icon={scraperActivo ? '🟢' : '🟠'}
-          titulo="Salud: avisos nuevos (24 h)"
-          valor={metricas.added24h}
-          subtitulo={
-            metricas.ultimoAviso
-              ? `Scraper: ${scraperActivo ? 'ACTIVO' : 'SIN ACTIVIDAD'} · último ${formatDateTime(metricas.ultimoAviso)}`
-              : 'Scraper: sin datos'
-          }
-          color={scraperActivo ? '#22C55E' : '#F59E0B'}
+        <StatCard
+          label="Avisos nuevos (24 h)"
+          icon={Activity}
+          tone="amber"
+          loading={loading}
+          value={fmt(stats?.added24h ?? 0)}
+          footerLabel="Ver actividad"
+          onFooterClick={() => onNavigate('scraper')}
         />
       </div>
 
-      {/* Gráfico */}
-      <div
-        className="p-4 sm:p-6 rounded overflow-hidden w-full"
-        style={{ backgroundColor: '#111111', border: '1px solid #2A2A2A' }}
-      >
-        <h3
-          style={{
-            color: '#F0EDE8',
-            fontFamily: 'DM Sans',
-            fontSize: '1rem',
-            fontWeight: 'bold',
-            marginBottom: '1.5rem',
-          }}
-        >
-          Propiedades por Portal
-        </h3>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        {/* Gráfica de avisos por día */}
+        <section className="card p-6">
+          <div className="mb-1 flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-text">Avisos nuevos</h2>
+              <p className="text-sm text-text-muted">Últimos 30 días</p>
+            </div>
+            <div className="flex items-center gap-4 text-xs text-text-muted">
+              <span className="flex items-center gap-2">
+                <span className="size-2 rounded-full bg-gold" /> Avisos por día
+              </span>
+              <span className="flex items-center gap-2">
+                <span className="h-0 w-4 border-t-2 border-dashed border-teal" /> Promedio
+              </span>
+            </div>
+          </div>
 
-        {chartData.length > 0 ? (
-          <div className="w-full h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={chartData}
-                  cx="50%"
-                  cy="50%"
-                  minAngle={15}
-                  outerRadius={isMobile ? 60 : 80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {chartData.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={entry.color}
-                    />
+          <div className="mt-4 h-[280px] w-full">
+            {loading ? (
+              <div className="skeleton size-full" />
+            ) : series.length === 0 ? (
+              <div className="flex size-full items-center justify-center text-sm text-text-faint">
+                Sin datos
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={series} margin={{ top: 10, right: 8, left: -18, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="goldFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={GOLD} stopOpacity={0.35} />
+                      <stop offset="100%" stopColor={GOLD} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="rgb(255 255 255 / 0.05)" vertical={false} />
+                  <XAxis
+                    dataKey="dia"
+                    tickFormatter={shortDay}
+                    interval={4}
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fill: '#6b7280', fontSize: 11 }}
+                  />
+                  <YAxis
+                    allowDecimals={false}
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fill: '#6b7280', fontSize: 11 }}
+                  />
+                  <Tooltip
+                    cursor={{ stroke: 'rgb(255 255 255 / 0.15)' }}
+                    content={({ active, payload }) =>
+                      active && payload?.length ? (
+                        <div className="rounded-xl border border-line-strong bg-surface-3 px-3 py-2 text-xs shadow-xl">
+                          <p className="text-text-muted">{shortDay(String(payload[0].payload.dia))}</p>
+                          <p className="mono mt-0.5 text-sm font-semibold text-gold">
+                            {fmt(Number(payload[0].value))} avisos
+                          </p>
+                        </div>
+                      ) : null
+                    }
+                  />
+                  <ReferenceLine y={average} stroke={TEAL} strokeDasharray="5 5" />
+                  <Area
+                    type="monotone"
+                    dataKey="total"
+                    stroke={GOLD}
+                    strokeWidth={2}
+                    fill="url(#goldFill)"
+                    activeDot={{ r: 5, fill: GOLD, stroke: '#101216', strokeWidth: 2 }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          <dl className="mt-5 grid grid-cols-3 gap-4 border-t border-line pt-4">
+            <div>
+              <dt className="text-xs text-text-muted">Total (30 días)</dt>
+              <dd className="mono mt-1 text-lg font-semibold text-text">{fmt(total30)}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-text-muted">Promedio diario</dt>
+              <dd className="mono mt-1 text-lg font-semibold text-text">
+                {average.toLocaleString('es-PE', { maximumFractionDigits: 1 })}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-text-muted">Día máximo</dt>
+              <dd className="mono mt-1 text-lg font-semibold text-text">{fmt(peak)}</dd>
+            </div>
+          </dl>
+        </section>
+
+        <div className="space-y-6">
+          {/* Portales */}
+          <section className="card p-6">
+            <h2 className="text-base font-semibold text-text">Propiedades por portal</h2>
+            <p className="text-sm text-text-muted">Distribución del catálogo</p>
+
+            {loading ? (
+              <div className="skeleton mt-5 h-44" />
+            ) : portals.every(p => p.count === 0) ? (
+              <p className="py-10 text-center text-sm text-text-faint">Sin datos</p>
+            ) : (
+              <>
+                <div className="mx-auto mt-4 h-36 w-36">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={portals.filter(p => p.count > 0)}
+                        dataKey="count"
+                        nameKey="label"
+                        innerRadius="68%"
+                        outerRadius="100%"
+                        paddingAngle={3}
+                        stroke="none"
+                        cornerRadius={6}
+                      >
+                        {portals
+                          .filter(p => p.count > 0)
+                          .map(p => (
+                            <Cell key={p.key} fill={p.color} />
+                          ))}
+                      </Pie>
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <ul className="mt-5 space-y-3">
+                  {portals.map(p => (
+                    <li key={p.key} className="flex items-center gap-3 text-sm">
+                      <span className="size-2.5 shrink-0 rounded-full" style={{ background: p.color }} />
+                      <span className="flex-1 text-text">{p.label}</span>
+                      <span className="mono text-text-muted">{fmt(p.count)}</span>
+                      <span className="mono w-10 text-right text-xs text-text-faint">{p.share}%</span>
+                    </li>
                   ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#2a2a2a',
-                    borderColor: '#444',
-                  }}
-                  itemStyle={{
-                    color: '#ffffff',
-                  }}
-                />
-                <Legend
-                  wrapperStyle={{
-                    color: '#F0EDE8',
-                    fontFamily: 'DM Sans',
-                    fontSize: '12px',
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        ) : (
-          <div
-            className="h-80 flex items-center justify-center"
-            style={{ color: '#6B6B6B' }}
-          >
-            Sin datos
-          </div>
-        )}
+                </ul>
+              </>
+            )}
+          </section>
+
+          {/* Estado del scraper */}
+          <section className="gold-gradient relative overflow-hidden rounded-[1.25rem] p-6 shadow-[0_24px_48px_-24px_rgb(212_183_130/0.55)]">
+            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] opacity-75">
+              <span className={cn('dot', scraperActive && 'dot-live')} />
+              Estado del scraper
+            </div>
+            <p className="mt-3 font-display text-3xl font-semibold leading-tight">
+              {loading ? '...' : scraperActive ? 'Activo' : 'Sin actividad'}
+            </p>
+            <p className="mt-1 text-sm opacity-80">
+              {stats?.ultimoAviso
+                ? `Último aviso: ${formatDateTime(stats.ultimoAviso)}`
+                : 'Aún no hay avisos cargados'}
+            </p>
+            <button
+              type="button"
+              onClick={() => onNavigate('scraper')}
+              className="btn btn-sm mt-5 bg-[#17130a] text-gold-strong hover:bg-black"
+            >
+              Ir a Actividad
+              <ArrowRight className="size-4" />
+            </button>
+          </section>
+        </div>
       </div>
     </div>
   )

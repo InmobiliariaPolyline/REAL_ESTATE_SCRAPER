@@ -1,24 +1,31 @@
+import { ExternalLink, Link2, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ExternalLink, Pencil, Plus, Trash2, X } from 'lucide-react'
+import ConfirmModal from '@/components/common/ConfirmModal'
+import EmptyState from '@/components/common/EmptyState'
 import { useToast } from '@/contexts/ToastContext'
-import { openEnlace, validateEnlace, type Enlace } from '@/lib/enlaces'
 import { ApiError, api } from '@/lib/api'
+import {
+  TIPOS_ENLACE,
+  TIPO_LABELS,
+  openEnlace,
+  validateEnlace,
+  type Enlace,
+} from '@/lib/enlaces'
 
 interface EnlacesPropiedadProps {
   propiedadId: string
   onClose: () => void
 }
 
-export default function EnlacesPropiedad({
-  propiedadId,
-  onClose,
-}: EnlacesPropiedadProps) {
+export default function EnlacesPropiedad({ propiedadId, onClose }: EnlacesPropiedadProps) {
   const [enlaces, setEnlaces] = useState<Enlace[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<number | null>(null)
+  const [aEliminar, setAEliminar] = useState<Enlace | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const [titulo, setTitulo] = useState('')
   const [descripcion, setDescripcion] = useState('')
@@ -33,7 +40,9 @@ export default function EnlacesPropiedad({
     setLoading(true)
 
     try {
-      const data = await api.get<Enlace[]>(`/propiedades/${encodeURIComponent(propiedadId)}/enlaces`)
+      const data = await api.get<Enlace[]>(
+        `/propiedades/${encodeURIComponent(propiedadId)}/enlaces`
+      )
       if (current !== requestId.current) return
       setEnlaces(data)
     } catch (error) {
@@ -52,11 +61,11 @@ export default function EnlacesPropiedad({
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape' && !aEliminar) onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onClose, aEliminar])
 
   const limpiarFormulario = () => {
     setTitulo('')
@@ -117,337 +126,194 @@ export default function EnlacesPropiedad({
     setShowForm(true)
   }
 
-  const eliminarEnlace = async (id: number) => {
-    const confirmar = window.confirm('¿Seguro que deseas eliminar este enlace?')
-    if (!confirmar) return
-
+  const confirmarEliminar = async () => {
+    if (!aEliminar) return
+    setDeleting(true)
     try {
-      await api.delete(`/enlaces/${id}`)
+      await api.delete(`/enlaces/${aEliminar.id}`)
+      addToast('Enlace eliminado', 'success')
+      setAEliminar(null)
+      await cargarEnlaces()
     } catch (error) {
       console.error('Error eliminando enlace:', error)
       addToast('No se pudo eliminar el enlace.', 'error')
-      return
+    } finally {
+      setDeleting(false)
     }
-
-    addToast('Enlace eliminado', 'success')
-    await cargarEnlaces()
   }
 
   return (
+    <>
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      style={{ backgroundColor: 'rgba(0, 0, 0, 0.75)' }}
+      className="animate-fadeIn fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm"
+      role="presentation"
+      onClick={onClose}
     >
       <div
-        className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-lg"
-        style={{
-          backgroundColor: '#0F0F0F',
-          border: '1px solid #2A2A2A',
-        }}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Enlaces de la propiedad"
+        className="animate-popIn card flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden shadow-2xl"
+        onClick={e => e.stopPropagation()}
       >
         {/* Encabezado */}
-        <div
-          className="flex items-center justify-between px-6 py-5 border-b"
-          style={{ borderColor: '#2A2A2A' }}
-        >
-          <div>
-            <h2
-              className="text-2xl font-bold"
-              style={{
-                fontFamily: 'Cormorant Garamond',
-                color: '#C9A96E',
-              }}
-            >
-              Enlaces de la propiedad
-            </h2>
-
-            <p
-              className="text-xs mt-1"
-              style={{ color: '#6B6B6B' }}
-            >
-              ID: {propiedadId}
-            </p>
+        <div className="flex items-start justify-between gap-4 border-b border-line px-6 py-5">
+          <div className="min-w-0">
+            <p className="eyebrow mb-1">Enlaces de apoyo</p>
+            <h2 className="font-display text-2xl font-semibold text-text">Enlaces de la propiedad</h2>
+            <p className="mono mt-1 truncate text-xs text-text-faint">ID: {propiedadId}</p>
           </div>
-
-          <button
-            onClick={onClose}
-            className="p-2 rounded transition"
-            style={{ color: '#C9A96E' }}
-            aria-label="Cerrar"
-          >
-            <X size={22} />
+          <button onClick={onClose} className="btn btn-ghost btn-icon btn-sm" aria-label="Cerrar">
+            <X className="size-5" />
           </button>
         </div>
 
-        {/* Contenido */}
-        <div className="p-6">
-
-          {/* Botón agregar */}
+        <div className="space-y-5 overflow-y-auto p-6">
           {!showForm && (
-            <button
-              onClick={() => setShowForm(true)}
-              className="mb-6 px-4 py-2 rounded flex items-center gap-2 text-sm font-medium"
-              style={{
-                backgroundColor: '#C9A96E',
-                color: '#0F0F0F',
-              }}
-            >
-              <Plus size={16} />
+            <button onClick={() => setShowForm(true)} className="btn btn-primary">
+              <Plus className="size-4" />
               Agregar enlace
             </button>
           )}
 
-          {/* Formulario */}
           {showForm && (
-            <div
-              className="mb-6 p-5 rounded-lg"
-              style={{
-                backgroundColor: '#1A1A1A',
-                border: '1px solid #2A2A2A',
-              }}
-            >
-              <h3
-                className="text-lg font-semibold mb-4"
-                style={{ color: '#F0EDE8' }}
-              >
-                {editingId !== null
-                  ? 'Editar enlace'
-                  : 'Agregar enlace'}
+            <div className="rounded-2xl border border-line bg-surface-1 p-5">
+              <h3 className="mb-4 text-base font-semibold text-text">
+                {editingId !== null ? 'Editar enlace' : 'Agregar enlace'}
               </h3>
 
-              <div className="space-y-4">
-
-                <div>
-                  <label
-                    className="block text-sm mb-1"
-                    style={{ color: '#B0B0B0' }}
-                  >
-                    Título
-                  </label>
-
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <label className="field-label" htmlFor="enl-titulo">Título</label>
                   <input
+                    id="enl-titulo"
                     value={titulo}
-                    onChange={(e) => setTitulo(e.target.value)}
+                    onChange={e => setTitulo(e.target.value)}
                     placeholder="Ej. Información estadística"
-                    className="w-full px-3 py-2 rounded outline-none"
-                    style={{
-                      backgroundColor: '#0F0F0F',
-                      color: '#F0EDE8',
-                      border: '1px solid #333',
-                    }}
+                    className="field"
                   />
                 </div>
 
-                <div>
-                  <label
-                    className="block text-sm mb-1"
-                    style={{ color: '#B0B0B0' }}
-                  >
-                    Descripción
-                  </label>
-
-                  <textarea
-                    value={descripcion}
-                    onChange={(e) => setDescripcion(e.target.value)}
-                    placeholder="Descripción opcional"
-                    rows={3}
-                    className="w-full px-3 py-2 rounded outline-none resize-none"
-                    style={{
-                      backgroundColor: '#0F0F0F',
-                      color: '#F0EDE8',
-                      border: '1px solid #333',
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label
-                    className="block text-sm mb-1"
-                    style={{ color: '#B0B0B0' }}
-                  >
-                    URL
-                  </label>
-
+                <div className="sm:col-span-2">
+                  <label className="field-label" htmlFor="enl-url">URL</label>
                   <input
+                    id="enl-url"
                     type="url"
                     value={url}
-                    onChange={(e) => setUrl(e.target.value)}
+                    onChange={e => setUrl(e.target.value)}
                     placeholder="https://..."
-                    className="w-full px-3 py-2 rounded outline-none"
-                    style={{
-                      backgroundColor: '#0F0F0F',
-                      color: '#F0EDE8',
-                      border: '1px solid #333',
-                    }}
+                    className="field"
                   />
                 </div>
 
-                <div>
-                  <label
-                    className="block text-sm mb-1"
-                    style={{ color: '#B0B0B0' }}
-                  >
-                    Tipo
-                  </label>
-
+                <div className="sm:col-span-2">
+                  <label className="field-label" htmlFor="enl-tipo">Tipo</label>
                   <select
+                    id="enl-tipo"
                     value={tipo}
-                    onChange={(e) => setTipo(e.target.value)}
-                    className="w-full px-3 py-2 rounded outline-none"
-                    style={{
-                      backgroundColor: '#0F0F0F',
-                      color: '#F0EDE8',
-                      border: '1px solid #333',
-                    }}
+                    onChange={e => setTipo(e.target.value)}
+                    className="field"
                   >
-                    <option value="OTRO">Otro</option>
-                    <option value="INFORMACION_ESTADISTICA">
-                      Información estadística
-                    </option>
-                    <option value="INFORMACION_LEGAL">
-                      Información legal
-                    </option>
-                    <option value="DOCUMENTACION">
-                      Documentación
-                    </option>
+                    {TIPOS_ENLACE.map(t => (
+                      <option key={t} value={t}>
+                        {TIPO_LABELS[t]}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
-                <div className="flex gap-3 pt-2">
-                  <button
-                    onClick={guardarEnlace}
-                    disabled={saving}
-                    className="px-4 py-2 rounded text-sm font-medium"
-                    style={{
-                      backgroundColor: '#C9A96E',
-                      color: '#0F0F0F',
-                      opacity: saving ? 0.6 : 1,
-                    }}
-                  >
-                    {editingId !== null
-                      ? 'Guardar cambios'
-                      : 'Guardar enlace'}
-                  </button>
-
-                  <button
-                    onClick={limpiarFormulario}
-                    className="px-4 py-2 rounded text-sm"
-                    style={{
-                      backgroundColor: '#2A2A2A',
-                      color: '#F0EDE8',
-                    }}
-                  >
-                    Cancelar
-                  </button>
+                <div className="sm:col-span-2">
+                  <label className="field-label" htmlFor="enl-desc">Descripción</label>
+                  <textarea
+                    id="enl-desc"
+                    value={descripcion}
+                    onChange={e => setDescripcion(e.target.value)}
+                    placeholder="Descripción opcional"
+                    rows={3}
+                    className="field"
+                  />
                 </div>
+              </div>
+
+              <div className="mt-5 flex gap-2">
+                <button onClick={guardarEnlace} disabled={saving} className="btn btn-primary">
+                  {editingId !== null ? 'Guardar cambios' : 'Guardar enlace'}
+                </button>
+                <button onClick={limpiarFormulario} className="btn btn-ghost">
+                  Cancelar
+                </button>
               </div>
             </div>
           )}
 
-          {/* Lista */}
           {loading ? (
-            <p style={{ color: '#6B6B6B' }}>
-              Cargando enlaces...
-            </p>
+            <div className="space-y-3">
+              <div className="skeleton h-24" />
+              <div className="skeleton h-24" />
+            </div>
           ) : enlaces.length === 0 ? (
-            <div
-              className="py-10 text-center rounded-lg"
-              style={{
-                backgroundColor: '#151515',
-                color: '#6B6B6B',
-              }}
-            >
-              Esta propiedad todavía no tiene enlaces.
+            <div className="rounded-2xl border border-dashed border-line-strong">
+              <EmptyState
+                icon={Link2}
+                title="Sin enlaces"
+                description="Esta propiedad todavía no tiene enlaces de apoyo."
+              />
             </div>
           ) : (
-            <div className="space-y-4">
-              {enlaces.map((enlace) => (
-                <div
-                  key={enlace.id}
-                  className="p-5 rounded-lg"
-                  style={{
-                    backgroundColor: '#151515',
-                    border: '1px solid #2A2A2A',
-                  }}
-                >
-                  <div className="flex justify-between gap-4">
-                    <div className="min-w-0">
-                      <div
-                        className="text-xs uppercase tracking-wide mb-1"
-                        style={{ color: '#C9A96E' }}
-                      >
-                        {enlace.tipo}
-                      </div>
+            <ul className="space-y-3">
+              {enlaces.map(enlace => (
+                <li key={enlace.id} className="rounded-2xl border border-line bg-surface-1 p-4">
+                  <span className="badge badge-gold mb-2">
+                    {TIPO_LABELS[enlace.tipo as keyof typeof TIPO_LABELS] ?? enlace.tipo}
+                  </span>
+                  <h3 className="text-sm font-semibold text-text">{enlace.titulo}</h3>
+                  {enlace.descripcion && (
+                    <p className="mt-1 text-sm text-text-muted">{enlace.descripcion}</p>
+                  )}
 
-                      <h3
-                        className="font-semibold"
-                        style={{ color: '#F0EDE8' }}
-                      >
-                        {enlace.titulo}
-                      </h3>
-
-                      {enlace.descripcion && (
-                        <p
-                          className="text-sm mt-1"
-                          style={{ color: '#9A9A9A' }}
-                        >
-                          {enlace.descripcion}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2 mt-4">
-
-                    {/* Abrir */}
+                  <div className="mt-4 flex flex-wrap gap-2">
                     <button
                       onClick={() => {
                         if (!openEnlace(enlace.url)) {
                           addToast('El enlace no es una URL válida.', 'error')
                         }
                       }}
-                      className="px-3 py-2 rounded text-sm flex items-center gap-2"
-                      style={{
-                        backgroundColor: '#C9A96E',
-                        color: '#0F0F0F',
-                      }}
+                      className="btn btn-primary btn-sm"
                     >
-                      <ExternalLink size={15} />
-                      Abrir enlace
+                      <ExternalLink className="size-4" />
+                      Abrir
                     </button>
-
-                    {/* Editar */}
-                    <button
-                      onClick={() => editarEnlace(enlace)}
-                      className="px-3 py-2 rounded text-sm flex items-center gap-2"
-                      style={{
-                        backgroundColor: '#2A2A2A',
-                        color: '#F0EDE8',
-                      }}
-                    >
-                      <Pencil size={15} />
+                    <button onClick={() => editarEnlace(enlace)} className="btn btn-secondary btn-sm">
+                      <Pencil className="size-4" />
                       Editar
                     </button>
-
-                    {/* Eliminar */}
-                    <button
-                      onClick={() => eliminarEnlace(enlace.id)}
-                      className="px-3 py-2 rounded text-sm flex items-center gap-2"
-                      style={{
-                        backgroundColor: '#2A2A2A',
-                        color: '#E57373',
-                      }}
-                    >
-                      <Trash2 size={15} />
+                    <button onClick={() => setAEliminar(enlace)} className="btn btn-danger btn-sm">
+                      <Trash2 className="size-4" />
                       Eliminar
                     </button>
                   </div>
-                </div>
+                </li>
               ))}
-            </div>
+            </ul>
           )}
         </div>
       </div>
+
     </div>
+
+      {aEliminar && (
+        <ConfirmModal
+          title="¿Eliminar este enlace?"
+          confirmLabel="Eliminar"
+          busyLabel="Eliminando..."
+          tone="danger"
+          busy={deleting}
+          onConfirm={confirmarEliminar}
+          onCancel={() => setAEliminar(null)}
+        >
+          {aEliminar.titulo}
+        </ConfirmModal>
+      )}
+    </>
   )
 }

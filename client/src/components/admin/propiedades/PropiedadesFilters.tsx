@@ -1,3 +1,4 @@
+import { Search, X } from "lucide-react"
 import { PORTALS } from "@/lib/portals"
 import type { AdminSearchFilters } from "@/lib/propertiesApi"
 
@@ -8,28 +9,14 @@ interface PropiedadesFiltersProps {
   onClear: () => void
 }
 
-const labelStyle = {
-  color: "#C9A96E",
-  fontFamily: "DM Sans",
-} as const
-
-const selectStyle = {
-  backgroundColor: "#252525",
-  color: "#F0EDE8",
-  border: "1px solid #2A2A2A",
-  fontFamily: "DM Sans",
-  height: "38px",
-} as const
-
-/** Formulario de filtros de la pestaña "Buscar propiedades" del panel admin. */
+/** Formulario de filtros de la pestaña "Buscar" del panel admin. */
 export default function PropiedadesFilters({
   filters,
   onChange,
   onSearch,
   onClear,
 }: PropiedadesFiltersProps) {
-  const set = (patch: Partial<AdminSearchFilters>) =>
-    onChange({ ...filters, ...patch })
+  const set = (patch: Partial<AdminSearchFilters>) => onChange({ ...filters, ...patch })
 
   // Los precios escritos pertenecen a la moneda anterior: se limpian para no
   // interpretar un rango en otra moneda por accidente.
@@ -39,49 +26,51 @@ export default function PropiedadesFilters({
   const monedaLabel = filters.moneda === "PEN" ? "S/" : "USD"
 
   return (
-    <div
-      className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-7 gap-4 p-4 rounded"
-      style={{ backgroundColor: "#111111", border: "1px solid #2A2A2A" }}
+    <form
+      onSubmit={e => {
+        e.preventDefault()
+        onSearch()
+      }}
+      className="card grid grid-cols-1 gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[1.4fr_1fr_1fr_1fr_1fr_1fr_auto]"
+      role="search"
+      aria-label="Filtros de propiedades"
     >
       <div>
-        <label className="block text-xs font-semibold mb-2" style={labelStyle}>
-          Distrito
-        </label>
-        <input
-          type="text"
-          value={filters.distrito}
-          onChange={e => set({ distrito: e.target.value })}
-          onKeyDown={e => e.key === "Enter" && onSearch()}
-          placeholder="Buscar distrito..."
-          className="input-underline w-full text-sm"
-        />
+        <label htmlFor="adm-distrito" className="field-label">Distrito</label>
+        <div className="field-icon">
+          <Search className="size-4" />
+          <input
+            id="adm-distrito"
+            type="text"
+            value={filters.distrito}
+            onChange={e => set({ distrito: e.target.value })}
+            placeholder="Buscar distrito..."
+            className="field"
+          />
+        </div>
       </div>
 
       <div>
-        <label className="block text-xs font-semibold mb-2" style={labelStyle}>
-          Operación
-        </label>
+        <label htmlFor="adm-operacion" className="field-label">Operación</label>
         <select
+          id="adm-operacion"
           value={filters.operacion}
           onChange={e => set({ operacion: e.target.value })}
-          className="w-full px-3 py-2 rounded text-xs"
-          style={selectStyle}
+          className="field"
         >
-          <option value="todos">Todos</option>
+          <option value="todos">Todas</option>
           <option value="ALQUILER">Alquiler</option>
           <option value="VENTA">Venta</option>
         </select>
       </div>
 
       <div>
-        <label className="block text-xs font-semibold mb-2" style={labelStyle}>
-          Portal
-        </label>
+        <label htmlFor="adm-portal" className="field-label">Portal</label>
         <select
+          id="adm-portal"
           value={filters.portal}
           onChange={e => set({ portal: e.target.value })}
-          className="w-full px-3 py-2 rounded text-xs"
-          style={selectStyle}
+          className="field"
         >
           <option value="todos">Todos</option>
           {PORTALS.map(portal => (
@@ -93,82 +82,59 @@ export default function PropiedadesFilters({
       </div>
 
       <div>
-        <label className="block text-xs font-semibold mb-2" style={labelStyle}>
-          Moneda
-        </label>
+        <label htmlFor="adm-moneda" className="field-label">Moneda</label>
         <select
+          id="adm-moneda"
           value={filters.moneda ?? "USD"}
           onChange={e => handleCambioMoneda(e.target.value as "USD" | "PEN")}
-          className="w-full px-3 py-2 rounded text-xs"
-          style={selectStyle}
+          className="field"
         >
-          <option value="USD">USD ($)</option>
+          <option value="USD">Dólares (USD)</option>
           <option value="PEN">Soles (S/)</option>
         </select>
       </div>
 
       <div>
-        <label className="block text-xs font-semibold mb-2" style={labelStyle}>
-          Precio mín. ({monedaLabel})
-        </label>
+        <label htmlFor="adm-min" className="field-label">Precio mín. ({monedaLabel})</label>
         <input
+          id="adm-min"
           type="number"
           min={0}
           value={filters.precioMin}
           onChange={e => set({ precioMin: e.target.value })}
-          onKeyDown={e => e.key === "Enter" && onSearch()}
           placeholder="0"
-          className="input-underline w-full text-sm"
+          className="field mono"
         />
       </div>
 
       <div>
-        <label className="block text-xs font-semibold mb-2" style={labelStyle}>
-          Precio máx. ({monedaLabel})
-        </label>
+        <label htmlFor="adm-max" className="field-label">Precio máx. ({monedaLabel})</label>
         <input
+          id="adm-max"
           type="number"
           min={0}
           value={filters.precioMax}
           onChange={e => set({ precioMax: e.target.value })}
-          onKeyDown={e => e.key === "Enter" && onSearch()}
           placeholder="Sin límite"
-          className="input-underline w-full text-sm"
+          className="field mono"
         />
       </div>
 
       <div className="flex items-end gap-2">
-        <button
-          onClick={onSearch}
-          className="flex-1 px-4 py-2 rounded font-medium transition"
-          style={{
-            backgroundColor: "#C9A96E",
-            color: "#0F0F0F",
-            fontFamily: "DM Sans",
-            fontSize: "0.875rem",
-            height: "38px",
-          }}
-        >
+        <button type="submit" className="btn btn-primary flex-1">
+          <Search className="size-4" />
           Buscar
         </button>
-
         <button
+          type="button"
           onClick={onClear}
-          className="px-3 py-2 rounded transition flex items-center justify-center"
-          style={{
-            backgroundColor: "transparent",
-            border: "1px solid #2A2A2A",
-            color: "#6B6B6B",
-            fontFamily: "DM Sans",
-            height: "38px",
-            width: "38px",
-          }}
+          className="btn btn-secondary btn-icon"
           title="Limpiar filtros"
           aria-label="Limpiar filtros"
         >
-          X
+          <X className="size-4" />
         </button>
       </div>
-    </div>
+    </form>
   )
 }

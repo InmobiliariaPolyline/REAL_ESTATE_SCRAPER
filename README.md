@@ -80,6 +80,15 @@ Tras desplegar, comprueba `https://TU-SITIO/api/health` (debe responder `{"statu
 Alternativa sin Netlify: `pnpm build && pnpm start` (Express en `$PORT`, por defecto 3000)
 con las mismas variables.
 
+## Interfaz
+
+Sistema de diseño propio en `client/src/index.css`: superficies grafito con tarjetas redondeadas,
+acento dorado de la marca y tipografías Cormorant Garamond (títulos), DM Sans (interfaz) y
+JetBrains Mono (cifras). Los tokens (`--surface-*`, `--gold`, `--line`…) y las clases base
+(`.card`, `.btn-*`, `.field`, `.badge-*`, `.segmented`, `.table-modern`) se reutilizan en todas las
+pantallas; los iconos son de lucide (sin emojis). Componentes comunes en `components/common/`
+(`StatCard`, `PageHeader`, `ConfirmModal`, `Toast`, `Avatar`, `EmptyState`, `Logo`).
+
 ## Flujo de uso
 
 1. **Scraper** (repositorio aparte): hace UPSERT masivo en `propiedades` por `id` y guarda el
