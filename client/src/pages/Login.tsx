@@ -112,6 +112,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                     value={usuario}
                     onChange={e => setUsuario(e.target.value)}
                     className="field"
+                    aria-invalid={!!error}
                     placeholder="Tu usuario"
                     autoComplete="username"
                     autoCapitalize="none"
@@ -132,6 +133,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     className="field pr-11"
+                    aria-invalid={!!error}
                     placeholder="Tu contraseña"
                     autoComplete="current-password"
                     disabled={loading}

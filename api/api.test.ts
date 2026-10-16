@@ -9,7 +9,7 @@ import { runWatchdog } from "./watchdog"
 
 /**
  * Pruebas de integración: la API completa contra un Postgres real (PGlite) con los scripts
- * db/001_schema.sql a db/005_sessions_audit.sql aplicados.
+ * db/001_schema.sql a db/006_idle_timeout.sql aplicados.
  */
 
 const root = path.resolve(import.meta.dirname, "..")
@@ -72,6 +72,7 @@ beforeAll(async () => {
   await pg.exec(fs.readFileSync(path.join(root, "db/003_account_ops.sql"), "utf8"))
   await pg.exec(fs.readFileSync(path.join(root, "db/004_price_history.sql"), "utf8"))
   await pg.exec(fs.readFileSync(path.join(root, "db/005_sessions_audit.sql"), "utf8"))
+  await pg.exec(fs.readFileSync(path.join(root, "db/006_idle_timeout.sql"), "utf8"))
 
   // El admin crea a "cliente" con Premium mediante la propia función SQL.
   admin = (await login("admin", "admin-pass-123")).body.token
@@ -987,6 +988,35 @@ describe("sesiones activas", () => {
     const stale = await read()
     await call("GET", "/api/session", { token: t })
     expect(await read()).toBeGreaterThan(stale + 5 * 60 * 1000)
+  })
+})
+
+describe("inactividad", () => {
+  const rawId = async (usuario: string) =>
+    (await pg.query<{ id: number }>("select id::int from usuarios where usuario=$1", [usuario])).rows[0].id
+
+  it("una sesión inactiva más de 30 minutos deja de ser válida", async () => {
+    await call("POST", "/api/admin/usuarios", {
+      token: admin,
+      body: { usuario: "ocioso", password: "clave-ocioso-1", rol: "usuario", estado: "activo", premium: true },
+    })
+    const token = (await login("ocioso", "clave-ocioso-1")).body.token
+    expect((await call("GET", "/api/session", { token })).status).toBe(200)
+
+    await pg.query("update app_sessions set ultimo_uso = now() - interval '31 minutes' where usuario_id = $1", [await rawId("ocioso")])
+    expect((await call("GET", "/api/session", { token })).status).toBe(401)
+  })
+
+  it("la actividad renueva el plazo de inactividad", async () => {
+    const token = (await login("ocioso", "clave-ocioso-1")).body.token
+    const uid = await rawId("ocioso")
+    await pg.query("update app_sessions set ultimo_uso = now() - interval '20 minutes' where usuario_id = $1", [uid])
+    expect((await call("GET", "/api/session", { token })).status).toBe(200)
+    const { rows } = await pg.query<{ fresh: boolean }>(
+      "select ultimo_uso > now() - interval '1 minute' as fresh from app_sessions where usuario_id = $1 order by ultimo_uso desc limit 1",
+      [uid]
+    )
+    expect(rows[0].fresh).toBe(true)
   })
 })
 

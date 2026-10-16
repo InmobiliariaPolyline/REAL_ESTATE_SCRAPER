@@ -2,8 +2,10 @@ import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import ErrorBoundary from "./components/common/ErrorBoundary"
 import FullScreenLoader from "./components/common/FullScreenLoader"
+import IdleWarningModal from "./components/common/IdleWarningModal"
 import { ThemeProvider } from "./contexts/ThemeContext"
 import { ToastProvider, useToast } from "./contexts/ToastContext"
+import { useIdleSession } from "./hooks/useIdleSession"
 import { logout, restoreSession, type AuthSnapshot } from "./lib/auth"
 import { formatDate } from "./lib/dates"
 
@@ -51,6 +53,14 @@ function Router() {
     },
     [addToast]
   )
+
+  // Cierre por inactividad (con aviso previo y keepalive mientras haya actividad).
+  const idle = useIdleSession({
+    active: auth !== null,
+    onExpire: () => {
+      void handleLogout("Sesión cerrada por inactividad")
+    },
+  })
 
   // Si el usuario fue baneado o su plan venció mientras la pestaña estaba abierta, se detecta
   // al volver a ella.
@@ -119,6 +129,13 @@ function Router() {
       {auth?.vista === "admin" && (
         <Admin
           usuario={auth.user.usuario}
+          onLogout={() => handleLogout()}
+        />
+      )}
+      {auth && idle.warning && (
+        <IdleWarningModal
+          secondsLeft={idle.secondsLeft}
+          onStay={idle.stay}
           onLogout={() => handleLogout()}
         />
       )}

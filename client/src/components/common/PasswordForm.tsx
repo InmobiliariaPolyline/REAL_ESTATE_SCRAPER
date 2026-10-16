@@ -1,5 +1,6 @@
 import { Check, Copy, Eye, EyeOff, Loader2, Wand2 } from 'lucide-react'
 import { useState } from 'react'
+import PasswordStrengthMeter from '@/components/common/PasswordStrengthMeter'
 import { useToast } from '@/contexts/ToastContext'
 import { ApiError } from '@/lib/api'
 import {
@@ -103,6 +104,7 @@ export default function PasswordForm(props: PasswordFormProps) {
               value={actual}
               onChange={e => setActual(e.target.value)}
               className="field"
+              aria-invalid={!!error && !actual}
               autoComplete="current-password"
               disabled={busy}
               autoFocus
@@ -153,6 +155,7 @@ export default function PasswordForm(props: PasswordFormProps) {
               </button>
             </div>
           </div>
+          <PasswordStrengthMeter password={nueva} />
         </div>
 
         <div>
@@ -163,9 +166,13 @@ export default function PasswordForm(props: PasswordFormProps) {
             value={confirmar}
             onChange={e => setConfirmar(e.target.value)}
             className="field mono"
+            aria-invalid={!!confirmar && confirmar !== nueva}
             autoComplete="new-password"
             disabled={busy}
           />
+          {!!confirmar && confirmar === nueva && nueva.length >= MIN_PASSWORD_LENGTH && (
+            <p className="field-hint flex items-center gap-1 text-green"><Check className="size-3" aria-hidden="true" /> Las contraseñas coinciden</p>
+          )}
         </div>
 
         {error && (

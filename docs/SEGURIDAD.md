@@ -8,7 +8,7 @@ Guía práctica para mantener el sistema seguro y recuperable.
 | ---- | ------ |
 | Contraseñas | bcrypt en la base; mínimo 8 caracteres; las heredadas en texto plano se migran al iniciar sesión |
 | Login | bloqueo tras 5 fallos en 15 min (también aplica al cambio de contraseña) |
-| Sesiones | token opaco de 12 h validado en el servidor en cada petición; un baneo o un cambio de contraseña las cierra |
+| Sesiones | token opaco de 12 h validado en el servidor en cada petición; un baneo o un cambio de contraseña las cierra. Se guarda por pestaña (se pierde al cerrarla) y caduca por inactividad: aviso a los 14 min y cierre a los 15 (cliente); el servidor la invalida tras 30 min sin peticiones (`db/006`) |
 | Autorización | cada ruta de la API exige público / sesión / suscriptor vigente / admin |
 | Datos | todo el SQL va parametrizado; los errores internos nunca llegan al cliente |
 | Navegador | CSP estricta, sin scripts de terceros; URLs de avisos filtradas a http(s) |
@@ -27,6 +27,11 @@ Guía práctica para mantener el sistema seguro y recuperable.
   ```sql
   delete from public.auditoria where creado_en < now() - interval '1 year';
   ```
+
+**Inactividad:** el cliente avisa con cuenta atrás y cierra a los 15 min sin mover el ratón ni teclear
+(`IDLE_TIMEOUT_MS` en `client/src/lib/config.ts`); mientras hay actividad, refresca la sesión del
+servidor cada 5 min. El servidor, por su cuenta, rechaza una sesión sin peticiones durante 30 min
+(intervalo editable en `db/006_idle_timeout.sql`).
 
 La IP se toma de `x-nf-client-connection-ip` (Netlify) o `x-forwarded-for` (proxy inverso).
 

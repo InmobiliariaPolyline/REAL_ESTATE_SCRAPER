@@ -1,4 +1,4 @@
-import { Activity, AlertTriangle, ArrowRight, Building2, Crown, Users } from 'lucide-react'
+import { Activity, AlertTriangle, ArrowRight, Building2, Crown, RefreshCw, Users } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Area,
@@ -13,13 +13,18 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import AnimatedNumber from '@/components/common/AnimatedNumber'
 import StatCard from '@/components/common/StatCard'
 import { useToast } from '@/contexts/ToastContext'
+import { timeAgo } from '@/lib/account'
 import { api } from '@/lib/api'
 import { formatDateTime } from '@/lib/dates'
 import { PORTALS } from '@/lib/portals'
 import { cn } from '@/lib/utils'
 import type { AdminTab } from './tabs'
+
+/** Cada cuánto se refrescan las métricas mientras el panel está visible. */
+const REFRESH_MS = 30_000
 
 /** Horas sin avisos nuevos a partir de las cuales se considera inactivo al scraper. */
 const STALE_HOURS = 48
@@ -50,21 +55,48 @@ interface DashboardProps {
 export default function AdminDashboard({ onNavigate }: DashboardProps) {
   const [stats, setStats] = useState<Stats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [updatedAt, setUpdatedAt] = useState<number | null>(null)
+  const [now, setNow] = useState(() => Date.now())
   const { addToast } = useToast()
 
-  const load = useCallback(async () => {
-    try {
-      setStats(await api.get<Stats>('/admin/stats'))
-    } catch (err) {
-      addToast('Error al cargar métricas', 'error')
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
-  }, [addToast])
+  const load = useCallback(
+    async (silent = false) => {
+      if (silent) setRefreshing(true)
+      try {
+        setStats(await api.get<Stats>('/admin/stats'))
+        setUpdatedAt(Date.now())
+      } catch (err) {
+        // Los refrescos automáticos fallan en silencio: se conserva lo último mostrado.
+        if (!silent) addToast('Error al cargar métricas', 'error')
+        console.error(err)
+      } finally {
+        setLoading(false)
+        setRefreshing(false)
+      }
+    },
+    [addToast]
+  )
 
   useEffect(() => {
     load()
+  }, [load])
+
+  // Reloj de 1 s (tiempos relativos "en vivo") y refresco periódico mientras la pestaña esté visible.
+  useEffect(() => {
+    const tick = setInterval(() => setNow(Date.now()), 1000)
+    const refresh = setInterval(() => {
+      if (document.visibilityState === 'visible') load(true)
+    }, REFRESH_MS)
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') load(true)
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      clearInterval(tick)
+      clearInterval(refresh)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
   }, [load])
 
   const portals = useMemo(() => {
@@ -82,8 +114,16 @@ export default function AdminDashboard({ onNavigate }: DashboardProps) {
   const peak = series.reduce((m, d) => Math.max(m, d.total), 0)
 
   const hoursSince = stats?.ultimoAviso
-    ? (Date.now() - new Date(stats.ultimoAviso).getTime()) / 36e5
+    ? (now - new Date(stats.ultimoAviso).getTime()) / 36e5
     : null
+
+  // Series para las mini gráficas de las tarjetas.
+  const dailySeries = series.slice(-14).map(d => d.total)
+  const cumulativeSeries = (() => {
+    const base = (stats?.totalProps ?? 0) - total30
+    let acc = base
+    return series.slice(-14).map(d => (acc += d.total))
+  })()
   const scraperActive = hoursSince !== null && hoursSince <= STALE_HOURS
 
   return (
@@ -106,14 +146,36 @@ export default function AdminDashboard({ onNavigate }: DashboardProps) {
         </div>
       )}
 
+      {/* Indicador en vivo */}
+      <div className="flex flex-wrap items-center justify-between gap-3 text-xs text-text-muted">
+        <span className="flex items-center gap-2">
+          <span className="live-dot" aria-hidden="true" />
+          <span className="font-semibold uppercase tracking-[0.12em] text-green">En vivo</span>
+          <span aria-live="off">
+            {updatedAt ? `actualizado ${timeAgo(new Date(updatedAt).toISOString(), now)}` : 'cargando...'}
+          </span>
+        </span>
+        <button
+          type="button"
+          onClick={() => load(true)}
+          disabled={refreshing}
+          className="btn btn-ghost btn-sm"
+          aria-label="Actualizar métricas ahora"
+        >
+          <RefreshCw className={cn('size-3.5', refreshing && 'animate-spin')} aria-hidden="true" />
+          Actualizar
+        </button>
+      </div>
+
       {/* Métricas */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="stagger grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Total de propiedades"
           icon={Building2}
           tone="gold"
           loading={loading}
-          value={fmt(stats?.totalProps ?? 0)}
+          value={<AnimatedNumber value={stats?.totalProps ?? 0} />}
+          spark={cumulativeSeries}
           hint={stats ? `+${fmt(stats.addedHoy)} hoy` : undefined}
           footerLabel="Ver propiedades"
           onFooterClick={() => onNavigate('propiedades')}
@@ -123,7 +185,7 @@ export default function AdminDashboard({ onNavigate }: DashboardProps) {
           icon={Users}
           tone="blue"
           loading={loading}
-          value={fmt(stats?.totalUsers ?? 0)}
+          value={<AnimatedNumber value={stats?.totalUsers ?? 0} />}
           footerLabel="Gestionar usuarios"
           onFooterClick={() => onNavigate('usuarios')}
         />
@@ -132,7 +194,7 @@ export default function AdminDashboard({ onNavigate }: DashboardProps) {
           icon={Crown}
           tone="green"
           loading={loading}
-          value={fmt(stats?.subsActivas ?? 0)}
+          value={<AnimatedNumber value={stats?.subsActivas ?? 0} />}
           footerLabel="Ver suscripciones"
           onFooterClick={() => onNavigate('usuarios')}
         />
@@ -141,13 +203,14 @@ export default function AdminDashboard({ onNavigate }: DashboardProps) {
           icon={Activity}
           tone="amber"
           loading={loading}
-          value={fmt(stats?.added24h ?? 0)}
+          value={<AnimatedNumber value={stats?.added24h ?? 0} />}
+          spark={dailySeries}
           footerLabel="Ver actividad"
           onFooterClick={() => onNavigate('scraper')}
         />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+      <div className="stagger grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         {/* Gráfica de avisos por día */}
         <section className="card p-6">
           <div className="mb-1 flex flex-wrap items-start justify-between gap-3">
@@ -217,6 +280,9 @@ export default function AdminDashboard({ onNavigate }: DashboardProps) {
                     strokeWidth={2}
                     fill="url(#goldFill)"
                     activeDot={{ r: 5, fill: GOLD, stroke: 'var(--app)', strokeWidth: 2 }}
+                    isAnimationActive
+                    animationDuration={1500}
+                    animationEasing="ease-out"
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -265,6 +331,9 @@ export default function AdminDashboard({ onNavigate }: DashboardProps) {
                         paddingAngle={3}
                         stroke="none"
                         cornerRadius={6}
+                        isAnimationActive
+                        animationBegin={150}
+                        animationDuration={1200}
                       >
                         {portals
                           .filter(p => p.count > 0)
@@ -278,11 +347,20 @@ export default function AdminDashboard({ onNavigate }: DashboardProps) {
 
                 <ul className="mt-5 space-y-3">
                   {portals.map(p => (
-                    <li key={p.key} className="flex items-center gap-3 text-sm">
-                      <span className="size-2.5 shrink-0 rounded-full" style={{ background: p.color }} />
-                      <span className="flex-1 text-text">{p.label}</span>
-                      <span className="mono text-text-muted">{fmt(p.count)}</span>
-                      <span className="mono w-10 text-right text-xs text-text-faint">{p.share}%</span>
+                    <li key={p.key} className="text-sm">
+                      <div className="flex items-center gap-3">
+                        <span className="size-2.5 shrink-0 rounded-full" style={{ background: p.color }} />
+                        <span className="flex-1 text-text">{p.label}</span>
+                        <span className="mono text-text-muted">{fmt(p.count)}</span>
+                        <span className="mono w-10 text-right text-xs text-text-faint">{p.share}%</span>
+                      </div>
+                      <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-surface-3">
+                        <div
+                          key={`${p.key}-${p.share}`}
+                          className="bar-grow h-full rounded-full"
+                          style={{ width: `${p.share}%`, background: p.color }}
+                        />
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -291,9 +369,14 @@ export default function AdminDashboard({ onNavigate }: DashboardProps) {
           </section>
 
           {/* Estado del scraper */}
-          <section className="gold-gradient relative overflow-hidden rounded-[1.25rem] p-6 shadow-[0_24px_48px_-24px_rgb(var(--gold-rgb)/0.55)]">
+          <section className="gold-gradient sheen relative overflow-hidden rounded-[1.25rem] p-6 shadow-[0_24px_48px_-24px_rgb(var(--gold-rgb)/0.55)]">
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] opacity-75">
-              <span className={cn('dot', scraperActive && 'dot-live')} />
+              <span className="relative inline-flex">
+                <span className={cn('dot', scraperActive && 'dot-live')} />
+                {scraperActive && (
+                  <span className="radar-ring absolute inset-0 rounded-full bg-current opacity-40" aria-hidden="true" />
+                )}
+              </span>
               Estado del scraper
             </div>
             <p className="mt-3 font-display text-3xl font-semibold leading-tight">
@@ -301,7 +384,7 @@ export default function AdminDashboard({ onNavigate }: DashboardProps) {
             </p>
             <p className="mt-1 text-sm opacity-80">
               {stats?.ultimoAviso
-                ? `Último aviso: ${formatDateTime(stats.ultimoAviso)}`
+                ? `Último aviso ${timeAgo(stats.ultimoAviso, now)} (${formatDateTime(stats.ultimoAviso)})`
                 : 'Aún no hay avisos cargados'}
             </p>
             <button

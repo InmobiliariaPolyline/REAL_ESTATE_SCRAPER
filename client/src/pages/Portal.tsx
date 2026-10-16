@@ -358,7 +358,7 @@ export default function Portal({
         </div>
 
         {loading && !soloFavoritos && (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          <div className="stagger grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {Array.from({ length: 8 }, (_, i) => (
               <div key={i} className="skeleton h-[26rem]" />
             ))}

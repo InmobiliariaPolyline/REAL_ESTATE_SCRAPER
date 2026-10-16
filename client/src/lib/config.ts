@@ -30,3 +30,12 @@ export { GRACE_DAYS, PREMIUM_DAYS }
 
 /** Vigencia máxima de la sesión guardada en el navegador (el servidor usa el mismo plazo). */
 export const SESSION_TTL_MS = 12 * 60 * 60 * 1000
+
+/** Inactividad (sin mover el ratón, teclear ni tocar) tras la cual se cierra la sesión. */
+export const IDLE_TIMEOUT_MS = 15 * 60 * 1000
+
+/** Aviso con cuenta atrás antes de cerrar por inactividad. */
+export const IDLE_WARNING_MS = 60 * 1000
+
+/** Mientras el usuario está activo, se avisa al servidor cada tanto para no caducar su sesión. */
+export const KEEPALIVE_MS = 5 * 60 * 1000

@@ -7,5 +7,6 @@ afterEach(() => {
   cleanup()
   if (typeof document === "undefined") return // pruebas de lógica pura (entorno node)
   localStorage.clear()
+  sessionStorage.clear()
   document.documentElement.className = ""
 })

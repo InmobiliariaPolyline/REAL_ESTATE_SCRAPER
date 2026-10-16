@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react"
 import { ArrowRight } from "lucide-react"
 import type { ReactNode } from "react"
+import Sparkline from "@/components/common/Sparkline"
 import { cn } from "@/lib/utils"
 
 type Tone = "gold" | "blue" | "green" | "amber" | "violet" | "rose"
@@ -25,6 +26,8 @@ interface StatCardProps {
   footerLabel?: string
   onFooterClick?: () => void
   loading?: boolean
+  /** Serie para mostrar una mini gráfica de tendencia. */
+  spark?: number[]
 }
 
 /** Tarjeta de métrica: etiqueta, cifra grande en mono, icono y enlace inferior. */
@@ -37,6 +40,7 @@ export default function StatCard({
   footerLabel,
   onFooterClick,
   loading,
+  spark,
 }: StatCardProps) {
   const t = TONES[tone]
   return (
@@ -53,14 +57,19 @@ export default function StatCard({
           )}
           {hint && <p className="mt-2 text-xs text-text-muted">{hint}</p>}
         </div>
-        <span
-          className={cn(
-            "inline-flex size-11 shrink-0 items-center justify-center rounded-2xl ring-1",
-            t.ring
+        <div className="flex flex-col items-end gap-3">
+          <span
+            className={cn(
+              "animate-float inline-flex size-11 shrink-0 items-center justify-center rounded-2xl ring-1",
+              t.ring
+            )}
+          >
+            <Icon className={cn("size-5", t.icon)} strokeWidth={1.75} aria-hidden="true" />
+          </span>
+          {!loading && spark && spark.length > 1 && (
+            <Sparkline values={spark} className={cn("h-8 w-24", t.icon)} />
           )}
-        >
-          <Icon className={cn("size-5", t.icon)} strokeWidth={1.75} />
-        </span>
+        </div>
       </div>
 
       {footerLabel && (
