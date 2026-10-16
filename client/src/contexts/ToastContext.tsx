@@ -1,33 +1,52 @@
-import { createContext, useContext, useState, ReactNode } from 'react'
-import { Toast, ToastMessage } from '../components/Toast'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react"
+import { Toast, type ToastMessage } from "../components/common/Toast"
+
+type ToastType = "success" | "error" | "info"
 
 interface ToastContextType {
   toasts: ToastMessage[]
-  addToast: (mensaje: string, tipo?: 'success' | 'error' | 'info') => void
+  addToast: (mensaje: string, tipo?: ToastType) => void
   removeToast: (id: string) => void
 }
 
 const ToastContext = createContext<ToastContextType | undefined>(undefined)
 
+const TOAST_DURATION_MS = 4000
+
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastMessage[]>([])
+  const counter = useRef(0)
 
-  const addToast = (mensaje: string, tipo: 'success' | 'error' | 'info' = 'info') => {
-    const id = Math.random().toString(36).substring(2, 9)
-    setToasts((prev) => [...prev, { id, mensaje, tipo }])
+  const removeToast = useCallback((id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id))
+  }, [])
 
-    // Auto-dismiss después de 4 segundos
-    setTimeout(() => {
-      removeToast(id)
-    }, 4000)
-  }
+  // Identidad estable: se puede usar en dependencias de useEffect/useCallback sin re-disparos.
+  const addToast = useCallback(
+    (mensaje: string, tipo: ToastType = "info") => {
+      counter.current += 1
+      const id = `toast-${counter.current}`
+      setToasts(prev => [...prev, { id, mensaje, tipo }])
+      setTimeout(() => removeToast(id), TOAST_DURATION_MS)
+    },
+    [removeToast]
+  )
 
-  const removeToast = (id: string) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id))
-  }
+  const value = useMemo(
+    () => ({ toasts, addToast, removeToast }),
+    [toasts, addToast, removeToast]
+  )
 
   return (
-    <ToastContext.Provider value={{ toasts, addToast, removeToast }}>
+    <ToastContext.Provider value={value}>
       {children}
       <Toast toasts={toasts} onRemove={removeToast} />
     </ToastContext.Provider>
@@ -37,7 +56,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 export function useToast() {
   const context = useContext(ToastContext)
   if (!context) {
-    throw new Error('useToast must be used within a ToastProvider')
+    throw new Error("useToast must be used within a ToastProvider")
   }
   return context
 }

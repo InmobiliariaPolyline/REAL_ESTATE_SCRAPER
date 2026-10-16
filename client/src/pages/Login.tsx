@@ -1,58 +1,53 @@
-import { useState } from 'react'
-import { Eye, EyeOff } from 'lucide-react'
-import { supabase, ADMIN_WHATSAPP } from '@/lib/supabase'
+import { useState } from "react"
+import { Eye, EyeOff } from "lucide-react"
+import WhatsAppFab from "@/components/common/WhatsAppFab"
+import { login, type AuthSnapshot, type LoginFailure } from "@/lib/auth"
+import { isSupabaseConfigured } from "@/lib/config"
 
 interface LoginProps {
-  onLoginSuccess: (usuario: any) => void
+  onLoginSuccess: (snapshot: AuthSnapshot) => void
+}
+
+const ERROR_MESSAGES: Record<LoginFailure, string> = {
+  invalid: "Usuario o contraseña incorrectos",
+  banned: "Cuenta suspendida. Contacta al administrador.",
+  locked: "Demasiados intentos. Espera un momento e inténtalo de nuevo.",
+  unknown_role: "Tu cuenta no tiene un rol válido. Contacta al administrador.",
+  network: "Error al conectar con el servidor",
 }
 
 export default function Login({ onLoginSuccess }: LoginProps) {
-  const [usuario, setUsuario] = useState('')
-  const [password, setPassword] = useState('')
+  const [usuario, setUsuario] = useState("")
+  const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    setError('')
+    if (loading) return
+    setError("")
+
+    if (!isSupabaseConfigured) {
+      setError("La aplicación no está configurada (faltan variables de Supabase).")
+      return
+    }
+
     setLoading(true)
-
     try {
-      // Query a Supabase
-      const { data, error: queryError } = await supabase
-        .from('usuarios')
-        .select('id, usuario, rol, estado')
-        .eq('usuario', usuario)
-        .eq('password_hash', password)
-        .single()
-
-      if (!data || queryError) {
-        setError('Código de acceso incorrecto')
-        setLoading(false)
+      const outcome = await login(usuario, password)
+      if (!outcome.ok) {
+        setError(
+          outcome.reason === "locked" && outcome.retryInSeconds
+            ? `Demasiados intentos. Reintenta en ${outcome.retryInSeconds} s.`
+            : ERROR_MESSAGES[outcome.reason]
+        )
         return
       }
-
-      if (data.estado === 'baneado') {
-        setError('Cuenta suspendida. Contacta al administrador.')
-        setLoading(false)
-        return
-      }
-
-      // Registrar acceso en historial_accesos
-      await supabase.from('historial_accesos').insert({ usuario_id: data.id })
-
-      // Actualizar ultima_conexion
-      await supabase
-        .from('usuarios')
-        .update({ ultima_conexion: new Date().toISOString() })
-        .eq('id', data.id)
-
-      // Login exitoso
-      onLoginSuccess(data)
+      onLoginSuccess(outcome.snapshot)
     } catch (err) {
-      setError('Error al conectar con el servidor')
       console.error(err)
+      setError(ERROR_MESSAGES.network)
     } finally {
       setLoading(false)
     }
@@ -82,14 +77,11 @@ export default function Login({ onLoginSuccess }: LoginProps) {
           />
           <h1
             className="text-6xl font-bold mb-4"
-            style={{ fontFamily: 'Cormorant Garamond', color: '#C9A96E' }}
+            style={{ fontFamily: "Cormorant Garamond", color: "#C9A96E" }}
           >
             REAL ESTATE SCRAPER
           </h1>
-          <p
-            className="text-base text-white"
-            style={{ fontFamily: 'DM Sans' }}
-          >
+          <p className="text-base text-white" style={{ fontFamily: "DM Sans" }}>
             El mercado inmobiliario peruano, en tiempo real.
           </p>
         </div>
@@ -98,101 +90,87 @@ export default function Login({ onLoginSuccess }: LoginProps) {
       {/* Mitad derecha — formulario */}
       <div className="w-full lg:w-1/2 bg-black flex items-center justify-center px-4">
         <div className="w-full max-w-sm">
-          {/* Encabezado */}
           <h2
             className="text-4xl font-bold mb-8 text-center"
-            style={{ fontFamily: 'Cormorant Garamond', color: '#C9A96E' }}
+            style={{ fontFamily: "Cormorant Garamond", color: "#C9A96E" }}
           >
             Bienvenido
           </h2>
 
-          {/* Formulario */}
           <form onSubmit={handleLogin} className="space-y-6">
-            {/* Usuario */}
             <div>
               <label
+                htmlFor="login-usuario"
                 className="block text-sm font-medium mb-2"
-                style={{ color: '#F0EDE8', fontFamily: 'DM Sans' }}
+                style={{ color: "#F0EDE8", fontFamily: "DM Sans" }}
               >
                 Usuario
               </label>
               <input
+                id="login-usuario"
                 type="text"
                 value={usuario}
-                onChange={(e) => setUsuario(e.target.value)}
+                onChange={e => setUsuario(e.target.value)}
                 className="input-underline w-full"
                 placeholder="Tu usuario"
+                autoComplete="username"
+                autoCapitalize="none"
                 disabled={loading}
               />
             </div>
 
-            {/* Contraseña */}
             <div>
               <label
+                htmlFor="login-password"
                 className="block text-sm font-medium mb-2"
-                style={{ color: '#F0EDE8', fontFamily: 'DM Sans' }}
+                style={{ color: "#F0EDE8", fontFamily: "DM Sans" }}
               >
                 Contraseña
               </label>
               <div className="relative">
                 <input
-                  type={showPassword ? 'text' : 'password'}
+                  id="login-password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={e => setPassword(e.target.value)}
                   className="input-underline w-full pr-10"
                   placeholder="Tu contraseña"
+                  autoComplete="current-password"
                   disabled={loading}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-0 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                  aria-label={
+                    showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
+                  }
                   disabled={loading}
                 >
-                  {showPassword ? (
-                    <EyeOff size={20} />
-                  ) : (
-                    <Eye size={20} />
-                  )}
+                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
               </div>
             </div>
 
-            {/* Mensaje de error */}
-            {error && <p className="error-message">{error}</p>}
+            {error && (
+              <p className="error-message" role="alert">
+                {error}
+              </p>
+            )}
 
-            {/* Botón Ingresar */}
             <button
               type="submit"
               disabled={loading}
               className="btn-gold mt-8"
               style={{ opacity: loading ? 0.6 : 1 }}
             >
-              {loading ? 'Ingresando...' : 'Ingresar'}
+              {loading ? "Ingresando..." : "Ingresar"}
             </button>
           </form>
         </div>
       </div>
 
-      {/* Botón WhatsApp flotante */}
-      <a
-        href={`https://wa.me/${ADMIN_WHATSAPP}?text=Hola, quiero información sobre Real Estate Scraper`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="wa-button"
-        title="¿Quieres acceder? Contáctanos"
-      >
-        <svg
-          width="28"
-          height="28"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-        >
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-        </svg>
-      </a>
+      <WhatsAppFab />
     </div>
   )
 }

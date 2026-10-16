@@ -1,155 +1,138 @@
-import { useState, useEffect, lazy, Suspense } from 'react'
-import { Toaster } from "@/components/ui/sonner"
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import ErrorBoundary from "./components/ErrorBoundary"
+import ErrorBoundary from "./components/common/ErrorBoundary"
+import FullScreenLoader from "./components/common/FullScreenLoader"
 import { ThemeProvider } from "./contexts/ThemeContext"
-const Login = lazy(() => import('./pages/Login'))
-const Vencido = lazy(() => import('./pages/Vencido'))
-const Portal = lazy(() => import('./pages/Portal'))
-const Admin = lazy(() => import('./pages/Admin'))
-import { useToast, ToastProvider } from './contexts/ToastContext'
-import { supabase } from './lib/supabase'
+import { ToastProvider, useToast } from "./contexts/ToastContext"
+import { logout, restoreSession, type AuthSnapshot } from "./lib/auth"
+import { formatDate } from "./lib/dates"
 
-interface AppState {
-  vista: 'login' | 'admin' | 'portal' | 'vencido'
-  usuario: any | null
-  suscripcion: { fecha_vencimiento: string } | null
-}
+const Login = lazy(() => import("./pages/Login"))
+const Vencido = lazy(() => import("./pages/Vencido"))
+const Portal = lazy(() => import("./pages/Portal"))
+const Admin = lazy(() => import("./pages/Admin"))
+
+/** Intervalo mínimo entre revalidaciones de la sesión al volver a la pestaña. */
+const REVALIDATE_MIN_INTERVAL_MS = 60 * 1000
 
 function Router() {
-  const [state, setState] = useState<AppState>({ vista: 'login', usuario: null, suscripcion: null })
-  const [loading, setLoading] = useState(true)
+  const [auth, setAuth] = useState<AuthSnapshot | null>(null)
+  const [booting, setBooting] = useState(true)
   const { addToast } = useToast()
+  const lastCheck = useRef(0)
 
+  // Restaura la sesión guardada revalidándola contra el servidor.
   useEffect(() => {
-    try {
-      const savedSession = localStorage.getItem('inmoda_session')
-      if (savedSession) {
-        const sessionData = JSON.parse(savedSession)
-        if (sessionData && sessionData.usuario && sessionData.vista) {
-          setState({
-            vista: sessionData.vista,
-            usuario: sessionData.usuario,
-            suscripcion: sessionData.suscripcion || null
-          })
+    let cancelled = false
+    restoreSession()
+      .then(snapshot => {
+        if (!cancelled) setAuth(snapshot)
+      })
+      .catch(err => {
+        console.error("Error al restaurar la sesión:", err)
+        if (!cancelled) addToast("No se pudo verificar tu sesión", "error")
+      })
+      .finally(() => {
+        if (!cancelled) {
+          lastCheck.current = Date.now()
+          setBooting(false)
         }
-      }
-    } catch (err) {
-      console.error('Error al restaurar la sesión:', err)
-    } finally {
-      setLoading(false)
+      })
+    return () => {
+      cancelled = true
     }
-  }, [])
+  }, [addToast])
 
-  const handleLoginSuccess = async (usuarioData: any) => {
-    try {
-      if (usuarioData.rol === 'admin') {
-        // Admin va directo al panel
-        const adminState: AppState = { vista: 'admin', usuario: usuarioData, suscripcion: null }
-        setState(adminState)
-        localStorage.setItem('inmoda_session', JSON.stringify({
-          usuario: usuarioData,
-          suscripcion: null,
-          vista: 'admin'
-        }))
-        addToast('¡Bienvenido, administrador!', 'success')
-      } else if (usuarioData.rol === 'usuario') {
-        // Verificar suscripción
-        const hoy = new Date().toISOString().split('T')[0]
-        const { data: sub, error } = await supabase
-          .from('suscripciones')
-          .select('fecha_vencimiento, fecha_limite_eliminacion')
-          .eq('usuario_id', usuarioData.id)
-          .gte('fecha_limite_eliminacion', hoy)
-          .single()
+  const handleLogout = useCallback(
+    async (message = "Sesión cerrada") => {
+      await logout()
+      setAuth(null)
+      addToast(message, "info")
+    },
+    [addToast]
+  )
 
-        if (!sub || error) {
-          // Suscripción vencida o inexistente
-          const vencidoState: AppState = { vista: 'vencido', usuario: usuarioData, suscripcion: null }
-          setState(vencidoState)
-          localStorage.setItem('inmoda_session', JSON.stringify({
-            usuario: usuarioData,
-            suscripcion: null,
-            vista: 'vencido'
-          }))
-          addToast('Tu suscripción ha vencido', 'error')
-        } else {
-          // Suscripción activa
-          const portalState: AppState = { vista: 'portal', usuario: usuarioData, suscripcion: sub }
-          setState(portalState)
-          localStorage.setItem('inmoda_session', JSON.stringify({
-            usuario: usuarioData,
-            suscripcion: sub,
-            vista: 'portal'
-          }))
-          addToast(`¡Bienvenido, ${usuarioData.usuario}!`, 'success')
+  // Si el usuario fue baneado o su plan venció mientras la pestaña estaba abierta, se detecta
+  // al volver a ella.
+  useEffect(() => {
+    if (!auth) return
+    const onVisible = async () => {
+      if (document.visibilityState !== "visible") return
+      if (Date.now() - lastCheck.current < REVALIDATE_MIN_INTERVAL_MS) return
+      lastCheck.current = Date.now()
+      try {
+        const snapshot = await restoreSession()
+        if (!snapshot) {
+          await handleLogout("Tu sesión ya no es válida. Inicia sesión de nuevo.")
+        } else if (snapshot.vista !== auth.vista) {
+          setAuth(snapshot)
+          if (snapshot.vista === "vencido") {
+            addToast("Tu suscripción ha vencido", "error")
+          }
         }
+      } catch (err) {
+        console.error("No se pudo revalidar la sesión:", err)
       }
-    } catch (err) {
-      addToast('Error al verificar suscripción', 'error')
-      console.error(err)
+    }
+    document.addEventListener("visibilitychange", onVisible)
+    return () => document.removeEventListener("visibilitychange", onVisible)
+  }, [auth, addToast, handleLogout])
+
+  const handleLoginSuccess = (snapshot: AuthSnapshot) => {
+    setAuth(snapshot)
+    lastCheck.current = Date.now()
+    if (snapshot.vista === "admin") {
+      addToast("¡Bienvenido, administrador!", "success")
+    } else if (snapshot.vista === "portal") {
+      addToast(`¡Bienvenido, ${snapshot.user.usuario}!`, "success")
+    } else {
+      addToast(
+        snapshot.vencidoMotivo === "vencida"
+          ? "Tu suscripción ha vencido"
+          : "No tienes una suscripción activa",
+        "error"
+      )
     }
   }
 
-  const handleLogout = () => {
-    localStorage.removeItem('inmoda_session')
-    setState({ vista: 'login', usuario: null, suscripcion: null })
-    addToast('Sesión cerrada', 'info')
-  }
-
-  if (loading) {
-    return (
-      <div className="flex h-screen w-screen bg-black items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#C9A96E]"></div>
-          <span className="text-sm font-medium tracking-wider text-[#F0EDE8]/60 uppercase" style={{ fontFamily: 'DM Sans' }}>
-            Cargando sesión...
-          </span>
-        </div>
-      </div>
-    )
-  }
+  if (booting) return <FullScreenLoader label="Cargando sesión..." />
 
   return (
-    <Suspense fallback={
-      <div className="flex h-screen w-screen bg-black items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-10 w-10 border-t-2 border-b-2 border-[#C9A96E]"></div>
-          <span className="text-sm font-medium tracking-wider text-[#F0EDE8]/60 uppercase" style={{ fontFamily: 'DM Sans' }}>
-            Cargando...
-          </span>
-        </div>
-      </div>
-    }>
-      {state.vista === 'login' && <Login onLoginSuccess={handleLoginSuccess} />}
-      {state.vista === 'vencido' && <Vencido onLogout={handleLogout} />}
-      {state.vista === 'portal' && state.usuario && (
-        <Portal
-          usuario={state.usuario.usuario}
-          usuarioId={state.usuario.id}
-          fechaVencimiento={state.suscripcion?.fecha_vencimiento ?? '—'}
-          planType="PREMIUM"
-          onLogout={handleLogout}
+    <Suspense fallback={<FullScreenLoader label="Cargando..." />}>
+      {!auth && <Login onLoginSuccess={handleLoginSuccess} />}
+      {auth?.vista === "vencido" && (
+        <Vencido
+          motivo={auth.vencidoMotivo ?? "vencida"}
+          onLogout={() => handleLogout()}
         />
       )}
-      {state.vista === 'admin' && state.usuario && (
+      {auth?.vista === "portal" && (
+        <Portal
+          usuario={auth.user.usuario}
+          fechaVencimiento={
+            auth.suscripcion ? formatDate(auth.suscripcion.fecha_vencimiento) : "—"
+          }
+          planType={auth.suscripcion ? "PREMIUM" : "GRATIS"}
+          onLogout={() => handleLogout()}
+        />
+      )}
+      {auth?.vista === "admin" && (
         <Admin
-          usuario={state.usuario.usuario}
-          usuarioId={state.usuario.id}
-          onLogout={handleLogout}
+          usuario={auth.user.usuario}
+          usuarioId={auth.user.id}
+          onLogout={() => handleLogout()}
         />
       )}
     </Suspense>
   )
 }
 
-function App() {
+export default function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider defaultTheme="dark">
         <ToastProvider>
           <TooltipProvider>
-            <Toaster />
             <Router />
           </TooltipProvider>
         </ToastProvider>
@@ -157,5 +140,3 @@ function App() {
     </ErrorBoundary>
   )
 }
-
-export default App

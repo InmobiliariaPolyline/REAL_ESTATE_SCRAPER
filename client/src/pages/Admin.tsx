@@ -1,10 +1,11 @@
-import { useState } from 'react'
-import AdminSidebar from '@/components/AdminSidebar'
-import AdminDashboard from '@/components/AdminDashboard'
-import AdminPropiedades from '@/components/AdminPropiedades'
-import AdminEnlaces from '@/components/AdminEnlaces'
-import AdminUsuarios from '@/components/AdminUsuarios'
-import AdminScraper from '@/components/AdminScraper'
+import { useState } from "react"
+import AdminDashboard from "@/components/admin/AdminDashboard"
+import AdminEnlaces from "@/components/admin/AdminEnlaces"
+import AdminPropiedades from "@/components/admin/AdminPropiedades"
+import AdminScraper from "@/components/admin/AdminScraper"
+import AdminSidebar from "@/components/admin/AdminSidebar"
+import AdminUsuarios from "@/components/admin/AdminUsuarios"
+import { ADMIN_TABS, type AdminTab } from "@/components/admin/tabs"
 
 interface AdminProps {
   usuario: string
@@ -12,43 +13,29 @@ interface AdminProps {
   onLogout: () => void
 }
 
-export default function Admin({
-  usuario,
-  usuarioId,
-  onLogout,
-}: AdminProps) {
-  const [activeTab, setActiveTab] = useState<
-    'dashboard' | 'propiedades' | 'enlaces' | 'usuarios' | 'scraper'
-  >('dashboard')
+export default function Admin({ usuario, usuarioId, onLogout }: AdminProps) {
+  const [activeTab, setActiveTab] = useState<AdminTab>("dashboard")
 
   const renderContent = () => {
     switch (activeTab) {
-      case 'dashboard':
-        return <AdminDashboard />
-
-      case 'propiedades':
+      case "propiedades":
         return <AdminPropiedades adminId={usuarioId} />
-
-      case 'enlaces':
+      case "enlaces":
         return <AdminEnlaces />
-
-      case 'usuarios':
+      case "usuarios":
         return <AdminUsuarios />
-
-      case 'scraper':
+      case "scraper":
         return <AdminScraper />
-
+      case "dashboard":
       default:
         return <AdminDashboard />
     }
   }
 
+  const title = ADMIN_TABS.find(tab => tab.id === activeTab)?.title ?? ""
+
   return (
-    <div
-      className="flex h-screen"
-      style={{ backgroundColor: '#0F0F0F' }}
-    >
-      {/* Sidebar */}
+    <div className="flex h-screen" style={{ backgroundColor: "#0F0F0F" }}>
       <AdminSidebar
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -56,29 +43,15 @@ export default function Admin({
         onLogout={onLogout}
       />
 
-      {/* Contenido principal */}
       <main className="flex-1 overflow-y-auto">
         <div className="p-4 sm:p-8">
-          {/* Título de pestaña */}
           <h1
             className="text-3xl font-bold mb-8"
-            style={{
-              fontFamily: 'Cormorant Garamond',
-              color: '#C9A96E',
-            }}
+            style={{ fontFamily: "Cormorant Garamond", color: "#C9A96E" }}
           >
-            {activeTab === 'dashboard'
-              ? 'Dashboard'
-              : activeTab === 'propiedades'
-                ? 'Propiedades'
-                : activeTab === 'enlaces'
-                  ? 'Enlaces'
-                  : activeTab === 'usuarios'
-                    ? 'Usuarios y Suscripciones'
-                    : 'Estado Scraper'}
+            {title}
           </h1>
 
-          {/* Contenido */}
           {renderContent()}
         </div>
       </main>
