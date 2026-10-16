@@ -409,8 +409,14 @@ export const adminRoutes: Route[] = [
     level: "admin",
     handler: async ({ req, db, env, access }) => {
       const { GITHUB_PAT: pat, GITHUB_REPO: repo, GITHUB_WORKFLOW: workflow } = env
-      if (!pat || !repo || !workflow) {
-        throw new HttpError(501, "not_configured", "Faltan GITHUB_PAT, GITHUB_REPO o GITHUB_WORKFLOW en el servidor")
+      const faltan = [
+        !pat && "GITHUB_PAT",
+        !repo && "GITHUB_REPO",
+        !workflow && "GITHUB_WORKFLOW",
+      ].filter(Boolean)
+      if (faltan.length > 0) {
+        // Solo nombres de variables, nunca sus valores.
+        throw new HttpError(501, "not_configured", `Faltan variables en el servidor: ${faltan.join(", ")}`)
       }
       const res = await fetch(
         `https://api.github.com/repos/${repo}/actions/workflows/${workflow}/dispatches`,
@@ -427,7 +433,15 @@ export const adminRoutes: Route[] = [
       )
       if (!res.ok) {
         console.error("GitHub respondió", res.status, await res.text())
-        throw new HttpError(502, "github_error", "GitHub rechazó la solicitud")
+        const motivo =
+          res.status === 401 || res.status === 403
+            ? "el token (GITHUB_PAT) no es válido o no tiene permiso Actions: write"
+            : res.status === 404
+              ? "no se encontró el repositorio o el workflow (revisa GITHUB_REPO y GITHUB_WORKFLOW)"
+              : res.status === 422
+                ? "el workflow no admite ejecución manual (falta workflow_dispatch) o la rama no existe"
+                : "respuesta inesperada de GitHub"
+        throw new HttpError(502, "github_error", `GitHub rechazó la solicitud (${res.status}): ${motivo}`)
       }
       await audit({ db, req, access }, "scraper.lanzar", env.GITHUB_WORKFLOW ?? null)
       return { ok: true }

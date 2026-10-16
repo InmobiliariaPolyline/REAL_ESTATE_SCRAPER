@@ -403,7 +403,11 @@ describe("admin: métricas y utilidades", () => {
 
   it("scraper sin configurar -> 501", async () => {
     const t = (await login("admin", "admin-pass-123")).body.token
-    expect((await call("POST", "/api/admin/scraper", { token: t })).status).toBe(501)
+    const res = await call("POST", "/api/admin/scraper", { token: t })
+    expect(res.status).toBe(501)
+    // Indica qué variables faltan (solo nombres).
+    expect(JSON.stringify(res.body)).toContain("GITHUB_PAT")
+    expect(JSON.stringify(res.body)).toContain("GITHUB_WORKFLOW")
   })
 
   it("health diagnostica la causa sin filtrar secretos", async () => {

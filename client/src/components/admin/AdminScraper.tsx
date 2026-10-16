@@ -49,8 +49,8 @@ export default function AdminScraper() {
       addToast("Scraper iniciado: los resultados llegarán en unos 45 minutos", "success")
     } catch (err) {
       addToast(
-        err instanceof ApiError && err.status === 501
-          ? "El scraper no está configurado en el servidor (GITHUB_PAT / GITHUB_REPO / GITHUB_WORKFLOW)"
+        err instanceof ApiError && (err.status === 501 || err.status === 502) && err.message
+          ? err.message
           : "Error al contactar el servidor",
         "error"
       )
