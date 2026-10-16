@@ -12,7 +12,8 @@
     "test": "vitest run",
     "format": "prettier --write .",
     "dev:api": "tsx watch server/index.ts --api-only",
-    "db:migrate": "node scripts/migrate.mjs"
+    "db:migrate": "node scripts/migrate.mjs",
+    "scraper": "tsx scraper/run.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
