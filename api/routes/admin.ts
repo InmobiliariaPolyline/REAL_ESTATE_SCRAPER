@@ -1,5 +1,6 @@
 import { ADMIN_PAGE_SIZE, MAX_PAGE_SIZE, MIN_PASSWORD_LENGTH, PREMIUM_DAYS } from "../../shared/constants"
 import { escapeLike } from "../../shared/filters"
+import { CLEANUP_MAX_DAYS, CLEANUP_MIN_DAYS, previewCleanup, runCleanup } from "../cleanup"
 import { HttpError, badRequest, forbidden, intParam, notFound, optNumber, optStr, readJson, str } from "../http"
 import {
   buildAdminCount,
@@ -14,6 +15,15 @@ const HISTORY_LIMIT = 50
 const ACCESS_LOG_LIMIT = 50
 const ENLACES_LIMIT = 5000
 const LOOKUP_LIMIT = 20
+
+/** Días de inactividad para la limpieza, validados al rango permitido. */
+function cleanupDays(value: string | null): number {
+  const days = intParam(value, 30, 1, 100000)
+  if (days < CLEANUP_MIN_DAYS || days > CLEANUP_MAX_DAYS) {
+    throw badRequest(`Los días deben estar entre ${CLEANUP_MIN_DAYS} y ${CLEANUP_MAX_DAYS}`)
+  }
+  return days
+}
 
 const bigintId = (value: string, field = "id"): number => {
   const n = Number(value)
@@ -411,13 +421,46 @@ export const adminRoutes: Route[] = [
     },
   },
   {
+    // Vista previa: cuántos avisos se eliminarían y si es seguro hacerlo.
+    method: "GET",
+    path: "/api/admin/limpieza",
+    level: "admin",
+    handler: async ({ url, db }) => previewCleanup(db, cleanupDays(url.searchParams.get("dias"))),
+  },
+  {
     method: "POST",
     path: "/api/admin/limpiar-inactivos",
     level: "admin",
-    handler: async () => {
-      // `propiedades.ultima_vista_en` permite definirla (p. ej. borrar avisos no vistos en N días),
-      // pero solo es seguro cuando el scraper la actualiza en cada corrida.
-      throw new HttpError(501, "not_configured", "La limpieza de inactivos aún no está configurada")
+    handler: async ({ req, db }) => {
+      const body = await readJson(req)
+      const dias = cleanupDays(body.dias === undefined ? null : String(body.dias))
+
+      const preview = await previewCleanup(db, dias)
+      if (!preview.seguro) {
+        throw new HttpError(409, "limpieza_no_segura", preview.motivo ?? "La limpieza no es segura")
+      }
+      const eliminadas = await runCleanup(db, dias)
+      return { ok: true, eliminadas, protegidas: preview.protegidas }
+    },
+  },
+  {
+    method: "POST",
+    path: "/api/admin/usuarios/:id/password",
+    level: "admin",
+    handler: async ({ req, params, db }) => {
+      const id = bigintId(params.id)
+      const body = await readJson(req)
+      const password = str(body.password, "password", 200)
+      if (password.length < MIN_PASSWORD_LENGTH) {
+        throw badRequest(`La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres`)
+      }
+      const rows = await db.query<{ r: string }>(
+        "select public.restablecer_password($1::bigint, $2) as r",
+        [id, password]
+      )
+      if (rows[0]?.r === "inexistente") throw notFound()
+      if (rows[0]?.r !== "ok") throw badRequest("No se pudo restablecer la contraseña")
+      return { ok: true }
     },
   },
 ]

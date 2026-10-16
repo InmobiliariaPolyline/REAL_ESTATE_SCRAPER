@@ -10,9 +10,19 @@ export interface ApiEnv {
   GITHUB_REPO?: string
   GITHUB_WORKFLOW?: string
   GITHUB_REF?: string
+  /** Alertas del watchdog: webhook (Slack/Discord compatible) y horas sin actividad para alertar. */
+  ALERT_WEBHOOK_URL?: string
+  ALERT_STALE_HOURS?: string
+  /** Secreto que autoriza a un planificador externo a llamar a /api/internal/watchdog. */
+  CRON_SECRET?: string
 }
 
 export function usdToPenRate(env: ApiEnv): number {
   const n = Number(env.USD_TO_PEN_RATE)
   return Number.isFinite(n) && n > 0 ? n : DEFAULT_USD_TO_PEN_RATE
+}
+
+export function staleHours(env: ApiEnv): number {
+  const n = Number(env.ALERT_STALE_HOURS)
+  return Number.isFinite(n) && n > 0 ? n : 24
 }

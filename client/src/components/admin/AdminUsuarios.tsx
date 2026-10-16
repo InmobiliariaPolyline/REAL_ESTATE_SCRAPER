@@ -1,8 +1,9 @@
-import { Ban, Crown, Loader2, RefreshCw, ShieldCheck, UserCheck, UserPlus, Users } from 'lucide-react'
+import { Ban, Crown, KeyRound, Loader2, RefreshCw, ShieldCheck, UserCheck, UserPlus, Users } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import Avatar from '@/components/common/Avatar'
 import ConfirmModal from '@/components/common/ConfirmModal'
 import EmptyState from '@/components/common/EmptyState'
+import PasswordModal from '@/components/common/PasswordModal'
 import { useToast } from '@/contexts/ToastContext'
 import { PREMIUM_DAYS } from '@/lib/config'
 import { formatDate } from '@/lib/dates'
@@ -29,6 +30,7 @@ export default function AdminUsuarios() {
   const [selectedUsuario, setSelectedUsuario] = useState<Usuario | null>(null)
   const [modalAction, setModalAction] = useState<ModalAction | null>(null)
   const [actionLoading, setActionLoading] = useState(false)
+  const [passwordUser, setPasswordUser] = useState<Usuario | null>(null)
 
   // Estados para nuevo usuario
   const [newUsuario, setNewUsuario] = useState('')
@@ -351,6 +353,14 @@ export default function AdminUsuarios() {
                       <td className="whitespace-nowrap text-text-muted">{formatDate(user.ultima_conexion)}</td>
                       <td>
                         <div className="flex flex-wrap items-center justify-end gap-2">
+                          <button
+                            onClick={() => setPasswordUser(user)}
+                            className="btn btn-secondary btn-sm"
+                            aria-label={`Restablecer contraseña de ${user.usuario}`}
+                          >
+                            <KeyRound className="size-3.5" />
+                            Contraseña
+                          </button>
                           {!isAdmin && (
                             <button
                               onClick={() => openModal(user, 'premium')}
@@ -388,6 +398,15 @@ export default function AdminUsuarios() {
           </table>
         </div>
       </section>
+
+      {passwordUser && (
+        <PasswordModal
+          mode="reset"
+          usuarioId={passwordUser.id}
+          usuario={passwordUser.usuario}
+          onClose={() => setPasswordUser(null)}
+        />
+      )}
 
       {showModal && selectedUsuario && modalAction && (
         <ConfirmModal

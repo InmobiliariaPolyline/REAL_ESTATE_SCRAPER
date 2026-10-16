@@ -5,10 +5,11 @@ import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
 import type { Db } from "./db"
 import { createApiHandler } from "./handler"
+import { runWatchdog } from "./watchdog"
 
 /**
  * Pruebas de integración: la API completa contra un Postgres real (PGlite) con los scripts
- * db/001_schema.sql y db/002_auth.sql aplicados.
+ * db/001_schema.sql, db/002_auth.sql y db/003_account_ops.sql aplicados.
  */
 
 const root = path.resolve(import.meta.dirname, "..")
@@ -67,6 +68,7 @@ beforeAll(async () => {
       ('a5','babilonia',  'ALQUILER','Departamento','Barato',             800,    200, 'PEN','Lince',               '1',  now() - interval '4 hours');
   `)
   await pg.exec(fs.readFileSync(path.join(root, "db/002_auth.sql"), "utf8"))
+  await pg.exec(fs.readFileSync(path.join(root, "db/003_account_ops.sql"), "utf8"))
 
   // El admin crea a "cliente" con Premium mediante la propia función SQL.
   admin = (await login("admin", "admin-pass-123")).body.token
@@ -395,10 +397,9 @@ describe("admin: métricas y utilidades", () => {
     expect(typeof logs.body[0].id).toBe("number")
   })
 
-  it("scraper y limpieza sin configurar -> 501", async () => {
+  it("scraper sin configurar -> 501", async () => {
     const t = (await login("admin", "admin-pass-123")).body.token
     expect((await call("POST", "/api/admin/scraper", { token: t })).status).toBe(501)
-    expect((await call("POST", "/api/admin/limpiar-inactivos", { token: t })).status).toBe(501)
   })
 
   it("health diagnostica la causa sin filtrar secretos", async () => {
@@ -448,5 +449,232 @@ describe("admin: métricas y utilidades", () => {
     )
     expect(res.status).toBe(500)
     expect(JSON.stringify(await res.json())).not.toContain("neondb_owner")
+  })
+})
+
+
+describe("contraseñas y cuenta", () => {
+  const create = (usuario: string, password: string) =>
+    call("POST", "/api/admin/usuarios", {
+      token: admin,
+      body: { usuario, password, rol: "usuario", estado: "activo", premium: true },
+    })
+
+  it("cambiar la propia contraseña cierra las otras sesiones y la anterior deja de servir", async () => {
+    await create("cuenta1", "clave-inicial-1")
+    const s1 = (await login("cuenta1", "clave-inicial-1")).body.token
+    const s2 = (await login("cuenta1", "clave-inicial-1")).body.token
+
+    const r = await call("POST", "/api/account/password", {
+      token: s1,
+      body: { actual: "clave-inicial-1", nueva: "clave-nueva-22" },
+    })
+    expect(r.status).toBe(200)
+
+    expect((await call("GET", "/api/session", { token: s1 })).status).toBe(200) // la actual sigue
+    expect((await call("GET", "/api/session", { token: s2 })).status).toBe(401) // la otra se cerró
+    expect((await login("cuenta1", "clave-inicial-1")).status).toBe(401)
+    expect((await login("cuenta1", "clave-nueva-22")).status).toBe(200)
+  })
+
+  it("valida contraseña actual, longitud y que la nueva sea distinta", async () => {
+    await create("cuenta2", "clave-inicial-2")
+    const t = (await login("cuenta2", "clave-inicial-2")).body.token
+    const change = (body: object) => call("POST", "/api/account/password", { token: t, body })
+
+    const wrong = await change({ actual: "equivocada", nueva: "clave-nueva-22" })
+    expect(wrong.status).toBe(400)
+    expect(wrong.body.error).toBe("password_actual")
+    // Una contraseña actual incorrecta no debe cerrar la sesión (no es un 401).
+    expect((await call("GET", "/api/session", { token: t })).status).toBe(200)
+
+    expect((await change({ actual: "clave-inicial-2", nueva: "corta" })).status).toBe(400)
+    expect((await change({ actual: "clave-inicial-2", nueva: "clave-inicial-2" })).status).toBe(400)
+    expect((await call("POST", "/api/account/password", { body: { actual: "a", nueva: "b" } })).status).toBe(401)
+  })
+
+  it("el cambio de contraseña no permite adivinar la actual por fuerza bruta", async () => {
+    await create("cuenta3", "clave-inicial-3")
+    const t = (await login("cuenta3", "clave-inicial-3")).body.token
+    let last = 0
+    for (let i = 0; i < 6; i++) {
+      last = (await call("POST", "/api/account/password", { token: t, body: { actual: `mala${i}`, nueva: "clave-nueva-33" } })).status
+    }
+    expect(last).toBe(429)
+    // Incluso con la clave correcta queda bloqueado mientras dure el bloqueo.
+    expect(
+      (await call("POST", "/api/account/password", { token: t, body: { actual: "clave-inicial-3", nueva: "clave-nueva-33" } })).status
+    ).toBe(429)
+    await pg.exec("delete from login_intentos")
+  })
+
+  it("el admin restablece la contraseña de otro usuario y se cierran sus sesiones", async () => {
+    const created = await create("cuenta4", "clave-inicial-4")
+    const userTok = (await login("cuenta4", "clave-inicial-4")).body.token
+
+    // Un usuario normal no puede restablecer.
+    expect(
+      (await call("POST", `/api/admin/usuarios/${created.body.id}/password`, { token: userTok, body: { password: "otra-clave-99" } })).status
+    ).toBe(403)
+
+    expect(
+      (await call("POST", `/api/admin/usuarios/${created.body.id}/password`, { token: admin, body: { password: "corta" } })).status
+    ).toBe(400)
+    expect(
+      (await call("POST", `/api/admin/usuarios/99999/password`, { token: admin, body: { password: "otra-clave-99" } })).status
+    ).toBe(404)
+
+    const ok = await call("POST", `/api/admin/usuarios/${created.body.id}/password`, { token: admin, body: { password: "clave-admin-44" } })
+    expect(ok.status).toBe(200)
+    expect((await call("GET", "/api/session", { token: userTok })).status).toBe(401)
+    expect((await login("cuenta4", "clave-inicial-4")).status).toBe(401)
+    expect((await login("cuenta4", "clave-admin-44")).status).toBe(200)
+  })
+})
+
+describe("limpieza de avisos inactivos", () => {
+  const days = (n: number) => `now() - interval '${n} days'`
+
+  it("valida el rango de días y exige admin", async () => {
+    expect((await call("GET", "/api/admin/limpieza?dias=3", { token: admin })).status).toBe(400)
+    expect((await call("GET", "/api/admin/limpieza?dias=9999", { token: admin })).status).toBe(400)
+    expect((await call("GET", "/api/admin/limpieza?dias=30", { token: member })).status).toBe(403)
+    expect((await call("POST", "/api/admin/limpiar-inactivos", { token: member, body: { dias: 30 } })).status).toBe(403)
+  })
+
+  it("elimina solo los inactivos sin enlaces ni favoritos", async () => {
+    await pg.exec(`delete from propiedades; delete from favoritos; delete from enlaces;`)
+    await pg.exec(`
+      insert into propiedades (id, portal, precio, ultima_vista_en) values
+        ('fresca',   'urbania', 1, now()),
+        ('vieja1',   'urbania', 1, ${days(40)}),
+        ('vieja2',   'urbania', 1, ${days(60)}),
+        ('conlink',  'urbania', 1, ${days(50)}),
+        ('confav',   'urbania', 1, ${days(50)});
+      insert into enlaces (propiedad_id, titulo, url) values ('conlink', 'x', 'https://e.com');
+    `)
+    const adminId = (await pg.query<{ id: number }>("select id::int from usuarios where usuario='admin'")).rows[0].id
+    await pg.query("insert into favoritos (admin_id, propiedad_id) values ($1, 'confav')", [adminId])
+
+    const preview = await call("GET", "/api/admin/limpieza?dias=30", { token: admin })
+    expect(preview.body).toMatchObject({ total: 5, eliminables: 2, protegidas: 2, seguro: true })
+
+    // Con 45 días solo cuentan las de 50+ (protegidas) y 60 (vieja2).
+    const wider = await call("GET", "/api/admin/limpieza?dias=45", { token: admin })
+    expect(wider.body).toMatchObject({ eliminables: 1, protegidas: 2 })
+
+    const run = await call("POST", "/api/admin/limpiar-inactivos", { token: admin, body: { dias: 30 } })
+    expect(run.status).toBe(200)
+    expect(run.body).toMatchObject({ ok: true, eliminadas: 2, protegidas: 2 })
+
+    const left = (await pg.query<{ id: string }>("select id from propiedades order by id")).rows.map(r => r.id)
+    expect(left).toEqual(["confav", "conlink", "fresca"])
+  })
+
+  it("se niega a limpiar si el scraper no refrescó los datos recientemente", async () => {
+    await pg.exec(`update propiedades set ultima_vista_en = ${days(10)}`)
+    const preview = await call("GET", "/api/admin/limpieza?dias=7", { token: admin })
+    expect(preview.body.seguro).toBe(false)
+    expect(preview.body.motivo).toContain("scraper")
+
+    const run = await call("POST", "/api/admin/limpiar-inactivos", { token: admin, body: { dias: 7 } })
+    expect(run.status).toBe(409)
+    expect((await pg.query("select count(*)::int c from propiedades")).rows[0]).toEqual({ c: 3 })
+  })
+
+  it("no permite borrar todos los avisos ni limpiar una base vacía", async () => {
+    await pg.exec(`delete from enlaces; delete from favoritos; update propiedades set ultima_vista_en = now() where id='fresca'`)
+    await pg.exec(`update propiedades set ultima_vista_en = ${days(40)} where id <> 'fresca'`)
+    // Queda 'fresca' reciente: se pueden borrar las otras dos.
+    expect((await call("GET", "/api/admin/limpieza?dias=30", { token: admin })).body).toMatchObject({ eliminables: 2, seguro: true })
+
+    await pg.exec(`delete from propiedades`)
+    const empty = await call("GET", "/api/admin/limpieza?dias=30", { token: admin })
+    expect(empty.body.seguro).toBe(false)
+  })
+})
+
+describe("watchdog del scraper", () => {
+  const sent: { url: string; body: any }[] = []
+  const fakeFetch = (ok = true) => async (url: string, init: RequestInit) => {
+    sent.push({ url, body: JSON.parse(String(init.body)) })
+    return { ok, status: ok ? 200 : 500 }
+  }
+  const setActivity = (hoursAgo: number) =>
+    pg.exec(`
+      delete from propiedades;
+      insert into propiedades (id, portal, creado_en, ultima_vista_en)
+      values ('w1', 'urbania', now() - interval '${hoursAgo} hours', now() - interval '${hoursAgo} hours');
+    `)
+  const env = { ALERT_WEBHOOK_URL: "https://hooks.example.com/x", ALERT_STALE_HOURS: "24" }
+
+  it("no alerta si aún no hay datos ni si el scraper está activo", async () => {
+    await pg.exec("delete from propiedades; delete from app_alerts")
+    expect(await runWatchdog(db, env, fakeFetch())).toMatchObject({ stale: false, reason: "sin_datos" })
+
+    await setActivity(2)
+    expect(await runWatchdog(db, env, fakeFetch())).toMatchObject({ stale: false, alerted: false })
+    expect(sent).toHaveLength(0)
+  })
+
+  it("alerta una vez por incidente y vuelve a alertar solo tras 24 h", async () => {
+    await setActivity(30)
+    const first = await runWatchdog(db, env, fakeFetch())
+    expect(first).toMatchObject({ stale: true, alerted: true })
+    expect(sent).toHaveLength(1)
+    expect(sent[0].url).toBe(env.ALERT_WEBHOOK_URL)
+    // Compatible con Slack (text) y Discord (content).
+    expect(sent[0].body.text).toContain("30 h")
+    expect(sent[0].body.content).toBe(sent[0].body.text)
+
+    expect(await runWatchdog(db, env, fakeFetch())).toMatchObject({ alerted: false, reason: "ya_alertado" })
+    expect(sent).toHaveLength(1)
+
+    await pg.exec("update app_alerts set ultimo_envio = now() - interval '25 hours'")
+    expect(await runWatchdog(db, env, fakeFetch())).toMatchObject({ alerted: true })
+    expect(sent).toHaveLength(2)
+  })
+
+  it("al recuperarse limpia el incidente para alertar de inmediato en el siguiente", async () => {
+    await setActivity(1)
+    expect(await runWatchdog(db, env, fakeFetch())).toMatchObject({ stale: false, reason: "recuperado" })
+    expect((await pg.query("select count(*)::int c from app_alerts")).rows[0]).toEqual({ c: 0 })
+
+    await setActivity(40)
+    expect(await runWatchdog(db, env, fakeFetch())).toMatchObject({ alerted: true })
+  })
+
+  it("sin webhook no envía nada y si el webhook falla no marca la alerta como enviada", async () => {
+    await pg.exec("delete from app_alerts")
+    await setActivity(50)
+    expect(await runWatchdog(db, { ALERT_STALE_HOURS: "24" }, fakeFetch())).toMatchObject({
+      stale: true,
+      alerted: false,
+      reason: "webhook_no_configurado",
+    })
+
+    await expect(runWatchdog(db, env, fakeFetch(false))).rejects.toThrow("500")
+    expect((await pg.query("select count(*)::int c from app_alerts")).rows[0]).toEqual({ c: 0 })
+  })
+
+  it("la ruta interna exige CRON_SECRET", async () => {
+    const call2 = async (envVars: object, secret?: string) => {
+      const h = createApiHandler(() => db, envVars)
+      const res = await h(
+        new Request("http://localhost/api/internal/watchdog", {
+          method: "POST",
+          headers: secret ? { "x-cron-secret": secret } : {},
+        })
+      )
+      return { status: res.status, body: await res.json() as any }
+    }
+    expect((await call2({})).status).toBe(501)
+    expect((await call2({ CRON_SECRET: "s3creto" })).status).toBe(403)
+    expect((await call2({ CRON_SECRET: "s3creto" }, "otro")).status).toBe(403)
+
+    await pg.exec("delete from propiedades")
+    const ok = await call2({ CRON_SECRET: "s3creto" }, "s3creto")
+    expect(ok.status).toBe(200)
+    expect(ok.body).toMatchObject({ stale: false, reason: "sin_datos" })
   })
 })

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { ADMIN_PAGE_SIZE } from "@shared/constants"
 import { useToast } from "@/contexts/ToastContext"
-import { ApiError, api } from "@/lib/api"
+import { api } from "@/lib/api"
 import {
   EMPTY_ADMIN_SEARCH,
   fetchAdminPage,
@@ -265,21 +265,8 @@ export function useAdminPropiedades() {
     }
   }
 
-  /** Limpieza de registros inactivos: aún no está definida en el servidor (responde 501). */
-  const runCleanup = async (): Promise<void> => {
-    try {
-      await api.post("/admin/limpiar-inactivos")
-      addToast("Limpieza ejecutada correctamente", "success")
-    } catch (err) {
-      console.error("Error en limpiar-inactivos:", err)
-      addToast(
-        err instanceof ApiError && err.status === 501
-          ? "La limpieza de inactivos aún no está configurada en el servidor."
-          : "No se pudo ejecutar la limpieza",
-        "error"
-      )
-    }
-  }
+  /** Repite la búsqueda actual (p. ej. tras una limpieza de inactivos). */
+  const recargar = () => runSearch(applied, page)
 
   // ── Derivados ───────────────────────────────────────────────────────────
 
@@ -315,6 +302,6 @@ export function useAdminPropiedades() {
     toggleFavorite,
     registerView,
     deletePropiedad,
-    runCleanup,
+    recargar,
   }
 }

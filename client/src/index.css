@@ -247,14 +247,16 @@
   to { opacity: 1; }
 }
 
+/* El estado final usa `transform: none` (no translateY(0)): un transform residual crearía un
+   bloque contenedor y rompería el posicionamiento `fixed` de los modales anidados. */
 @keyframes slideInUp {
   from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
+  to { opacity: 1; transform: none; }
 }
 
 @keyframes popIn {
   from { opacity: 0; transform: translateY(8px) scale(0.97); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 1; transform: none; }
 }
 
 @keyframes waPulse {

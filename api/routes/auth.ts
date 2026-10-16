@@ -1,5 +1,18 @@
+import { MIN_PASSWORD_LENGTH } from "../../shared/constants"
 import type { Route } from "../router"
-import { HttpError, badRequest, json, readJson, str } from "../http"
+import { HttpError, badRequest, forbidden, json, readJson, str } from "../http"
+import { runWatchdog } from "../watchdog"
+
+/** Comparación en tiempo constante de dos cadenas (evita filtrar el secreto por tiempos). */
+function timingSafeEqual(a: string, b: string): boolean {
+  const ea = new TextEncoder().encode(a)
+  const eb = new TextEncoder().encode(b)
+  let diff = ea.length ^ eb.length
+  for (let i = 0; i < Math.max(ea.length, eb.length); i++) {
+    diff |= (ea[i] ?? 0) ^ (eb[i] ?? 0)
+  }
+  return diff === 0
+}
 
 interface LoginResult {
   ok: boolean
@@ -73,6 +86,54 @@ export const authRoutes: Route[] = [
     handler: async ({ db, access }) => {
       await db.query("select public.cerrar_sesion($1::uuid)", [access.token])
       return { ok: true }
+    },
+  },
+  {
+    method: "POST",
+    path: "/api/account/password",
+    level: "user",
+    handler: async ({ req, db, access }) => {
+      const body = await readJson(req)
+      const actual = str(body.actual, "actual", 200)
+      const nueva = str(body.nueva, "nueva", 200)
+      if (nueva.length < MIN_PASSWORD_LENGTH) {
+        throw badRequest(`La contraseña nueva debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres`)
+      }
+      if (nueva === actual) throw badRequest("La contraseña nueva debe ser distinta de la actual")
+
+      const rows = await db.query<{ r: string }>(
+        "select public.cambiar_password($1::bigint, $2, $3, $4::uuid) as r",
+        [access.usuario.id, actual, nueva, access.token]
+      )
+      switch (rows[0]?.r) {
+        case "ok":
+          return { ok: true }
+        case "bloqueado":
+          throw new HttpError(429, "bloqueado", "Demasiados intentos fallidos. Intenta más tarde.")
+        case "password_corta":
+          throw badRequest(`La contraseña nueva debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres`)
+        default:
+          // 400 (no 401): la sesión es válida, solo la contraseña actual es incorrecta.
+          throw new HttpError(400, "password_actual", "La contraseña actual no es correcta")
+      }
+    },
+  },
+  {
+    // Planificador externo (p. ej. cron de GitHub Actions) cuando no se usa la función programada
+    // de Netlify. Se autoriza con la cabecera `x-cron-secret`.
+    method: "POST",
+    path: "/api/internal/watchdog",
+    level: "public",
+    handler: async ({ req, db, env }) => {
+      if (!env.CRON_SECRET) throw new HttpError(501, "not_configured", "CRON_SECRET no está configurado")
+      const provided = req.headers.get("x-cron-secret") ?? ""
+      if (!timingSafeEqual(provided, env.CRON_SECRET)) throw forbidden()
+      try {
+        return await runWatchdog(db, env)
+      } catch (err) {
+        console.error("Watchdog falló:", err)
+        throw new HttpError(502, "alert_failed", "No se pudo enviar la alerta")
+      }
     },
   },
   {

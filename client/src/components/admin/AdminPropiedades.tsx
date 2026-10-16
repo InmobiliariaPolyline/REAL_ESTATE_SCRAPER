@@ -8,6 +8,7 @@ import BusquedasGuardadasList, {
   type BusquedaGuardada,
 } from './propiedades/BusquedasGuardadasList'
 import GuardarBusquedaModal from './propiedades/GuardarBusquedaModal'
+import LimpiezaModal from './propiedades/LimpiezaModal'
 import PropiedadesFilters from './propiedades/PropiedadesFilters'
 import {
   ITEMS_PER_PAGE,
@@ -203,18 +204,7 @@ export default function AdminPropiedades() {
       )}
 
       {showLimpieza && (
-        <ConfirmModal
-          title="¿Confirmas eliminar todos los registros inactivos?"
-          tone="danger"
-          busy={busy}
-          onCancel={() => setShowLimpieza(false)}
-          onConfirm={() =>
-            withBusy(async () => {
-              await p.runCleanup()
-              setShowLimpieza(false)
-            })
-          }
-        />
+        <LimpiezaModal onClose={() => setShowLimpieza(false)} onDone={p.recargar} />
       )}
 
       {showGuardar && (

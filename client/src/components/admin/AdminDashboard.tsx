@@ -1,4 +1,4 @@
-import { Activity, ArrowRight, Building2, Crown, Users } from 'lucide-react'
+import { Activity, AlertTriangle, ArrowRight, Building2, Crown, Users } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Area,
@@ -88,6 +88,24 @@ export default function AdminDashboard({ onNavigate }: DashboardProps) {
 
   return (
     <div className="space-y-6">
+      {/* Aviso: el scraper dejó de cargar avisos */}
+      {!loading && stats?.ultimoAviso && !scraperActive && (
+        <div
+          role="alert"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber/30 bg-amber/10 px-5 py-4"
+        >
+          <p className="flex items-center gap-3 text-sm text-amber">
+            <AlertTriangle className="size-5 shrink-0" />
+            El scraper lleva {Math.floor(hoursSince ?? 0)} h sin cargar avisos nuevos.
+            Revisa que su ejecución programada siga activa.
+          </p>
+          <button onClick={() => onNavigate('scraper')} className="btn btn-outline btn-sm">
+            Ver actividad
+            <ArrowRight className="size-4" />
+          </button>
+        </div>
+      )}
+
       {/* Métricas */}
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard

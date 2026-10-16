@@ -1,7 +1,8 @@
-import { LogOut, Menu, X } from "lucide-react"
+import { KeyRound, LogOut, Menu, X } from "lucide-react"
 import { useState } from "react"
 import Avatar from "@/components/common/Avatar"
 import Logo from "@/components/common/Logo"
+import PasswordModal from "@/components/common/PasswordModal"
 import { cn } from "@/lib/utils"
 import { ADMIN_TABS, type AdminTab } from "./tabs"
 
@@ -19,6 +20,7 @@ export default function AdminSidebar({
   onLogout,
 }: AdminSidebarProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
 
   const sections = ADMIN_TABS.reduce<Record<string, typeof ADMIN_TABS>>((acc, tab) => {
     ;(acc[tab.section] ??= []).push(tab)
@@ -56,13 +58,19 @@ export default function AdminSidebar({
         </div>
 
         {/* Perfil */}
-        <div className="mx-1 mb-2 flex items-center gap-3 rounded-2xl border border-line bg-surface-2 p-3">
+        <button
+          type="button"
+          onClick={() => setShowPassword(true)}
+          className="group mx-1 mb-2 flex items-center gap-3 rounded-2xl border border-line bg-surface-2 p-3 text-left transition hover:border-gold/40"
+          title="Cambiar mi contraseña"
+        >
           <Avatar name={adminName} />
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-text">{adminName}</p>
             <p className="text-xs text-text-muted">Administrador</p>
           </div>
-        </div>
+          <KeyRound className="size-4 shrink-0 text-text-faint transition group-hover:text-gold" />
+        </button>
 
         <nav className="-mr-1 flex-1 overflow-y-auto pr-1" aria-label="Administración">
           {Object.entries(sections).map(([section, tabs]) => (
@@ -96,6 +104,8 @@ export default function AdminSidebar({
           Cerrar sesión
         </button>
       </aside>
+
+      {showPassword && <PasswordModal mode="self" onClose={() => setShowPassword(false)} />}
 
       {/* Espaciador (escritorio) */}
       <div className="hidden w-64 shrink-0 md:block" aria-hidden="true" />

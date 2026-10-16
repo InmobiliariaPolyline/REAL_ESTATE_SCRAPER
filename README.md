@@ -44,7 +44,7 @@ netlify.toml          Build, rutas, función y cabeceras de seguridad
 ### 1. Base de datos (Neon)
 
 1. Crea el proyecto en Neon (región AWS US East 2, solo el servicio Postgres).
-2. Aplica el esquema, con `pnpm db:migrate` (lee `DATABASE_URL` del entorno o de `.env`;
+2. Aplica el esquema (`db/001`, `002` y `003`), con `pnpm db:migrate` (lee `DATABASE_URL` del entorno o de `.env`;
    `pnpm db:migrate --check` solo lista tablas) o pegando en el **SQL Editor**, en orden,
    `db/001_schema.sql` y `db/002_auth.sql`.
 3. Crea el primer administrador con el `insert` comentado al final de `001_schema.sql`, con tu
@@ -74,6 +74,8 @@ pnpm test                # 50 pruebas (API contra Postgres real, filtros, fechas
 | `USD_TO_PEN_RATE`, `VITE_USD_TO_PEN_RATE` | No | Tipo de cambio (3.75 por defecto); deben coincidir |
 | `VITE_ADMIN_WHATSAPP` | No | WhatsApp de contacto (solo dígitos) |
 | `GITHUB_PAT`, `GITHUB_REPO`, `GITHUB_WORKFLOW`, `GITHUB_REF` | No | Botón "Forzar scraper" (el workflow necesita `workflow_dispatch`) |
+| `ALERT_WEBHOOK_URL`, `ALERT_STALE_HOURS` | No | Alertas del watchdog: webhook (Slack, Discord o compatible) y horas sin actividad (24 por defecto) |
+| `CRON_SECRET` | No | Permite a un planificador externo llamar a `POST /api/internal/watchdog` (cabecera `x-cron-secret`) |
 
 Tras desplegar, comprueba `https://TU-SITIO/api/health` (debe responder `{"status":"ok"}`).
 
@@ -122,8 +124,18 @@ minúsculas y `moneda` como `PEN` o `USD`.
   rangos de la otra moneda convertido con el tipo de cambio.
 - No se puede banear a un administrador (evita bloquear el panel).
 
-## Pendiente de definir
+## Operación
 
-- **"Ejecutar Limpieza de Inactivos"**: `propiedades.ultima_vista_en` permite definirla (p. ej.
-  borrar avisos no vistos en N días), pero solo es seguro cuando el scraper actualiza esa columna
-  en cada corrida. Mientras tanto la API responde 501 y el botón lo indica.
+- **Mi cuenta:** cada usuario cambia su contraseña desde su perfil (barra lateral en el admin,
+  nombre en la cabecera del portal). Exige la actual y cierra sus otras sesiones. Los intentos
+  fallidos comparten el bloqueo del login (5 en 15 min).
+- **Restablecer contraseña:** el admin lo hace desde *Usuarios* (con generador de claves);
+  se cierran todas las sesiones del usuario.
+- **Limpieza de inactivos** (*Propiedades → Limpieza de inactivos*): vista previa de cuántos avisos
+  no vistos en 15/30/60/90 días se eliminarían. Conserva los que tienen enlaces o favoritos y se
+  niega a ejecutarse si el scraper no refrescó `ultima_vista_en` en las últimas 72 h.
+- **Alertas del scraper:** una función programada de Netlify (`scraper-watchdog`, cada 6 h) avisa
+  por webhook cuando no hay actividad en `ALERT_STALE_HOURS` (una alerta cada 24 h por incidente
+  y otra inmediata si vuelve a fallar tras recuperarse). Sin Netlify, programa una llamada a
+  `POST /api/internal/watchdog` con `x-cron-secret`. El Dashboard muestra además un aviso.
+- **Conectar el scraper:** ver [`docs/INGESTA.md`](docs/INGESTA.md) (contrato, UPSERT y ejemplo).

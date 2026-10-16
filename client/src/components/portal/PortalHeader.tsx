@@ -1,6 +1,8 @@
-import { CalendarClock, Crown, LogOut, Menu, User } from "lucide-react"
+import { CalendarClock, Crown, KeyRound, LogOut, Menu, User } from "lucide-react"
+import { useState } from "react"
 import Avatar from "@/components/common/Avatar"
 import Logo from "@/components/common/Logo"
+import PasswordModal from "@/components/common/PasswordModal"
 import {
   Sheet,
   SheetContent,
@@ -33,7 +35,10 @@ export default function PortalHeader({
   fechaVencimiento,
   onLogout,
 }: PortalHeaderProps) {
+  const [showPassword, setShowPassword] = useState(false)
+
   return (
+    <>
     <header className="fixed inset-x-0 top-0 z-40 border-b border-line bg-surface-1/80 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-[1500px] items-center justify-between px-4 sm:px-8">
         <Logo />
@@ -48,10 +53,15 @@ export default function PortalHeader({
 
           <span className="h-6 w-px bg-line" />
 
-          <span className="flex items-center gap-3">
+          <button
+            onClick={() => setShowPassword(true)}
+            className="flex items-center gap-3 rounded-xl px-2 py-1 transition hover:bg-surface-3"
+            title="Cambiar mi contraseña"
+          >
             <Avatar name={usuario} size="sm" />
             <span className="text-sm font-medium text-text">{usuario}</span>
-          </span>
+            <KeyRound className="size-3.5 text-text-faint" />
+          </button>
 
           <button onClick={onLogout} className="btn btn-secondary btn-sm">
             <LogOut className="size-4" />
@@ -99,14 +109,27 @@ export default function PortalHeader({
                 </div>
               </div>
 
-              <button onClick={onLogout} className="btn btn-secondary btn-lg btn-block">
-                <LogOut className="size-4" />
-                Cerrar sesión
-              </button>
+              <div className="space-y-3">
+                <button
+                  onClick={() => setShowPassword(true)}
+                  className="btn btn-secondary btn-lg btn-block"
+                >
+                  <KeyRound className="size-4" />
+                  Cambiar contraseña
+                </button>
+                <button onClick={onLogout} className="btn btn-secondary btn-lg btn-block">
+                  <LogOut className="size-4" />
+                  Cerrar sesión
+                </button>
+              </div>
             </SheetContent>
           </Sheet>
         </div>
       </div>
     </header>
+
+    {/* Fuera del <header>: su backdrop-filter rompería el posicionamiento `fixed` del modal. */}
+    {showPassword && <PasswordModal mode="self" onClose={() => setShowPassword(false)} />}
+    </>
   )
 }
