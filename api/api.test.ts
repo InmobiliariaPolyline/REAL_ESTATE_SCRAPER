@@ -2,7 +2,7 @@ import fs from "node:fs"
 import path from "node:path"
 import { PGlite } from "@electric-sql/pglite"
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto"
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest"
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import type { Db } from "./db"
 import { createApiHandler } from "./handler"
 import { runWatchdog } from "./watchdog"
@@ -1001,9 +1001,29 @@ describe("carga automática (Apify)", () => {
     return { status: res.status, body: await res.json() }
   }
 
-  const apifyOk = (id = "run1", ds = "ds1") =>
-    vi.fn(async () => new Response(JSON.stringify({ data: { id, defaultDatasetId: ds } }), { status: 201 }))
+  /** Respuesta de /users/me/limits: ciclo de hace 10 días a dentro de 20, crédito y gasto reales. */
+  const limitesApify = (gasto = 0.015, credito = 5) => ({
+    data: {
+      monthlyUsageCycle: {
+        startAt: new Date(Date.now() - 10 * 864e5).toISOString(),
+        endAt: new Date(Date.now() + 20 * 864e5).toISOString(),
+      },
+      limits: { maxMonthlyUsageUsd: credito },
+      current: { monthlyUsageUsd: gasto },
+    },
+  })
 
+  /** Apify simulada: responde distinto a «limits» y a «lanzar corrida». */
+  const apifyOk = (id = "run1", ds = "ds1", gasto = 0.015, credito = 5) =>
+    vi.fn(async (url: string) =>
+      String(url).includes("/users/me/limits")
+        ? new Response(JSON.stringify(limitesApify(gasto, credito)), { status: 200 })
+        : new Response(JSON.stringify({ data: { id, defaultDatasetId: ds } }), { status: 201 })
+    )
+  const lanzamientos = (f: ReturnType<typeof apifyOk>) => f.mock.calls.filter(c => String(c[0]).includes("/runs"))
+
+  // Nunca se llama a la red real: cada prueba parte de una Apify simulada.
+  beforeEach(() => vi.stubGlobal("fetch", apifyOk()))
   afterEach(() => vi.unstubAllGlobals())
 
   it("solo el administrador ve y cambia la carga", async () => {
@@ -1019,7 +1039,8 @@ describe("carga automática (Apify)", () => {
     expect(r.body).toMatchObject({ configurada: false, usado: 0, config: { pausada: true, tope_mensual: 1000, maximo_por_corrida: 200, dia_reinicio: 23 } })
     // Con US$ 5 de crédito y US$ 3 por 1 000 avisos, el máximo permitido es 1 500 (90 % del crédito).
     expect(r.body.limites).toEqual({ tope_mensual: 1500, maximo_por_corrida: 1500, dia_reinicio: [1, 28] })
-    expect(r.body.credito).toEqual({ usd: 5, costo_por_mil: 3, gasto_estimado_usd: 0 })
+    expect(r.body.credito).toEqual({ usd: 5, costo_por_mil: 3, gasto_usd: 0 })
+    expect(r.body.origen_datos).toBe("estimado") // sin APIFY_TOKEN no hay a quién preguntar
     expect(r.body.ventana.desde).toMatch(/^\d{4}-\d{2}-23$/)
     expect(r.body.ventana.reinicia).toMatch(/^\d{4}-\d{2}-23$/)
   })
@@ -1041,7 +1062,7 @@ describe("carga automática (Apify)", () => {
   it("pausada o sin configurar, no se lanza nada ni se llama a Apify", async () => {
     const fetchMock = apifyOk()
     vi.stubGlobal("fetch", fetchMock)
-    expect((await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })).status).toBe(409) // pausada
+    expect((await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })).status).toBe(409) // pausada (sin consultar a Apify)
     expect((await call("POST", "/api/admin/carga/ejecutar", { token: admin })).status).toBe(501) // sin APIFY_TOKEN
     expect(fetchMock).not.toHaveBeenCalled()
   })
@@ -1055,14 +1076,14 @@ describe("carga automática (Apify)", () => {
     expect(r.status).toBe(200)
     expect(r.body).toEqual({ ok: true, items: 50 })
 
-    const u = new URL((fetchMock.mock.calls[0] as unknown as [string])[0])
+    const u = new URL((lanzamientos(fetchMock)[0] as unknown as [string])[0])
     expect(u.searchParams.get("maxItems")).toBe("50")
     expect(Number(u.searchParams.get("maxTotalChargeUsd"))).toBeCloseTo(0.18, 5)
 
     // Reserva inmediata: cuenta contra el tope aunque Apify aún no haya respondido.
     expect((await callApify("GET", "/api/admin/carga", { token: admin })).body).toMatchObject({ usado: 50, restante: 50 })
     expect((await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })).status).toBe(409)
-    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(lanzamientos(fetchMock)).toHaveLength(1)
   })
 
   it("el aviso de Apify exige el secreto y guarda los avisos una sola vez", async () => {
@@ -1088,7 +1109,7 @@ describe("carga automática (Apify)", () => {
     // Ahora cuentan los avisos recibidos (2), no los pedidos (50).
     const estado = (await callApify("GET", "/api/admin/carga", { token: admin })).body
     expect(estado).toMatchObject({ usado: 2 })
-    expect(estado.credito.gasto_estimado_usd).toBeCloseTo(0.01, 2) // 2 avisos x US$ 0.003
+    expect(estado.credito.gasto_usd).toBeCloseTo(0.006, 3) // sin datos de Apify: 2 avisos x US$ 0.003
 
     // Apify puede reenviar el aviso: no se procesa dos veces.
     const repetido = await callApify("POST", "/api/internal/apify-webhook?secret=s3cr3t", { body: evento })
@@ -1101,7 +1122,7 @@ describe("carga automática (Apify)", () => {
     vi.stubGlobal("fetch", fetchMock)
     const r = await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })
     expect(r.body).toEqual({ ok: true, items: 3 }) // tope 5 - usado 2
-    expect(new URL((fetchMock.mock.calls[0] as unknown as [string])[0]).searchParams.get("maxItems")).toBe("3")
+    expect(new URL((lanzamientos(fetchMock)[0] as unknown as [string])[0]).searchParams.get("maxItems")).toBe("3")
   })
 
   it("una corrida fallida igual guarda lo que alcanzó a entregar y cuenta lo recibido", async () => {
@@ -1138,6 +1159,52 @@ describe("carga automática (Apify)", () => {
     expect(rows[0].estado).toBe("fallida")
     // La reserva de 40 sigue contando, más la nueva corrida.
     expect((await callApify("GET", "/api/admin/carga", { token: admin })).body.usado).toBeGreaterThanOrEqual(antes + 20)
+  })
+
+  it("con la cuenta de Apify conectada usa su ciclo, su crédito y su gasto REAL", async () => {
+    vi.stubGlobal("fetch", apifyOk("x", "y", 0.015, 5))
+    const r = (await callApify("GET", "/api/admin/carga", { token: admin })).body
+    const fin = limitesApify().data.monthlyUsageCycle.endAt
+    expect(r.origen_datos).toBe("apify")
+    expect(r.credito).toEqual({ usd: 5, costo_por_mil: 3, gasto_usd: 0.015 })
+    expect(r.ventana.reinicia).toBe(new Date(Date.parse(fin) + 1).toISOString().slice(0, 10))
+  })
+
+  it("si Apify no responde, sigue con las estimaciones sin romperse", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("sin red") }))
+    const r = await callApify("GET", "/api/admin/carga", { token: admin })
+    expect(r.status).toBe(200)
+    expect(r.body.origen_datos).toBe("estimado")
+  })
+
+  it("el gasto real cuenta aunque no lo haya hecho el sistema: pide solo lo que aún cabe en el crédito", async () => {
+    await pg.exec("update carga_corridas set estado = 'completada', avisos_recibidos = 0 where estado = 'iniciada'")
+    await call("PUT", "/api/admin/carga", { token: admin, body: { pausada: false, tope_mensual: 1000, maximo_por_corrida: 200 } })
+
+    // La cuenta ya gastó US$ 4.40 (p. ej. con pruebas manuales): solo caben 33 avisos más.
+    const f = apifyOk("run-D", "ds-D", 4.4)
+    vi.stubGlobal("fetch", f)
+    const r = await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })
+    expect(r.body).toEqual({ ok: true, items: 33 })
+    expect(new URL((lanzamientos(f)[0] as unknown as [string])[0]).searchParams.get("maxItems")).toBe("33")
+  })
+
+  it("con el gasto real en el límite no se lanza nada", async () => {
+    await pg.exec("update carga_corridas set estado = 'completada', avisos_recibidos = 0 where estado = 'iniciada'")
+    const f = apifyOk("run-E", "ds-E", 4.5)
+    vi.stubGlobal("fetch", f)
+    const r = await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })
+    expect(r.status).toBe(409)
+    expect(r.body.error).toBe("carga_credito")
+    expect(lanzamientos(f)).toHaveLength(0)
+  })
+
+  it("el máximo permitido sigue al crédito real de la cuenta (si pasa a un plan mayor)", async () => {
+    vi.stubGlobal("fetch", apifyOk("x", "y", 0, 39))
+    expect((await callApify("PUT", "/api/admin/carga", { token: admin, body: { tope_mensual: 3000 } })).status).toBe(200)
+    vi.stubGlobal("fetch", apifyOk("x", "y", 0, 5))
+    expect((await callApify("PUT", "/api/admin/carga", { token: admin, body: { tope_mensual: 3000 } })).status).toBe(400)
+    await callApify("PUT", "/api/admin/carga", { token: admin, body: { tope_mensual: 100 } })
   })
 
   it("los cambios de configuración y los lanzamientos quedan en la auditoría", async () => {

@@ -26,7 +26,8 @@ const estado = (over: Partial<EstadoCarga> = {}): EstadoCarga => ({
   usado: 300,
   restante: 700,
   ventana: { desde: "2026-09-23", reinicia: "2026-10-23" },
-  credito: { usd: 5, costo_por_mil: 3, gasto_estimado_usd: 0.9 },
+  origen_datos: "apify",
+  credito: { usd: 5, costo_por_mil: 3, gasto_usd: 0.9 },
   limites: { tope_mensual: 1500, maximo_por_corrida: 1500, dia_reinicio: [1, 28] },
   corridas: [],
   ...over,
@@ -61,11 +62,13 @@ describe("CargaSection", () => {
     expect(screen.getByText(/Pediría hasta 200 avisos/)).toBeInTheDocument()
   })
 
-  it("muestra el gasto sobre el crédito gratis y cuándo se reinicia", async () => {
+  it("muestra el gasto real, el crédito y el reinicio que informa Apify", async () => {
     fetchCarga.mockResolvedValue(estado())
     setup()
-    expect(await screen.findByText(/Gasto estimado: US\$ 0[.,]90 de US\$ 5[.,]00 de crédito gratis/)).toBeInTheDocument()
-    expect(screen.getByText(/Se reinicia el/)).toBeInTheDocument()
+    expect(await screen.findByText("Gasto real en Apify")).toBeInTheDocument()
+    expect(screen.getByText(/US\$ 0[.,]90 de US\$ 5[.,]00/)).toBeInTheDocument()
+    expect(screen.getByText("Reinicio del crédito")).toBeInTheDocument()
+    expect(screen.queryByText(/No se pudo consultar a Apify/)).not.toBeInTheDocument()
   })
 
   it("nunca ofrece pedir más de lo que queda del tope", async () => {
@@ -77,7 +80,7 @@ describe("CargaSection", () => {
   it("sin cupo no se puede cargar", async () => {
     fetchCarga.mockResolvedValue(estado({ usado: 1000, restante: 0 }))
     setup()
-    expect(await screen.findByText("Sin cupo este mes.")).toBeInTheDocument()
+    expect(await screen.findByText("Sin cupo en este ciclo.")).toBeInTheDocument()
     expect(screen.getByRole("button", { name: /Cargar ahora/ })).toBeDisabled()
   })
 
@@ -121,13 +124,23 @@ describe("CargaSection", () => {
     await user.type(tope, "800")
     expect(guardar).toBeEnabled()
 
-    const dia = screen.getByLabelText(/Día en que se reinicia/)
-    await user.clear(dia)
-    await user.type(dia, "30")
-    expect(guardar).toBeDisabled() // el día va del 1 al 28
-    await user.clear(dia)
-    await user.type(dia, "15")
-    expect(guardar).toBeEnabled()
+  })
+
+  it("si Apify no responde, lo avisa y marca el gasto como estimado", async () => {
+    fetchCarga.mockResolvedValue(estado({ origen_datos: "estimado" }))
+    setup()
+    expect(await screen.findByText("Gasto estimado")).toBeInTheDocument()
+    expect(screen.getByText(/No se pudo consultar a Apify/)).toBeInTheDocument()
+  })
+
+  it("indica qué valores son automáticos, editables o manuales y no pide el día de reinicio", async () => {
+    fetchCarga.mockResolvedValue(estado())
+    setup()
+    await screen.findByText("Gasto real en Apify")
+    expect(screen.getAllByText("Automático").length).toBeGreaterThan(0)
+    expect(screen.getAllByText("Editable").length).toBe(2) // interruptor y tope
+    expect(screen.getByText("Manual")).toBeInTheDocument() // botón «Cargar ahora»
+    expect(screen.queryByLabelText(/Día en que se reinicia/)).not.toBeInTheDocument()
   })
 
   it("lista las últimas cargas con su estado", async () => {

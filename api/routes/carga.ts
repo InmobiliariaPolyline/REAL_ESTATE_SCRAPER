@@ -2,12 +2,11 @@ import { audit } from "../audit"
 import {
   FUENTE,
   configurada,
+  contextoDeGasto,
   cupoRestante,
   gastoEstimadoUsd,
-  limitesDeGasto,
   topeMensualMaximo,
   usoDelCiclo,
-  ventanaDeUso,
   iniciarCarga,
   leerConfig,
   procesarResultado,
@@ -31,7 +30,7 @@ export const cargaRoutes: Route[] = [
     level: "admin",
     handler: async ({ db, env }) => {
       const config = await leerConfig(db)
-      const ventana = ventanaDeUso(config.dia_reinicio)
+      const { apify, limites: l, ciclo: ventana } = await contextoDeGasto(env, config.dia_reinicio)
       const [usado, corridas] = await Promise.all([
         usoDelCiclo(db, ventana.desde),
         db.query(
@@ -42,18 +41,20 @@ export const cargaRoutes: Route[] = [
           [FUENTE]
         ),
       ])
-      const l = limitesDeGasto(env)
       const tope = topeMensualMaximo(l)
+      const gasto = apify ? apify.gastoUsd : gastoEstimadoUsd(usado, l.costoPorMil)
       return {
         configurada: configurada(env),
         config,
         usado,
-        restante: cupoRestante(config, usado, l).restante,
+        restante: cupoRestante(config, usado, l, apify?.gastoUsd).restante,
+        // `apify`: los datos de ciclo, crédito y gasto vienen de la cuenta de Apify (automáticos).
+        origen_datos: apify ? "apify" : "estimado",
         ventana: { desde: ventana.desdeFecha, reinicia: ventana.reiniciaFecha },
         credito: {
           usd: l.creditoUsd,
           costo_por_mil: l.costoPorMil,
-          gasto_estimado_usd: Math.round(gastoEstimadoUsd(usado, l.costoPorMil) * 100) / 100,
+          gasto_usd: Math.round(gasto * 1000) / 1000,
         },
         limites: { tope_mensual: tope, maximo_por_corrida: tope, dia_reinicio: [1, 28] },
         corridas,
@@ -67,7 +68,7 @@ export const cargaRoutes: Route[] = [
     handler: async ({ req, db, env, access }) => {
       const body = await readJson(req)
       const actual = await leerConfig(db)
-      const maximoPermitido = topeMensualMaximo(limitesDeGasto(env))
+      const maximoPermitido = topeMensualMaximo((await contextoDeGasto(env, actual.dia_reinicio)).limites)
 
       const pausada = body.pausada === undefined ? actual.pausada : body.pausada === true
       const tope = body.tope_mensual === undefined ? actual.tope_mensual : entero(body.tope_mensual, "El tope mensual", 0, maximoPermitido)

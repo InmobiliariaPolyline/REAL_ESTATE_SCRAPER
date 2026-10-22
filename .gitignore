@@ -117,3 +117,6 @@ scratch/
 
 # Archivo para importar variables en Netlify (contiene secretos)
 netlify.env
+
+# Variables de Apify para importar en Netlify (secretas)
+netlify-apify.env

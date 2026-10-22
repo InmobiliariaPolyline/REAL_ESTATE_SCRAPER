@@ -42,11 +42,17 @@ const ESTADO: Record<Corrida["estado"], { label: string; badge: string; icon: Lu
 const BARRERAS = [
   "Sin tarjeta en Apify: el plan gratuito se bloquea al agotarse el crédito, no cobra.",
   "Solo se planea usar el 90 % del crédito gratuito del ciclo; el resto queda de colchón.",
-  "El conteo sigue el ciclo de tu cuenta de Apify (se reinicia el día que indiques).",
+  "El ciclo, el crédito y el gasto se leen de tu cuenta de Apify: no hay que escribirlos.",
   "Cada corrida envía a Apify un máximo de avisos y un máximo en dólares.",
   "El tope se reserva antes de pedir nada, así que no se puede rebasar.",
   "Una sola corrida a la vez, y la carga empieza pausada hasta que la actives.",
 ]
+
+/** Indica quién maneja cada valor: lo trae Apify, lo edita el administrador o se hace a mano. */
+function Etiqueta({ tipo }: { tipo: "Automático" | "Editable" | "Manual" }) {
+  const estilo = tipo === "Automático" ? "badge-blue" : tipo === "Editable" ? "badge-gold" : "badge-muted"
+  return <span className={cn("badge !px-2 !py-0.5 !text-[0.6875rem]", estilo)}>{tipo}</span>
+}
 
 const usd = (n: number) => `US$ ${n.toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
@@ -55,7 +61,6 @@ export default function CargaSection() {
   const [loading, setLoading] = useState(true)
   const [tope, setTope] = useState("")
   const [maximo, setMaximo] = useState("")
-  const [dia, setDia] = useState("")
   const [guardando, setGuardando] = useState(false)
   const [cambiando, setCambiando] = useState(false)
   const [confirmar, setConfirmar] = useState(false)
@@ -68,7 +73,6 @@ export default function CargaSection() {
       setEstado(e)
       setTope(String(e.config.tope_mensual))
       setMaximo(String(e.config.maximo_por_corrida))
-      setDia(String(e.config.dia_reinicio))
     } catch (err) {
       console.error(err)
       addToast("No se pudo cargar el estado de la carga de datos", "error")
@@ -83,18 +87,12 @@ export default function CargaSection() {
 
   const topeNum = Number(tope)
   const maxNum = Number(maximo)
-  const diaNum = Number(dia)
   const lim = estado?.limites
   const valido =
     !!lim &&
     Number.isInteger(topeNum) && topeNum >= 0 && topeNum <= lim.tope_mensual &&
-    Number.isInteger(maxNum) && maxNum >= 1 && maxNum <= lim.maximo_por_corrida &&
-    Number.isInteger(diaNum) && diaNum >= lim.dia_reinicio[0] && diaNum <= lim.dia_reinicio[1]
-  const sinCambios = estado
-    ? topeNum === estado.config.tope_mensual &&
-      maxNum === estado.config.maximo_por_corrida &&
-      diaNum === estado.config.dia_reinicio
-    : true
+    Number.isInteger(maxNum) && maxNum >= 1 && maxNum <= lim.maximo_por_corrida
+  const sinCambios = estado ? topeNum === estado.config.tope_mensual && maxNum === estado.config.maximo_por_corrida : true
 
   const tapa = estado ? Math.min(estado.config.tope_mensual, estado.limites.tope_mensual) : 0
   const fraccion = tapa > 0 ? Math.min(1, (estado?.usado ?? 0) / tapa) : 0
@@ -109,7 +107,7 @@ export default function CargaSection() {
     if (!valido) return
     setGuardando(true)
     try {
-      await saveCarga({ tope_mensual: topeNum, maximo_por_corrida: maxNum, dia_reinicio: diaNum })
+      await saveCarga({ tope_mensual: topeNum, maximo_por_corrida: maxNum })
       addToast("Topes guardados", "success")
       await cargar()
     } catch (err) {
@@ -172,11 +170,11 @@ export default function CargaSection() {
       )}
 
       <div className="stagger grid gap-6 xl:grid-cols-[auto_minmax(0,1fr)]">
-        {/* Uso del mes */}
+        {/* Estado del ciclo */}
         <section className="card flex flex-col items-center p-6 text-center">
           <h2 className="flex items-center gap-2 text-base font-semibold text-text">
             <Gauge className="size-4 text-gold" aria-hidden="true" />
-            Uso del mes
+            Uso del ciclo
           </h2>
           <ProgressRing
             value={fraccion}
@@ -193,13 +191,34 @@ export default function CargaSection() {
           <p className="mt-4 text-sm text-text-muted">
             Quedan <strong className="mono text-text">{estado.restante.toLocaleString("es-PE")}</strong> avisos en este ciclo
           </p>
-          <p className="mt-1 text-xs text-text-faint">
-            Gasto estimado: {usd(estado.credito.gasto_estimado_usd)} de {usd(estado.credito.usd)} de crédito gratis
-          </p>
-          <p className="mt-1 flex items-center gap-1 text-xs text-text-faint">
-            <CalendarClock className="size-3" aria-hidden="true" />
-            Se reinicia el {formatDate(estado.ventana.reinicia)}
-          </p>
+
+          <dl className="mt-4 w-full space-y-2 border-t border-line pt-4 text-left text-xs">
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-text-muted">
+                {estado.origen_datos === "apify" ? "Gasto real en Apify" : "Gasto estimado"}
+              </dt>
+              <dd className="mono text-text">
+                {usd(estado.credito.gasto_usd)} de {usd(estado.credito.usd)}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <dt className="flex items-center gap-1 text-text-muted">
+                <CalendarClock className="size-3" aria-hidden="true" /> Reinicio del crédito
+              </dt>
+              <dd className="mono text-text">{formatDate(estado.ventana.reinicia)}</dd>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <dt className="text-text-muted">Origen de estos datos</dt>
+              <dd>
+                <Etiqueta tipo="Automático" />
+              </dd>
+            </div>
+          </dl>
+          {estado.origen_datos === "estimado" && (
+            <p className="mt-3 text-xs text-amber">
+              No se pudo consultar a Apify: se muestran estimaciones prudentes hasta que responda.
+            </p>
+          )}
         </section>
 
         <div className="space-y-6">
@@ -215,7 +234,9 @@ export default function CargaSection() {
                 <CloudDownload className="size-6" strokeWidth={1.75} aria-hidden="true" />
               </span>
               <div className="min-w-0 flex-1">
-                <h2 className="text-base font-semibold text-text">Carga automática de Adondevivir</h2>
+                <h2 className="flex flex-wrap items-center gap-2 text-base font-semibold text-text">
+                  Carga automática de Adondevivir <Etiqueta tipo="Editable" />
+                </h2>
                 <p className="text-sm text-text-muted">
                   {activa
                     ? "Activa: cada lunes (09:00, Lima) pide una tanda de avisos si queda cupo."
@@ -236,6 +257,7 @@ export default function CargaSection() {
                 {lanzando ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" aria-hidden="true" />}
                 Cargar ahora
               </button>
+              <Etiqueta tipo="Manual" />
               <p className="text-xs text-text-muted">
                 {puedeLanzar
                   ? `Pediría hasta ${aPedir.toLocaleString("es-PE")} avisos (≈ ${usd(costoEstimadoUsd(aPedir, costoMil))}).`
@@ -243,34 +265,36 @@ export default function CargaSection() {
                     ? "Conecta Apify para poder cargar."
                     : estado.corridas.some(c => c.estado === "iniciada")
                       ? "Hay una carga en curso."
-                      : "Sin cupo este mes."}
+                      : "Sin cupo en este ciclo."}
               </p>
             </div>
           </section>
 
           {/* Topes */}
           <section className="card p-6">
-            <h2 className="flex items-center gap-2 text-base font-semibold text-text">
+            <h2 className="flex flex-wrap items-center gap-2 text-base font-semibold text-text">
               <CircleDollarSign className="size-4 text-gold" aria-hidden="true" />
-              Topes
+              Tope de avisos por ciclo <Etiqueta tipo="Editable" />
             </h2>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <div>
-                <label htmlFor="carga-tope" className="field-label">Tope mensual (avisos)</label>
-                <input
-                  id="carga-tope"
-                  inputMode="numeric"
-                  value={tope}
-                  onChange={e => setTope(e.target.value.replace(/\D/g, ""))}
-                  className="field mono"
-                  aria-invalid={tope !== "" && !(topeNum >= 0 && topeNum <= (lim?.tope_mensual ?? 0))}
-                />
-                <p className="field-hint">
-                  Máximo permitido: {lim?.tope_mensual.toLocaleString("es-PE")} (90 % de tu crédito). Con este tope: hasta ≈{" "}
-                  {usd(costoEstimadoUsd(topeNum || 0, costoMil))} por ciclo.
-                </p>
-              </div>
-              <div>
+            <div className="mt-4 max-w-md">
+              <label htmlFor="carga-tope" className="field-label">Tope mensual (avisos)</label>
+              <input
+                id="carga-tope"
+                inputMode="numeric"
+                value={tope}
+                onChange={e => setTope(e.target.value.replace(/\D/g, ""))}
+                className="field mono"
+                aria-invalid={tope !== "" && !(topeNum >= 0 && topeNum <= (lim?.tope_mensual ?? 0))}
+              />
+              <p className="field-hint">
+                Máximo permitido: {lim?.tope_mensual.toLocaleString("es-PE")} (90 % del crédito de tu cuenta). Con este tope: hasta ≈{" "}
+                {usd(costoEstimadoUsd(topeNum || 0, costoMil))} por ciclo.
+              </p>
+            </div>
+
+            <details className="mt-4 rounded-2xl border border-line bg-surface-1 p-4">
+              <summary className="cursor-pointer text-sm font-medium text-text-muted">Opciones avanzadas</summary>
+              <div className="mt-4 max-w-md">
                 <label htmlFor="carga-max" className="field-label">Máximo por corrida (avisos)</label>
                 <input
                   id="carga-max"
@@ -280,21 +304,12 @@ export default function CargaSection() {
                   className="field mono"
                   aria-invalid={maximo !== "" && !(maxNum >= 1 && maxNum <= (lim?.maximo_por_corrida ?? 0))}
                 />
-                <p className="field-hint">Entre 1 y {lim?.maximo_por_corrida.toLocaleString("es-PE")}.</p>
+                <p className="field-hint">
+                  Entre 1 y {lim?.maximo_por_corrida.toLocaleString("es-PE")}. Úsalo en 20 para la primera prueba.
+                </p>
               </div>
-              <div>
-                <label htmlFor="carga-dia" className="field-label">Día en que se reinicia tu crédito de Apify</label>
-                <input
-                  id="carga-dia"
-                  inputMode="numeric"
-                  value={dia}
-                  onChange={e => setDia(e.target.value.replace(/\D/g, ""))}
-                  className="field mono"
-                  aria-invalid={dia !== "" && !(diaNum >= 1 && diaNum <= 28)}
-                />
-                <p className="field-hint">Del 1 al 28. Lo ves en Apify, en Billing (el plan Free muestra «Limit resets on…»).</p>
-              </div>
-            </div>
+            </details>
+
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
               <p className="text-xs text-text-faint">
                 El actor cuesta ≈ {usd(estado.credito.costo_por_mil)} por 1 000 avisos y el uso de plataforma va incluido.

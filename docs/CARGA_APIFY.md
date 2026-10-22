@@ -66,12 +66,22 @@ Apify termina ──► aviso (webhook) ──► /api/internal/apify-webhook �
   reserva se conserva.
 - Si una corrida falla a medias, se guardan igualmente los avisos que alcanzó a entregar (ya se cobraron).
 
+## Qué es automático, qué se edita y qué es manual
+
+| Tipo | Valor | Quién lo maneja |
+| ---- | ----- | --------------- |
+| **Automático** | ciclo de uso, fecha de reinicio, crédito y **gasto real** | el sistema los lee de tu cuenta de Apify (solo lectura, sin costo) |
+| **Editable** | interruptor de carga automática y **tope de avisos por ciclo** | tú, en Sistema → Carga de datos |
+| **Editable (avanzado)** | máximo por corrida | tú; úsalo en 20 para la primera prueba |
+| **Manual** | botón «Cargar ahora» | tú, cuando quieras una tanda extra |
+
+Si Apify no responde, el sistema sigue con estimaciones prudentes y lo avisa en pantalla.
+
 ## Costos y topes (plan gratuito de Apify)
 
 Datos de la cuenta y del actor (verifícalos si cambian):
 
-- Plan **Free**: **US$ 5** de crédito prepagado por ciclo; no se acumula y **se reinicia un día fijo**
-  (en esta cuenta, el 23; lo ves en Apify → Billing como «Limit resets on…»).
+- Plan **Free**: **US$ 5** de crédito por ciclo; no se acumula y se reinicia solo (Apify informa la fecha).
 - Actor `gio21/adondevivir-scraper`: **US$ 3 por 1 000 avisos**; el uso de plataforma va incluido.
 - Sin tarjeta guardada, al agotarse el crédito Apify bloquea la cuenta hasta el reinicio; no cobra.
 
@@ -79,14 +89,15 @@ Cómo lo aplica el sistema:
 
 | Barrera | Valor con US$ 5 y US$ 3 por 1 000 |
 | ------- | --------------------------------- |
-| Tope mensual **máximo permitido** (90 % del crédito) | **1 500 avisos** (≈ US$ 4.50) |
+| Tope de avisos **máximo permitido** (90 % del crédito) | **1 500 avisos** (≈ US$ 4.50) |
 | Tope por defecto | 1 000 avisos (≈ US$ 3.00) |
+| Gasto real de la cuenta | se resta del 90 % del crédito antes de cada corrida |
 | Máximo por corrida | hasta 1 500; por defecto 200 |
-| Ciclo de conteo | desde el último día de reinicio (configurable, por defecto 23) |
 | Tope en dólares enviado a Apify en cada corrida | costo esperado + 10 % |
 
-Si el crédito o el precio cambian, ajusta `APIFY_CREDIT_USD` y `APIFY_COST_PER_1000` en Netlify: el
-máximo permitido se recalcula solo.
+El gasto real incluye lo que se haga fuera del sistema (por ejemplo, pruebas manuales en Apify): ese
+dinero ya no está disponible para la carga. Si el plan de Apify cambia, el máximo permitido se
+recalcula solo con el crédito que informe la cuenta.
 
 ## Si algo falla
 

@@ -23,6 +23,16 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "1.8.2",
+    fecha: "2026-10-22",
+    titulo: "Carga de datos más simple y con datos reales",
+    cambios: [
+      { tipo: "mejora", texto: "El ciclo, el crédito y el gasto se leen de la cuenta de Apify (solo lectura): ya no hay que escribir el día de reinicio ni suponer el crédito." },
+      { tipo: "seguridad", texto: "Los topes usan el gasto real de la cuenta, incluidas pruebas manuales hechas fuera del sistema; si Apify no responde, se usan estimaciones prudentes." },
+      { tipo: "mejora", texto: "La pantalla marca cada valor como Automático, Editable o Manual y deja solo lo esencial a la vista (el máximo por corrida pasa a opciones avanzadas)." },
+    ],
+  },
+  {
     version: "1.8.1",
     fecha: "2026-10-22",
     titulo: "Topes ajustados al plan gratuito de Apify",

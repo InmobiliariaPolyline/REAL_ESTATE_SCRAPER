@@ -29,7 +29,9 @@ export interface EstadoCarga {
   restante: number
   /** Ciclo de uso actual (fechas AAAA-MM-DD): desde el último reinicio hasta el próximo. */
   ventana: { desde: string; reinicia: string }
-  credito: { usd: number; costo_por_mil: number; gasto_estimado_usd: number }
+  /** De dónde salen ciclo, crédito y gasto: la cuenta de Apify (automático) o una estimación de respaldo. */
+  origen_datos: "apify" | "estimado"
+  credito: { usd: number; costo_por_mil: number; gasto_usd: number }
   limites: { tope_mensual: number; maximo_por_corrida: number; dia_reinicio: [number, number] }
   corridas: Corrida[]
 }

@@ -2,11 +2,13 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import {
   URLS_POR_DEFECTO,
   configurada,
+  cicloDeApify,
   costoPorMil,
   creditoUsd,
   cupoRestante,
   elegirUrl,
   lanzarCorrida,
+  leerEstadoApify,
   mapearAviso,
   planificar,
   sitioPublico,
@@ -245,5 +247,68 @@ describe("lanzarCorrida", () => {
     await expect(
       lanzarCorrida({ token: "t", actor: "a~b", url: "u", items: 1, topeUsd: 1, webhookUrl: "w" })
     ).rejects.toThrow("401")
+  })
+})
+
+describe("gasto real de la cuenta (cupoRestante con datos de Apify)", () => {
+  it("usa el gasto real y no el estimado para saber cuánto crédito queda", () => {
+    // Con US$ 4.40 gastados y el 90 % de US$ 5 = 4.50, quedan US$ 0.10 -> 33 avisos a US$ 3 por 1 000.
+    expect(cupoRestante(config, 0, undefined, 4.4)).toMatchObject({ porCredito: 33, restante: 33 })
+    expect(cupoRestante(config, 0, undefined, 0.015).porCredito).toBe(1495)
+  })
+
+  it("con el gasto real al límite del colchón no queda nada, aunque el tope configurado permita más", () => {
+    expect(cupoRestante(config, 0, undefined, 4.5).restante).toBe(0)
+    expect(planificar(config, 0, false, undefined, 4.5)).toMatchObject({ ok: false, motivo: "credito" })
+    expect(planificar(config, 0, false, undefined, 4.4)).toEqual({ ok: true, items: 33 })
+  })
+
+  it("el gasto de otras ventanas de uso (p. ej. pruebas manuales) también cuenta", () => {
+    // La cuenta ya gastó US$ 3 por su cuenta: ese dinero ya no está disponible para la carga.
+    expect(planificar(config, 0, false, undefined, 3)).toEqual({ ok: true, items: 200 })
+    expect(cupoRestante({ ...config, tope_mensual: 1500 }, 0, undefined, 3).restante).toBe(500)
+  })
+})
+
+describe("estado real de Apify", () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  const respuesta = (data: unknown, status = 200) => vi.fn(async () => new Response(JSON.stringify({ data }), { status }))
+  const buena = {
+    monthlyUsageCycle: { startAt: "2026-10-22T00:00:00.000Z", endAt: "2026-11-21T23:59:59.999Z" },
+    limits: { maxMonthlyUsageUsd: 5 },
+    current: { monthlyUsageUsd: 0.015 },
+  }
+
+  it("lee ciclo, crédito y gasto, con el token en la cabecera", async () => {
+    const f = respuesta(buena)
+    vi.stubGlobal("fetch", f)
+    const e = await leerEstadoApify("TOKEN-X")
+    expect(e).toEqual({ creditoUsd: 5, gastoUsd: 0.015, cicloInicio: "2026-10-22T00:00:00.000Z", cicloFin: "2026-11-21T23:59:59.999Z" })
+    const [url, init] = f.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe("https://api.apify.com/v2/users/me/limits")
+    expect(url).not.toContain("TOKEN-X")
+    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer TOKEN-X")
+  })
+
+  it("el siguiente ciclo empieza justo después del fin del actual", () => {
+    const e = { creditoUsd: 5, gastoUsd: 0, cicloInicio: "2026-10-22T00:00:00.000Z", cicloFin: "2026-11-21T23:59:59.999Z" }
+    expect(cicloDeApify(e)).toEqual({ desde: "2026-10-22T00:00:00.000Z", desdeFecha: "2026-10-22", reiniciaFecha: "2026-11-22" })
+  })
+
+  it("devuelve null (y el sistema usa sus estimaciones) si Apify falla o responde algo inesperado", async () => {
+    for (const f of [
+      respuesta(buena, 401),
+      respuesta({ ...buena, limits: { maxMonthlyUsageUsd: 0 } }),
+      respuesta({ ...buena, current: {} }),
+      respuesta({ ...buena, monthlyUsageCycle: { startAt: "x", endAt: "y" } }),
+      respuesta(undefined),
+      vi.fn(async () => {
+        throw new Error("sin red")
+      }),
+    ]) {
+      vi.stubGlobal("fetch", f)
+      expect(await leerEstadoApify("t")).toBeNull()
+    }
   })
 })

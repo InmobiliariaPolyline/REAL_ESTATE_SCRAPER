@@ -71,11 +71,20 @@ export const gastoEstimadoUsd = (avisos: number, costoPorMil: number) => (avisos
 /**
  * Avisos que aún se pueden pedir en el ciclo: el menor entre lo que queda del tope configurado
  * y lo que queda del crédito en dólares (con margen). Son dos barreras independientes.
+ * Si se conoce el gasto REAL de la cuenta (lo informa Apify) se usa ese; si no, se estima.
  */
-export function cupoRestante(config: CargaConfig, usadoMes: number, l: LimitesDeGasto = LIMITES_POR_DEFECTO) {
+export function cupoRestante(
+  config: CargaConfig,
+  usadoMes: number,
+  l: LimitesDeGasto = LIMITES_POR_DEFECTO,
+  gastoRealUsd?: number
+) {
   const topeEfectivo = Math.min(config.tope_mensual, topeMensualMaximo(l))
   const porTope = topeEfectivo - usadoMes
-  const porCredito = avisosQueCaben(l) - usadoMes
+  const porCredito =
+    gastoRealUsd === undefined
+      ? avisosQueCaben(l) - usadoMes
+      : Math.floor(((l.creditoUsd * MARGEN_CREDITO - gastoRealUsd) * 1000) / l.costoPorMil + 1e-9)
   return { porTope, porCredito, restante: Math.max(0, Math.min(porTope, porCredito)) }
 }
 
@@ -84,11 +93,12 @@ export function planificar(
   config: CargaConfig,
   usadoMes: number,
   hayCorridaActiva: boolean,
-  limites: LimitesDeGasto = LIMITES_POR_DEFECTO
+  limites: LimitesDeGasto = LIMITES_POR_DEFECTO,
+  gastoRealUsd?: number
 ): Plan {
   if (config.pausada) return { ok: false, motivo: "pausada", detalle: "La carga automática está pausada." }
   if (hayCorridaActiva) return { ok: false, motivo: "en_curso", detalle: "Ya hay una carga en curso." }
-  const { porTope, porCredito, restante } = cupoRestante(config, usadoMes, limites)
+  const { porTope, porCredito, restante } = cupoRestante(config, usadoMes, limites, gastoRealUsd)
   if (porTope <= 0) {
     return { ok: false, motivo: "tope", detalle: `Se alcanzó el tope del ciclo (${Math.min(config.tope_mensual, topeMensualMaximo(limites))} avisos).` }
   }
@@ -274,6 +284,58 @@ export async function leerDataset(token: string, datasetId: string, limit: numbe
   return Array.isArray(data) ? (data as Record<string, unknown>[]) : []
 }
 
+/** Lo que informa Apify sobre la cuenta: ciclo de uso, crédito y gasto reales (solo lectura, gratis). */
+export interface EstadoApify {
+  creditoUsd: number
+  gastoUsd: number
+  /** Inicio del ciclo (ISO). */
+  cicloInicio: string
+  /** Fin del ciclo (ISO); el siguiente empieza un instante después. */
+  cicloFin: string
+}
+
+/**
+ * Consulta el ciclo, el crédito y el gasto reales. Devuelve `null` si Apify no responde o el
+ * formato no es el esperado: en ese caso el sistema sigue con sus estimaciones (más prudentes).
+ */
+export async function leerEstadoApify(token: string): Promise<EstadoApify | null> {
+  try {
+    const res = await fetch(`${API}/users/me/limits`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(8_000),
+    })
+    if (!res.ok) return null
+    const d = ((await res.json()) as { data?: Record<string, any> }).data
+    const credito = Number(d?.limits?.maxMonthlyUsageUsd)
+    const gasto = Number(d?.current?.monthlyUsageUsd)
+    const inicio = String(d?.monthlyUsageCycle?.startAt ?? "")
+    const fin = String(d?.monthlyUsageCycle?.endAt ?? "")
+    if (!Number.isFinite(credito) || credito <= 0 || !Number.isFinite(gasto) || gasto < 0) return null
+    if (Number.isNaN(Date.parse(inicio)) || Number.isNaN(Date.parse(fin))) return null
+    return { creditoUsd: credito, gastoUsd: gasto, cicloInicio: inicio, cicloFin: fin }
+  } catch {
+    return null
+  }
+}
+
+/** Ciclo de uso según Apify, en el mismo formato que `ventanaDeUso`. */
+export function cicloDeApify(e: EstadoApify) {
+  const desdeFecha = e.cicloInicio.slice(0, 10)
+  const reinicia = new Date(Date.parse(e.cicloFin) + 1).toISOString().slice(0, 10)
+  return { desde: e.cicloInicio, desdeFecha, reiniciaFecha: reinicia }
+}
+
+/** Límites, ciclo y estado a usar: los reales de Apify si responde y, si no, los estimados. */
+export async function contextoDeGasto(env: ApiEnv, diaReinicio: number) {
+  const apify = env.APIFY_TOKEN ? await leerEstadoApify(env.APIFY_TOKEN) : null
+  const base = limitesDeGasto(env)
+  return {
+    apify,
+    limites: apify ? { ...base, creditoUsd: apify.creditoUsd } : base,
+    ciclo: apify ? cicloDeApify(apify) : ventanaDeUso(diaReinicio),
+  }
+}
+
 // ── Estado y uso ─────────────────────────────────────────────────────────────
 
 export async function leerConfig(db: Db): Promise<CargaConfig> {
@@ -328,12 +390,15 @@ export async function iniciarCarga(
   )
 
   const config = await leerConfig(db)
+  // Pausada: no hace falta ni consultar a Apify.
+  if (config.pausada) return { ok: false, motivo: "pausada", detalle: "La carga automática está pausada." }
+  const { apify, limites, ciclo } = await contextoDeGasto(env, config.dia_reinicio)
   const [usado, activa, previas] = await Promise.all([
-    usoDelCiclo(db, ventanaDeUso(config.dia_reinicio).desde),
+    usoDelCiclo(db, ciclo.desde),
     db.query("select 1 from public.carga_corridas where fuente = $1 and estado = 'iniciada' limit 1", [FUENTE]),
     db.query<{ n: number }>("select count(*)::int as n from public.carga_corridas where fuente = $1", [FUENTE]),
   ])
-  const plan = planificar(config, usado, activa.length > 0, limitesDeGasto(env))
+  const plan = planificar(config, usado, activa.length > 0, limites, apify?.gastoUsd)
   if (!plan.ok) return plan
 
   const url = elegirUrl(urlsDeBusqueda(env), previas[0]?.n ?? 0)
