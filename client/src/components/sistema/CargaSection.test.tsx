@@ -147,7 +147,7 @@ describe("CargaSection", () => {
     fetchCarga.mockResolvedValue(
       estado({
         corridas: [
-          { id: 2, estado: "completada", origen: "programada", iniciada_por: null, avisos_pedidos: 200, avisos_recibidos: 187, avisos_guardados: 180, detalle: null, iniciada_en: new Date().toISOString(), finalizada_en: null },
+          { id: 2, estado: "completada", origen: "programada", iniciada_por: null, actor: "gio21~adondevivir-scraper", avisos_pedidos: 200, avisos_recibidos: 187, avisos_guardados: 180, detalle: null, iniciada_en: new Date().toISOString(), finalizada_en: null },
           { id: 1, estado: "fallida", origen: "manual", iniciada_por: "admin", avisos_pedidos: 50, avisos_recibidos: 0, avisos_guardados: null, detalle: "No se pudo lanzar en Apify", iniciada_en: new Date().toISOString(), finalizada_en: null },
         ],
       })
@@ -156,5 +156,6 @@ describe("CargaSection", () => {
     expect(await screen.findByText("Completada")).toBeInTheDocument()
     expect(screen.getByText("Fallida")).toBeInTheDocument()
     expect(screen.getByText(/187/)).toBeInTheDocument()
+    expect(screen.getByText(/actor gio21/)).toBeInTheDocument()
   })
 })

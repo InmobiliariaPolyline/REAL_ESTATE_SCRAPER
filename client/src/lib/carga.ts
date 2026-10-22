@@ -13,6 +13,8 @@ export interface Corrida {
   estado: "iniciada" | "completada" | "fallida"
   origen: "manual" | "programada"
   iniciada_por: string | null
+  /** Actor de Apify que hizo la corrida (`usuario~nombre`); null en corridas anteriores a esta columna. */
+  actor?: string | null
   avisos_pedidos: number
   avisos_recibidos: number | null
   avisos_guardados: number | null

@@ -350,6 +350,7 @@ export default function CargaSection() {
                     </p>
                     <p className="text-xs text-text-muted">
                       {c.origen === "programada" ? "Programada" : `Manual${c.iniciada_por ? ` · ${c.iniciada_por}` : ""}`}
+                      {c.actor ? ` · actor ${c.actor.split("~")[0]}` : ""}
                       {c.detalle ? ` · ${c.detalle}` : ""}
                     </p>
                   </div>

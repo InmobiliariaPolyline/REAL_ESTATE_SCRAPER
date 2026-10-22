@@ -73,7 +73,7 @@ pnpm test                # API contra Postgres real, filtros, precios y componen
 | `DATABASE_URL` | Sí | Conexión a Neon (marcar *Contains secret values*). Solo servidor |
 | `USD_TO_PEN_RATE`, `VITE_USD_TO_PEN_RATE` | No | Tipo de cambio (3.75 por defecto); deben coincidir |
 | `VITE_ADMIN_WHATSAPP` | No | WhatsApp de contacto (solo dígitos) |
-| `APIFY_TOKEN`, `APIFY_WEBHOOK_SECRET` | No | Carga automática de avisos con Apify (ver [`docs/CARGA_APIFY.md`](docs/CARGA_APIFY.md)); ambas secretas; opcionales `APIFY_CREDIT_USD` (5) y `APIFY_COST_PER_1000` (3) |
+| `APIFY_TOKEN`, `APIFY_WEBHOOK_SECRET` | No | Carga automática de avisos con Apify (ver [`docs/CARGA_APIFY.md`](docs/CARGA_APIFY.md)); ambas secretas; opcionales `APIFY_CREDIT_USD` (5), `APIFY_COST_PER_1000` (3) y `APIFY_ACTOR_RESPALDO` |
 | `ALERT_WEBHOOK_URL`, `ALERT_STALE_HOURS` | No | Alertas del watchdog: webhook (Slack, Discord o compatible) y horas sin actividad (24 por defecto) |
 | `CRON_SECRET` | No | Permite a un planificador externo llamar a `POST /api/internal/watchdog` (cabecera `x-cron-secret`) |
 

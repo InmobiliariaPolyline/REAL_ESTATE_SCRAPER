@@ -13,6 +13,7 @@ import { guardarAvisos, type Aviso } from "./ingest"
 
 export const FUENTE = "adondevivir"
 export const ACTOR_POR_DEFECTO = "gio21~adondevivir-scraper"
+export const ACTOR_RESPALDO_POR_DEFECTO = "scrapers_lat~adondevivir-scraper"
 /** Costo por 1 000 avisos del actor (US$); se usa solo para calcular el tope en dólares. */
 export const COSTO_POR_MIL_POR_DEFECTO = 3
 /** Crédito gratuito mensual del plan Free de Apify (US$). Se puede ajustar con APIFY_CREDIT_USD. */
@@ -25,6 +26,60 @@ export const DIA_REINICIO_POR_DEFECTO = 23
 export const TOPE_MENSUAL_ABSOLUTO = 5000
 /** Una corrida sin respuesta pasado este tiempo se da por perdida (su reserva se conserva). */
 export const HORAS_CORRIDA_PERDIDA = 3
+
+/** Un actor de Apify que sabe leer Adondevivir, con su costo y la forma de pedirle los avisos. */
+export interface ActorCarga {
+  id: string
+  /** Nombre corto para el historial. */
+  nombre: string
+  /** US$ por 1 000 avisos (medido; se usa para los topes en dólares). */
+  costoPorMil: number
+  /** Tope de avisos por corrida impuesto por el actor (p. ej. el plan gratuito de scrapers_lat). */
+  maxPorCorrida?: number
+  entrada: (url: string, items: number) => Record<string, unknown>
+}
+
+/** Actor de respaldo: más completo pero más caro, y limitado a 10 avisos por corrida en el plan Free. */
+const COSTO_RESPALDO_POR_MIL = 9
+const MAX_RESPALDO_PLAN_FREE = 10
+
+export interface ActoresDeCarga {
+  principal: ActorCarga
+  respaldo: ActorCarga | null
+}
+
+export function actoresDeCarga(env: ApiEnv): ActoresDeCarga {
+  const principal: ActorCarga = {
+    id: env.APIFY_ACTOR || ACTOR_POR_DEFECTO,
+    nombre: "gio21",
+    costoPorMil: costoPorMil(env),
+    entrada: (url, items) => ({ startUrls: [url], maxItems: items }),
+  }
+  const idRespaldo = (env.APIFY_ACTOR_RESPALDO || ACTOR_RESPALDO_POR_DEFECTO).trim()
+  const respaldo: ActorCarga | null =
+    idRespaldo.toLowerCase() === "ninguno" || idRespaldo === principal.id
+      ? null
+      : {
+          id: idRespaldo,
+          nombre: "scrapers_lat",
+          costoPorMil: COSTO_RESPALDO_POR_MIL,
+          maxPorCorrida: MAX_RESPALDO_PLAN_FREE,
+          // Sin detalles: son de pago y el plan gratuito solo entrega el listado.
+          entrada: (url, items) => ({ startUrls: [url], maxListings: items, withDetails: false }),
+        }
+  return { principal, respaldo }
+}
+
+/**
+ * Qué actor usa la próxima corrida: el principal, salvo que la última corrida haya fallado; en
+ * ese caso se prueba el otro. Si el otro también falla, se vuelve al principal (alterna).
+ */
+export function elegirActor(ultima: { estado: string; actor: string | null } | null, a: ActoresDeCarga): ActorCarga {
+  if (!ultima || ultima.estado !== "fallida" || !a.respaldo) return a.principal
+  // Sin actor registrado (base anterior a la columna `actor`) la corrida fue del principal.
+  const fueDelPrincipal = !ultima.actor || ultima.actor === a.principal.id
+  return fueDelPrincipal ? a.respaldo : a.principal
+}
 
 /** Búsquedas que se rotan, una por corrida, para repartir los avisos entre tipos. */
 export const URLS_POR_DEFECTO = [
@@ -184,6 +239,7 @@ const TIPOS: Record<string, string> = {
   terrenos: "Terreno",
   terreno: "Terreno",
   "locales comerciales": "Local comercial",
+  desarrollo: "Proyecto",
   // Las búsquedas de Adondevivir mezclan avisos sueltos con proyectos inmobiliarios.
   edificios: "Proyecto",
   "desarrollos verticales": "Proyecto",
@@ -197,21 +253,25 @@ const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v > 
 
 /** El actor a veces devuelve "S/n" (sin número) como barrio: en ese caso vale la ciudad. */
 const distrito = (item: Record<string, unknown>) => {
-  const barrio = str(item.neighborhood)
-  return barrio && !/^s\/?n$/i.test(barrio) ? barrio : str(item.city)
+  const sinNumero = (v: string | undefined) => (v && !/^s\/?n$/i.test(v) ? v : undefined)
+  const porLugar = str(item.location)?.split(",").pop()?.trim() // «Lobaton, Lince» -> «Lince»
+  return str(item.district) ?? sinNumero(str(item.neighborhood)) ?? porLugar ?? str(item.city)
 }
 
 /** Convierte un registro del actor en un aviso del sistema; `null` si no sirve para guardarlo. */
 export function mapearAviso(item: Record<string, unknown>): Aviso | null {
-  const codigo = str(item.id) ?? (typeof item.id === "number" ? String(item.id) : undefined)
+  // Cada actor nombra los campos distinto: gio21 usa `id`, `image`, `areaBuilt`…; scrapers_lat
+  // usa `listingId`, `imageUrl`, `totalAreaM2`… Se aceptan ambos formatos.
+  const codigo = str(item.id) ?? (typeof item.id === "number" ? String(item.id) : undefined) ?? str(item.listingId) ?? (typeof item.listingId === "number" ? String(item.listingId) : undefined)
   const operacionRaw = str(item.operationType)?.toLowerCase()
   const operacion = operacionRaw?.startsWith("alquil") ? "ALQUILER" : operacionRaw?.startsWith("venta") ? "VENTA" : null
   const titulo = str(item.title)
   if (!codigo || !operacion || !titulo) return null // p. ej. el aviso "no-listings" del actor
 
   const tipo = str(item.propertyType)
-  const moneda = str(item.currency)?.toUpperCase().includes("US") || str(item.currency)?.includes("$") ? "USD" : "PEN"
-  const area = num(item.areaBuilt) ?? num(item.areaLot)
+  const monedaTexto = str(item.currency) ?? ""
+  const moneda = monedaTexto.toUpperCase().includes("US") || monedaTexto.includes("$") ? "USD" : "PEN"
+  const area = num(item.areaBuilt) ?? num(item.areaLot) ?? num(item.totalAreaM2) ?? num(item.builtAreaM2)
   return {
     portal: "adondevivir",
     codigo,
@@ -220,11 +280,12 @@ export function mapearAviso(item: Record<string, unknown>): Aviso | null {
     titulo,
     precio: num(item.price),
     moneda,
+    precioUsd: num(item.priceUsd),
     distrito: distrito(item),
     dormitorios: num(item.bedrooms) !== undefined ? String(item.bedrooms) : undefined,
     banios: num(item.bathrooms) !== undefined ? String(item.bathrooms) : undefined,
     area: area ? `${area} m2` : undefined,
-    imagen: str(item.image),
+    imagen: str(item.image) ?? str(item.imageUrl),
     url: str(item.url),
   }
 }
@@ -241,7 +302,8 @@ export interface CorridaApify {
 export async function lanzarCorrida(opts: {
   token: string
   actor: string
-  url: string
+  /** Cuerpo de entrada del actor (cada uno nombra sus campos distinto). */
+  input: Record<string, unknown>
   items: number
   topeUsd: number
   webhookUrl: string
@@ -264,7 +326,7 @@ export async function lanzarCorrida(opts: {
   const res = await fetch(`${API}/acts/${encodeURIComponent(opts.actor)}/runs?${qs}`, {
     method: "POST",
     headers: { Authorization: `Bearer ${opts.token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ startUrls: [opts.url], maxItems: opts.items }),
+    body: JSON.stringify(opts.input),
     signal: AbortSignal.timeout(20_000),
   })
   if (!res.ok) throw new Error(`Apify respondió ${res.status} al lanzar la corrida`)
@@ -326,9 +388,9 @@ export function cicloDeApify(e: EstadoApify) {
 }
 
 /** Límites, ciclo y estado a usar: los reales de Apify si responde y, si no, los estimados. */
-export async function contextoDeGasto(env: ApiEnv, diaReinicio: number) {
+export async function contextoDeGasto(env: ApiEnv, diaReinicio: number, costoActorPorMil?: number) {
   const apify = env.APIFY_TOKEN ? await leerEstadoApify(env.APIFY_TOKEN) : null
-  const base = limitesDeGasto(env)
+  const base = costoActorPorMil ? { ...limitesDeGasto(env), costoPorMil: costoActorPorMil } : limitesDeGasto(env)
   return {
     apify,
     limites: apify ? { ...base, creditoUsd: apify.creditoUsd } : base,
@@ -366,6 +428,49 @@ export async function usoDelCiclo(db: Db, desde: string): Promise<number> {
   return rows[0]?.usado ?? 0
 }
 
+const esColumnaActor = (err: unknown) => /\bactor\b/.test(String((err as { message?: string })?.message ?? ""))
+
+/** Última corrida (de cualquier actor). Tolera una base sin la columna `actor`. */
+async function ultimaCorrida(db: Db): Promise<{ estado: string; actor: string | null } | null> {
+  try {
+    const rows = await db.query<{ estado: string; actor: string | null }>(
+      "select estado, actor from public.carga_corridas where fuente = $1 order by id desc limit 1",
+      [FUENTE]
+    )
+    return rows[0] ?? null
+  } catch (err) {
+    if (!esColumnaActor(err)) throw err
+    const rows = await db.query<{ estado: string }>(
+      "select estado from public.carga_corridas where fuente = $1 order by id desc limit 1",
+      [FUENTE]
+    )
+    return rows[0] ? { estado: rows[0].estado, actor: null } : null
+  }
+}
+
+/** Reserva el cupo de la corrida antes de llamar a Apify. */
+async function reservarCorrida(
+  db: Db,
+  d: { origen: string; usuario: string | null; url: string; items: number; actor: string }
+): Promise<number> {
+  try {
+    const filas = await db.query<{ id: number }>(
+      `insert into public.carga_corridas (fuente, origen, iniciada_por, url_busqueda, avisos_pedidos, actor)
+       values ($1, $2, $3, $4, $5, $6) returning id::int as id`,
+      [FUENTE, d.origen, d.usuario, d.url, d.items, d.actor]
+    )
+    return filas[0].id
+  } catch (err) {
+    if (!esColumnaActor(err)) throw err
+    const filas = await db.query<{ id: number }>(
+      `insert into public.carga_corridas (fuente, origen, iniciada_por, url_busqueda, avisos_pedidos)
+       values ($1, $2, $3, $4, $5) returning id::int as id`,
+      [FUENTE, d.origen, d.usuario, d.url, d.items]
+    )
+    return filas[0].id
+  }
+}
+
 export type ResultadoInicio =
   | { ok: true; items: number; runId: string }
   | { ok: false; motivo: MotivoNoEjecutar | "error"; detalle: string }
@@ -392,7 +497,9 @@ export async function iniciarCarga(
   const config = await leerConfig(db)
   // Pausada: no hace falta ni consultar a Apify.
   if (config.pausada) return { ok: false, motivo: "pausada", detalle: "La carga automática está pausada." }
-  const { apify, limites, ciclo } = await contextoDeGasto(env, config.dia_reinicio)
+  const actores = actoresDeCarga(env)
+  const actor = elegirActor(await ultimaCorrida(db), actores)
+  const { apify, limites, ciclo } = await contextoDeGasto(env, config.dia_reinicio, actor.costoPorMil)
   const [usado, activa, previas] = await Promise.all([
     usoDelCiclo(db, ciclo.desde),
     db.query("select 1 from public.carga_corridas where fuente = $1 and estado = 'iniciada' limit 1", [FUENTE]),
@@ -400,18 +507,14 @@ export async function iniciarCarga(
   ])
   const plan = planificar(config, usado, activa.length > 0, limites, apify?.gastoUsd)
   if (!plan.ok) return plan
+  const items = Math.min(plan.items, actor.maxPorCorrida ?? plan.items)
 
   const url = elegirUrl(urlsDeBusqueda(env), previas[0]?.n ?? 0)
 
   // Se reserva el cupo ANTES de llamar a Apify: si algo falla a medias, el tope sigue protegido.
   let id: number
   try {
-    const filas = await db.query<{ id: number }>(
-      `insert into public.carga_corridas (fuente, origen, iniciada_por, url_busqueda, avisos_pedidos)
-       values ($1, $2, $3, $4, $5) returning id::int as id`,
-      [FUENTE, origen, usuario, url, plan.items]
-    )
-    id = filas[0].id
+    id = await reservarCorrida(db, { origen, usuario, url, items, actor: actor.id })
   } catch {
     return { ok: false, motivo: "en_curso", detalle: "Ya hay una carga en curso." }
   }
@@ -419,14 +522,14 @@ export async function iniciarCarga(
   try {
     const corrida = await lanzarCorrida({
       token: env.APIFY_TOKEN as string,
-      actor: env.APIFY_ACTOR || ACTOR_POR_DEFECTO,
-      url,
-      items: plan.items,
-      topeUsd: topeDolares(plan.items, costoPorMil(env)),
+      actor: actor.id,
+      input: actor.entrada(url, items),
+      items,
+      topeUsd: topeDolares(items, actor.costoPorMil),
       webhookUrl: `${sitioPublico(env)}/api/internal/apify-webhook?secret=${encodeURIComponent(env.APIFY_WEBHOOK_SECRET as string)}`,
     })
     await db.query("update public.carga_corridas set run_id = $2 where id = $1", [id, corrida.runId])
-    return { ok: true, items: plan.items, runId: corrida.runId }
+    return { ok: true, items, runId: corrida.runId }
   } catch (err) {
     console.error("No se pudo lanzar la corrida de Apify:", err)
     // No llegó a empezar: la reserva se libera (0 avisos) para no gastar cupo en vano.

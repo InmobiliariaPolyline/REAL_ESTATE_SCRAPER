@@ -1,11 +1,15 @@
 import { afterEach, describe, expect, it, vi } from "vitest"
 import {
+  ACTOR_POR_DEFECTO,
+  ACTOR_RESPALDO_POR_DEFECTO,
   URLS_POR_DEFECTO,
+  actoresDeCarga,
   configurada,
   cicloDeApify,
   costoPorMil,
   creditoUsd,
   cupoRestante,
+  elegirActor,
   elegirUrl,
   lanzarCorrida,
   leerEstadoApify,
@@ -221,7 +225,7 @@ describe("lanzarCorrida", () => {
     const r = await lanzarCorrida({
       token: "TOKEN-SECRETO",
       actor: "gio21~adondevivir-scraper",
-      url: "https://www.adondevivir.com/casas-en-venta.html",
+      input: { startUrls: ["https://www.adondevivir.com/casas-en-venta.html"], maxItems: 50 },
       items: 50,
       topeUsd: 0.2,
       webhookUrl: "https://sitio.app/api/internal/apify-webhook?secret=abc",
@@ -247,7 +251,7 @@ describe("lanzarCorrida", () => {
   it("falla con claridad si Apify rechaza la petición", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("no", { status: 401 })))
     await expect(
-      lanzarCorrida({ token: "t", actor: "a~b", url: "u", items: 1, topeUsd: 1, webhookUrl: "w" })
+      lanzarCorrida({ token: "t", actor: "a~b", input: {}, items: 1, topeUsd: 1, webhookUrl: "w" })
     ).rejects.toThrow("401")
   })
 })
@@ -348,5 +352,99 @@ describe("resultados del actor: avisos reales frente a errores", () => {
   it("el mensaje de error se recorta para no llenar el historial", () => {
     const largo = veredicto(true, "ACTOR.RUN.SUCCEEDED", 0, [{ error: "x", message: "m".repeat(500) }])
     expect((largo.detalle ?? "").length).toBeLessThan(200)
+  })
+})
+
+describe("actores de carga (principal y respaldo)", () => {
+  it("por defecto: gio21 de principal y scrapers_lat de respaldo, con su costo y su tope por corrida", () => {
+    const { principal, respaldo } = actoresDeCarga({})
+    expect(principal).toMatchObject({ id: ACTOR_POR_DEFECTO, costoPorMil: 3 })
+    expect(principal.maxPorCorrida).toBeUndefined()
+    expect(respaldo).toMatchObject({ id: ACTOR_RESPALDO_POR_DEFECTO, costoPorMil: 9, maxPorCorrida: 10 })
+  })
+
+  it("cada actor recibe su entrada con los nombres de campo que entiende", () => {
+    const { principal, respaldo } = actoresDeCarga({})
+    const url = "https://www.adondevivir.com/casas-en-venta.html"
+    expect(principal.entrada(url, 50)).toEqual({ startUrls: [url], maxItems: 50 })
+    // El respaldo pide solo el listado: los detalles son de pago.
+    expect(respaldo!.entrada(url, 10)).toEqual({ startUrls: [url], maxListings: 10, withDetails: false })
+  })
+
+  it("se puede cambiar el actor, desactivar el respaldo o fijar el costo del principal", () => {
+    expect(actoresDeCarga({ APIFY_ACTOR: "otro~actor" }).principal.id).toBe("otro~actor")
+    expect(actoresDeCarga({ APIFY_ACTOR_RESPALDO: "ninguno" }).respaldo).toBeNull()
+    expect(actoresDeCarga({ APIFY_ACTOR_RESPALDO: ACTOR_POR_DEFECTO }).respaldo).toBeNull() // no se respalda a sí mismo
+    expect(actoresDeCarga({ APIFY_COST_PER_1000: "4" }).principal.costoPorMil).toBe(4)
+  })
+})
+
+describe("elegirActor (alterna cuando una corrida falla)", () => {
+  const a = actoresDeCarga({})
+
+  it("sin historial, o si la última corrida salió bien, usa el principal", () => {
+    expect(elegirActor(null, a).id).toBe(a.principal.id)
+    expect(elegirActor({ estado: "completada", actor: a.principal.id }, a).id).toBe(a.principal.id)
+    expect(elegirActor({ estado: "completada", actor: a.respaldo!.id }, a).id).toBe(a.principal.id) // vuelve al principal
+  })
+
+  it("si el principal falló, la siguiente corrida usa el respaldo; si el respaldo también falla, vuelve al principal", () => {
+    expect(elegirActor({ estado: "fallida", actor: a.principal.id }, a).id).toBe(a.respaldo!.id)
+    expect(elegirActor({ estado: "fallida", actor: a.respaldo!.id }, a).id).toBe(a.principal.id)
+  })
+
+  it("una corrida fallida de una base sin la columna `actor` se trata como del principal", () => {
+    expect(elegirActor({ estado: "fallida", actor: null }, a).id).toBe(a.respaldo!.id)
+  })
+
+  it("sin respaldo configurado, siempre el principal", () => {
+    const sin = actoresDeCarga({ APIFY_ACTOR_RESPALDO: "ninguno" })
+    expect(elegirActor({ estado: "fallida", actor: sin.principal.id }, sin).id).toBe(sin.principal.id)
+  })
+})
+
+describe("mapearAviso con el formato de scrapers_lat", () => {
+  // Registro real devuelto por el actor en la prueba de 10 avisos (recortado).
+  const real = {
+    title: "Proyecto vertical , Lima - Centric Plaza",
+    price: 309735,
+    currency: "PEN",
+    priceUsd: null,
+    pricePen: 309735,
+    operationType: "venta",
+    propertyType: "Desarrollo",
+    isDevelopment: true,
+    bedrooms: 1,
+    bathrooms: null,
+    totalAreaM2: 40,
+    location: "Lobaton, Lince",
+    listingId: "150868929",
+    imageUrl: "https://img10.naventcdn.com/avisos/111/01/50/86/89/29/720x532/1627123234.jpg",
+    url: "https://www.adondevivir.com/propiedades/proyecto/ememefin-centric-plaza-150868929.html",
+    error: null,
+  }
+
+  it("lee código, tipo, área, distrito (de `location`) y foto", () => {
+    expect(mapearAviso(real)).toMatchObject({
+      portal: "adondevivir",
+      codigo: "150868929",
+      operacion: "VENTA",
+      inmueble: "Proyecto",
+      precio: 309735,
+      moneda: "PEN",
+      distrito: "Lince",
+      dormitorios: "1",
+      area: "40 m2",
+      imagen: real.imageUrl,
+    })
+    expect(mapearAviso(real)!.banios).toBeUndefined()
+  })
+
+  it("si trae el precio en dólares ya calculado, lo conserva", () => {
+    expect(mapearAviso({ ...real, priceUsd: 82000, district: "Jesus Maria" })).toMatchObject({ precioUsd: 82000, distrito: "Jesus Maria" })
+  })
+
+  it("el mismo aviso visto por los dos actores tiene el mismo código (no se duplica)", () => {
+    expect(mapearAviso({ id: "150868929", title: "x", operationType: "Venta" })!.codigo).toBe(mapearAviso(real)!.codigo)
   })
 })

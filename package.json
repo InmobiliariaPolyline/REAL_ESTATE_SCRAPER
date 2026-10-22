@@ -1,6 +1,6 @@
 {
   "name": "real-estate-scraper",
-  "version": "1.8.4",
+  "version": "1.9.0",
   "type": "module",
   "license": "MIT",
   "scripts": {

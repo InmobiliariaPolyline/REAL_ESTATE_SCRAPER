@@ -1,4 +1,5 @@
 import { audit } from "../audit"
+import type { Db } from "../db"
 import {
   FUENTE,
   configurada,
@@ -14,6 +15,18 @@ import {
 } from "../carga"
 import { HttpError, badRequest, forbidden, readJson, timingSafeEqual } from "../http"
 import type { Route } from "../router"
+
+/** Últimas corridas; tolera una base sin la columna `actor` (aún sin re-ejecutar db/007). */
+async function corridasRecientes(db: Db) {
+  const columnas = `id::int as id, estado, origen, iniciada_por, avisos_pedidos, avisos_recibidos,
+                    avisos_guardados, detalle, iniciada_en, finalizada_en`
+  try {
+    return await db.query(`select ${columnas}, actor from public.carga_corridas where fuente = $1 order by iniciada_en desc limit 10`, [FUENTE])
+  } catch (err) {
+    if (!/\bactor\b/.test(String((err as { message?: string })?.message ?? ""))) throw err
+    return db.query(`select ${columnas} from public.carga_corridas where fuente = $1 order by iniciada_en desc limit 10`, [FUENTE])
+  }
+}
 
 const entero = (value: unknown, campo: string, min: number, max: number): number => {
   if (typeof value !== "number" || !Number.isInteger(value) || value < min || value > max) {
@@ -31,16 +44,7 @@ export const cargaRoutes: Route[] = [
     handler: async ({ db, env }) => {
       const config = await leerConfig(db)
       const { apify, limites: l, ciclo: ventana } = await contextoDeGasto(env, config.dia_reinicio)
-      const [usado, corridas] = await Promise.all([
-        usoDelCiclo(db, ventana.desde),
-        db.query(
-          `select id::int as id, estado, origen, iniciada_por, avisos_pedidos, avisos_recibidos,
-                  avisos_guardados, detalle, iniciada_en, finalizada_en
-             from public.carga_corridas where fuente = $1
-            order by iniciada_en desc limit 10`,
-          [FUENTE]
-        ),
-      ])
+      const [usado, corridas] = await Promise.all([usoDelCiclo(db, ventana.desde), corridasRecientes(db)])
       const tope = topeMensualMaximo(l)
       const gasto = apify ? apify.gastoUsd : gastoEstimadoUsd(usado, l.costoPorMil)
       return {

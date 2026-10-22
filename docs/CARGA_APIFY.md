@@ -66,6 +66,24 @@ Apify termina ──► aviso (webhook) ──► /api/internal/apify-webhook �
   reserva se conserva.
 - Si una corrida falla a medias, se guardan igualmente los avisos que alcanzó a entregar (ya se cobraron).
 
+## Actores: principal y respaldo
+
+| | Principal | Respaldo |
+| - | --------- | -------- |
+| Actor | [`gio21/adondevivir-scraper`](https://apify.com/gio21/adondevivir-scraper) | [`scrapers_lat/adondevivir-scraper`](https://apify.com/scrapers_lat/adondevivir-scraper) |
+| Costo medido | US$ 3 por 1 000 avisos | ≈ US$ 9 por 1 000 avisos |
+| Plan gratuito de Apify | sin tope por corrida | **máximo 10 avisos por corrida** y solo el listado (sin detalles) |
+| Datos | precio, área, dormitorios, baños, barrio, foto | además precio en soles y dólares, área construida/total, coordenadas, etc. |
+
+- Se usa el **principal**. Si la última corrida **falló** (por ejemplo, el timeout del sitio), la
+  siguiente va al **respaldo**; si el respaldo también falla, se vuelve al principal.
+- Cada actor tiene su propio costo en los topes en dólares, y el respaldo nunca pide más de 10 avisos.
+- Si ambos ven el mismo aviso, se guarda una sola vez (el código del aviso es el mismo).
+- El historial indica qué actor hizo cada corrida (requiere ejecutar de nuevo `db/007_carga.sql`;
+  sin eso todo funciona, pero no se sabe quién hizo cada corrida y se asume el principal).
+- Cambiar o quitar actores: variables opcionales `APIFY_ACTOR`, `APIFY_ACTOR_RESPALDO` (`ninguno` lo
+  desactiva). Otro actor distinto necesita adaptar la lectura de sus datos (`mapearAviso`).
+
 ## Qué es automático, qué se edita y qué es manual
 
 | Tipo | Valor | Quién lo maneja |

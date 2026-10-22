@@ -15,6 +15,8 @@ export interface ApiEnv {
   APIFY_WEBHOOK_SECRET?: string
   /** Actor de Apify (`usuario~nombre`); por defecto el de Adondevivir. */
   APIFY_ACTOR?: string
+  /** Actor de respaldo (`usuario~nombre`); "ninguno" lo desactiva. Por defecto scrapers_lat. */
+  APIFY_ACTOR_RESPALDO?: string
   /** Crédito gratuito mensual de Apify en US$ (5 en el plan Free); define el tope máximo permitido. */
   APIFY_CREDIT_USD?: string
   /** Costo por 1 000 avisos del actor en US$, para calcular el tope en dólares de cada corrida. */

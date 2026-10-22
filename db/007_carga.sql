@@ -32,6 +32,7 @@ create table if not exists public.carga_corridas (
   origen           text not null default 'manual' check (origen in ('manual', 'programada')),
   iniciada_por     text,
   url_busqueda     text,
+  actor            text,
   avisos_pedidos   int not null default 0,
   avisos_recibidos int,
   avisos_guardados int,
@@ -39,6 +40,8 @@ create table if not exists public.carga_corridas (
   iniciada_en      timestamptz not null default now(),
   finalizada_en    timestamptz
 );
+-- Para bases que ya tenían la tabla sin esta columna (qué actor de Apify hizo cada corrida):
+alter table public.carga_corridas add column if not exists actor text;
 create index if not exists carga_corridas_fecha_idx on public.carga_corridas (iniciada_en desc);
 create unique index if not exists carga_corridas_run_idx on public.carga_corridas (run_id) where run_id is not null;
 -- Nunca dos corridas activas de la misma fuente a la vez.

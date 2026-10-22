@@ -23,6 +23,16 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "1.9.0",
+    fecha: "2026-10-22",
+    titulo: "Actor de respaldo para la carga",
+    cambios: [
+      { tipo: "implementacion", texto: "Segundo actor de Apify (scrapers_lat) como respaldo: si una corrida falla, la siguiente usa el otro actor, y si también falla se vuelve al principal." },
+      { tipo: "mejora", texto: "Cada actor tiene su costo y su límite por corrida (el respaldo, 10 avisos en el plan gratuito); los topes en dólares usan el costo del actor elegido." },
+      { tipo: "mejora", texto: "El sistema entiende los dos formatos de datos y evita duplicados cuando ambos actores ven el mismo aviso; el historial muestra qué actor hizo cada corrida." },
+    ],
+  },
+  {
     version: "1.8.4",
     fecha: "2026-10-22",
     titulo: "Propiedades del admin: ya no se ocultan los avisos en soles",

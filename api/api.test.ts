@@ -1157,8 +1157,8 @@ describe("carga automática (Apify)", () => {
 
     const { rows } = await pg.query<{ estado: string }>("select estado from carga_corridas where run_id = 'run-perdida'")
     expect(rows[0].estado).toBe("fallida")
-    // La reserva de 40 sigue contando, más la nueva corrida.
-    expect((await callApify("GET", "/api/admin/carga", { token: admin })).body.usado).toBeGreaterThanOrEqual(antes + 20)
+    // La reserva de 40 sigue contando, más la nueva corrida (que, tras un fallo, va al respaldo: 10 avisos).
+    expect((await callApify("GET", "/api/admin/carga", { token: admin })).body.usado).toBeGreaterThanOrEqual(antes + 10)
   })
 
   it("con la cuenta de Apify conectada usa su ciclo, su crédito y su gasto REAL", async () => {
@@ -1240,6 +1240,52 @@ describe("carga automática (Apify)", () => {
       "select estado, avisos_recibidos, detalle from carga_corridas where run_id = 'run-N'"
     )
     expect(rows[0]).toEqual({ estado: "completada", avisos_recibidos: 0, detalle: "Esa búsqueda no devolvió avisos" })
+  })
+
+  it("si una corrida falla, la siguiente usa el actor de respaldo (con su tope de 10 y su costo) y luego vuelve al principal", async () => {
+    await pg.exec("update carga_corridas set estado = 'completada', avisos_recibidos = 0 where estado = 'iniciada'")
+    await call("PUT", "/api/admin/carga", { token: admin, body: { pausada: false, tope_mensual: 1000, maximo_por_corrida: 200 } })
+    const webhook = (runId: string, ds: string, items: unknown[]) => {
+      vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(items), { status: 200 })))
+      return callApify("POST", "/api/internal/apify-webhook?secret=s3cr3t", {
+        body: { eventType: "ACTOR.RUN.SUCCEEDED", resource: { id: runId, defaultDatasetId: ds } },
+      })
+    }
+    const fallo = [{ url: "https://www.adondevivir.com/x.html", error: "fetch-failed", message: "timeout" }]
+
+    // 1) Marca la última corrida como fallida del actor principal.
+    await pg.exec("update carga_corridas set estado = 'fallida', actor = 'gio21~adondevivir-scraper' where id = (select max(id) from carga_corridas)")
+
+    // 2) La siguiente va al respaldo: tope de 10 avisos y costo propio.
+    const f1 = apifyOk("run-R1", "ds-R1")
+    vi.stubGlobal("fetch", f1)
+    const r1 = await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })
+    expect(r1.body).toEqual({ ok: true, items: 10 })
+    const [url1, init1] = lanzamientos(f1)[0] as unknown as [string, RequestInit]
+    expect(url1).toContain("/acts/scrapers_lat~adondevivir-scraper/runs")
+    expect(new URL(url1).searchParams.get("maxItems")).toBe("10")
+    expect(Number(new URL(url1).searchParams.get("maxTotalChargeUsd"))).toBeCloseTo(0.11, 2) // 10 x 0.009 x 1.1 + 0.01
+    expect(JSON.parse(init1.body as string)).toMatchObject({ maxListings: 10, withDetails: false })
+
+    // 3) El respaldo también falla: la siguiente vuelve al actor principal.
+    await webhook("run-R1", "ds-R1", fallo)
+    const f2 = apifyOk("run-R2", "ds-R2")
+    vi.stubGlobal("fetch", f2)
+    const r2 = await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })
+    expect(r2.body).toMatchObject({ ok: true })
+    expect((lanzamientos(f2)[0] as unknown as [string])[0]).toContain("/acts/gio21~adondevivir-scraper/runs")
+
+    // 4) El principal funciona: se queda con el principal.
+    const aviso = { id: "970001", title: "Casa", operationType: "Venta", price: 100000, currency: "US$" }
+    await webhook("run-R2", "ds-R2", [aviso])
+    const f3 = apifyOk("run-R3", "ds-R3")
+    vi.stubGlobal("fetch", f3)
+    await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })
+    expect((lanzamientos(f3)[0] as unknown as [string])[0]).toContain("/acts/gio21~adondevivir-scraper/runs")
+
+    // El historial muestra qué actor hizo cada corrida.
+    const lista = (await callApify("GET", "/api/admin/carga", { token: admin })).body.corridas
+    expect(lista.map((c: any) => c.actor)).toEqual(expect.arrayContaining(["scrapers_lat~adondevivir-scraper", "gio21~adondevivir-scraper"]))
   })
 
   it("los cambios de configuración y los lanzamientos quedan en la auditoría", async () => {
