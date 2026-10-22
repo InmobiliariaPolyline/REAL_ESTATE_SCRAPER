@@ -23,6 +23,17 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "1.8.1",
+    fecha: "2026-10-22",
+    titulo: "Topes ajustados al plan gratuito de Apify",
+    cambios: [
+      { tipo: "seguridad", texto: "El tope mensual máximo se calcula del crédito gratuito (US$ 5) y se usa solo el 90 %: hasta 1 500 avisos por ciclo." },
+      { tipo: "mejora", texto: "El conteo sigue el ciclo real de Apify (se reinicia el día 23 en esta cuenta, configurable) en lugar del mes calendario." },
+      { tipo: "mejora", texto: "La pantalla de carga muestra el gasto estimado sobre el crédito gratis y la fecha del próximo reinicio." },
+      { tipo: "correccion", texto: "Los proyectos inmobiliarios se agrupan bajo el tipo «Proyecto» y el barrio «S/n» se reemplaza por la ciudad." },
+    ],
+  },
+  {
     version: "1.8.0",
     fecha: "2026-10-22",
     titulo: "Carga automática de avisos",

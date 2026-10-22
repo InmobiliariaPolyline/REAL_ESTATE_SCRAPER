@@ -4,6 +4,8 @@ export interface CargaConfig {
   pausada: boolean
   tope_mensual: number
   maximo_por_corrida: number
+  /** Día del mes (1 a 28) en que se reinicia el crédito de Apify. */
+  dia_reinicio: number
 }
 
 export interface Corrida {
@@ -25,20 +27,15 @@ export interface EstadoCarga {
   config: CargaConfig
   usado: number
   restante: number
-  limites: { tope_mensual: number; maximo_por_corrida: number }
+  /** Ciclo de uso actual (fechas AAAA-MM-DD): desde el último reinicio hasta el próximo. */
+  ventana: { desde: string; reinicia: string }
+  credito: { usd: number; costo_por_mil: number; gasto_estimado_usd: number }
+  limites: { tope_mensual: number; maximo_por_corrida: number; dia_reinicio: [number, number] }
   corridas: Corrida[]
 }
 
-/** Costo aproximado por 1 000 avisos del actor (solo para mostrar estimaciones). */
-export const COSTO_POR_MIL_USD = 3
-
-/** Cupo gratuito mensual de Apify (US$), según su plan gratuito. */
-export const CUPO_GRATIS_USD = 5
-
-export const costoEstimadoUsd = (avisos: number) => (avisos * COSTO_POR_MIL_USD) / 1000
-
-/** Avisos que caben en el cupo gratuito mensual al costo estimado. */
-export const avisosEnCupoGratis = () => Math.floor((CUPO_GRATIS_USD / COSTO_POR_MIL_USD) * 1000)
+/** Costo estimado en US$ de `avisos` avisos al costo por 1 000 dado. */
+export const costoEstimadoUsd = (avisos: number, costoPorMil: number) => (avisos * costoPorMil) / 1000
 
 export const fetchCarga = () => api.get<EstadoCarga>("/admin/carga")
 export const saveCarga = (cambios: Partial<CargaConfig>) => api.put<CargaConfig>("/admin/carga", cambios)

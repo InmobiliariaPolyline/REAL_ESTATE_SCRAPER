@@ -3,7 +3,8 @@
 --
 -- Requiere: db/001_schema.sql. Es idempotente.
 --
---   carga_config    una sola fila: interruptor de pausa y topes. Empieza PAUSADA: hay que
+--   carga_config    una sola fila: interruptor de pausa, topes y el día del mes en que se
+--                   reinicia el crédito de Apify (23 por defecto). Empieza PAUSADA: hay que
 --                   activarla a propósito desde Sistema → Carga de datos.
 --   carga_corridas  cada corrida pedida a Apify. El uso del mes (lo que cuenta contra el tope)
 --                   se calcula de aquí: avisos recibidos, o los pedidos si aún no se sabe.
@@ -16,8 +17,11 @@ create table if not exists public.carga_config (
   pausada            boolean not null default true,
   tope_mensual       int not null default 1000 check (tope_mensual between 0 and 5000),
   maximo_por_corrida int not null default 200  check (maximo_por_corrida between 1 and 2000),
+  dia_reinicio       int not null default 23   check (dia_reinicio between 1 and 28),
   actualizado_en     timestamptz not null default now()
 );
+-- Para bases que ya tenían la tabla sin esta columna:
+alter table public.carga_config add column if not exists dia_reinicio int not null default 23 check (dia_reinicio between 1 and 28);
 insert into public.carga_config (id) values (1) on conflict (id) do nothing;
 
 create table if not exists public.carga_corridas (

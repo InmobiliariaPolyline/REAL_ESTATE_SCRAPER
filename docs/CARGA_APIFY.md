@@ -7,8 +7,9 @@ Guía para dejar funcionando la carga de avisos de Adondevivir. Son **5 pasos** 
 
 ## 1. Base de datos (Neon)
 
-En el **SQL Editor** de Neon pega y ejecuta el contenido de `db/007_carga.sql` (es seguro repetirlo).
-Crea la configuración (empieza **pausada**) y el historial de cargas.
+En el **SQL Editor** de Neon pega y ejecuta el contenido de `db/007_carga.sql` (es seguro repetirlo,
+también si ya lo ejecutaste antes: añade la columna del día de reinicio). Crea la configuración
+(empieza **pausada**) y el historial de cargas.
 
 ## 2. Cuenta de Apify
 
@@ -65,11 +66,27 @@ Apify termina ──► aviso (webhook) ──► /api/internal/apify-webhook �
   reserva se conserva.
 - Si una corrida falla a medias, se guardan igualmente los avisos que alcanzó a entregar (ya se cobraron).
 
-## Costos orientativos
+## Costos y topes (plan gratuito de Apify)
 
-El actor cobra unos **US$ 3 por 1 000 avisos** (revisa su ficha: puede cambiar). El cupo gratuito de
-Apify es de unos **US$ 5 al mes** (≈ 1 600 avisos) y no se acumula. Con el tope en 1 000 avisos el
-gasto máximo es de ≈ US$ 3 al mes.
+Datos de la cuenta y del actor (verifícalos si cambian):
+
+- Plan **Free**: **US$ 5** de crédito prepagado por ciclo; no se acumula y **se reinicia un día fijo**
+  (en esta cuenta, el 23; lo ves en Apify → Billing como «Limit resets on…»).
+- Actor `gio21/adondevivir-scraper`: **US$ 3 por 1 000 avisos**; el uso de plataforma va incluido.
+- Sin tarjeta guardada, al agotarse el crédito Apify bloquea la cuenta hasta el reinicio; no cobra.
+
+Cómo lo aplica el sistema:
+
+| Barrera | Valor con US$ 5 y US$ 3 por 1 000 |
+| ------- | --------------------------------- |
+| Tope mensual **máximo permitido** (90 % del crédito) | **1 500 avisos** (≈ US$ 4.50) |
+| Tope por defecto | 1 000 avisos (≈ US$ 3.00) |
+| Máximo por corrida | hasta 1 500; por defecto 200 |
+| Ciclo de conteo | desde el último día de reinicio (configurable, por defecto 23) |
+| Tope en dólares enviado a Apify en cada corrida | costo esperado + 10 % |
+
+Si el crédito o el precio cambian, ajusta `APIFY_CREDIT_USD` y `APIFY_COST_PER_1000` en Netlify: el
+máximo permitido se recalcula solo.
 
 ## Si algo falla
 

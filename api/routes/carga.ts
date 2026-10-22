@@ -1,13 +1,16 @@
 import { audit } from "../audit"
 import {
   FUENTE,
-  MAXIMO_CORRIDA_MAX,
-  TOPE_MENSUAL_MAX,
   configurada,
+  cupoRestante,
+  gastoEstimadoUsd,
+  limitesDeGasto,
+  topeMensualMaximo,
+  usoDelCiclo,
+  ventanaDeUso,
   iniciarCarga,
   leerConfig,
   procesarResultado,
-  usoDelMes,
   type EventoApify,
 } from "../carga"
 import { HttpError, badRequest, forbidden, readJson, timingSafeEqual } from "../http"
@@ -27,9 +30,10 @@ export const cargaRoutes: Route[] = [
     path: "/api/admin/carga",
     level: "admin",
     handler: async ({ db, env }) => {
-      const [config, usado, corridas] = await Promise.all([
-        leerConfig(db),
-        usoDelMes(db),
+      const config = await leerConfig(db)
+      const ventana = ventanaDeUso(config.dia_reinicio)
+      const [usado, corridas] = await Promise.all([
+        usoDelCiclo(db, ventana.desde),
         db.query(
           `select id::int as id, estado, origen, iniciada_por, avisos_pedidos, avisos_recibidos,
                   avisos_guardados, detalle, iniciada_en, finalizada_en
@@ -38,12 +42,20 @@ export const cargaRoutes: Route[] = [
           [FUENTE]
         ),
       ])
+      const l = limitesDeGasto(env)
+      const tope = topeMensualMaximo(l)
       return {
         configurada: configurada(env),
         config,
         usado,
-        restante: Math.max(0, config.tope_mensual - usado),
-        limites: { tope_mensual: TOPE_MENSUAL_MAX, maximo_por_corrida: MAXIMO_CORRIDA_MAX },
+        restante: cupoRestante(config, usado, l).restante,
+        ventana: { desde: ventana.desdeFecha, reinicia: ventana.reiniciaFecha },
+        credito: {
+          usd: l.creditoUsd,
+          costo_por_mil: l.costoPorMil,
+          gasto_estimado_usd: Math.round(gastoEstimadoUsd(usado, l.costoPorMil) * 100) / 100,
+        },
+        limites: { tope_mensual: tope, maximo_por_corrida: tope, dia_reinicio: [1, 28] },
         corridas,
       }
     },
@@ -52,25 +64,29 @@ export const cargaRoutes: Route[] = [
     method: "PUT",
     path: "/api/admin/carga",
     level: "admin",
-    handler: async ({ req, db, access }) => {
+    handler: async ({ req, db, env, access }) => {
       const body = await readJson(req)
       const actual = await leerConfig(db)
+      const maximoPermitido = topeMensualMaximo(limitesDeGasto(env))
 
       const pausada = body.pausada === undefined ? actual.pausada : body.pausada === true
-      const tope = body.tope_mensual === undefined ? actual.tope_mensual : entero(body.tope_mensual, "El tope mensual", 0, TOPE_MENSUAL_MAX)
+      const tope = body.tope_mensual === undefined ? actual.tope_mensual : entero(body.tope_mensual, "El tope mensual", 0, maximoPermitido)
       const maximo =
         body.maximo_por_corrida === undefined
           ? actual.maximo_por_corrida
-          : entero(body.maximo_por_corrida, "El máximo por corrida", 1, MAXIMO_CORRIDA_MAX)
+          : entero(body.maximo_por_corrida, "El máximo por corrida", 1, Math.max(1, maximoPermitido))
+
+      const dia =
+        body.dia_reinicio === undefined ? actual.dia_reinicio : entero(body.dia_reinicio, "El día de reinicio", 1, 28)
 
       await db.query(
         `update public.carga_config
-            set pausada = $1, tope_mensual = $2, maximo_por_corrida = $3, actualizado_en = now()
+            set pausada = $1, tope_mensual = $2, maximo_por_corrida = $3, dia_reinicio = $4, actualizado_en = now()
           where id = 1`,
-        [pausada, tope, maximo]
+        [pausada, tope, maximo, dia]
       )
-      await audit({ db, req, access }, "carga.config", null, { pausada, tope_mensual: tope, maximo_por_corrida: maximo })
-      return { pausada, tope_mensual: tope, maximo_por_corrida: maximo }
+      await audit({ db, req, access }, "carga.config", null, { pausada, tope_mensual: tope, maximo_por_corrida: maximo, dia_reinicio: dia })
+      return { pausada, tope_mensual: tope, maximo_por_corrida: maximo, dia_reinicio: dia }
     },
   },
   {

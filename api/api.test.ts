@@ -1016,17 +1016,26 @@ describe("carga automática (Apify)", () => {
   it("empieza pausada, con topes por defecto y sin configurar", async () => {
     const r = await call("GET", "/api/admin/carga", { token: admin })
     expect(r.status).toBe(200)
-    expect(r.body).toMatchObject({ configurada: false, usado: 0, config: { pausada: true, tope_mensual: 1000, maximo_por_corrida: 200 } })
-    expect(r.body.limites).toEqual({ tope_mensual: 5000, maximo_por_corrida: 2000 })
+    expect(r.body).toMatchObject({ configurada: false, usado: 0, config: { pausada: true, tope_mensual: 1000, maximo_por_corrida: 200, dia_reinicio: 23 } })
+    // Con US$ 5 de crédito y US$ 3 por 1 000 avisos, el máximo permitido es 1 500 (90 % del crédito).
+    expect(r.body.limites).toEqual({ tope_mensual: 1500, maximo_por_corrida: 1500, dia_reinicio: [1, 28] })
+    expect(r.body.credito).toEqual({ usd: 5, costo_por_mil: 3, gasto_estimado_usd: 0 })
+    expect(r.body.ventana.desde).toMatch(/^\d{4}-\d{2}-23$/)
+    expect(r.body.ventana.reinicia).toMatch(/^\d{4}-\d{2}-23$/)
   })
 
   it("valida los topes: enteros y dentro de los límites absolutos", async () => {
-    for (const body of [{ tope_mensual: 6000 }, { tope_mensual: -1 }, { tope_mensual: 1.5 }, { maximo_por_corrida: 0 }, { maximo_por_corrida: 5000 }, { tope_mensual: "100" }]) {
+    for (const body of [{ tope_mensual: 6000 }, { tope_mensual: 1501 }, { dia_reinicio: 0 }, { dia_reinicio: 29 }, { dia_reinicio: 1.5 }, { maximo_por_corrida: 1501 }, { tope_mensual: -1 }, { tope_mensual: 1.5 }, { maximo_por_corrida: 0 }, { maximo_por_corrida: 5000 }, { tope_mensual: "100" }]) {
       expect((await call("PUT", "/api/admin/carga", { token: admin, body })).status).toBe(400)
     }
-    const ok = await call("PUT", "/api/admin/carga", { token: admin, body: { tope_mensual: 100, maximo_por_corrida: 50 } })
+    // El ciclo se fija de modo que la ventana de uso siempre incluya las pruebas de este bloque.
+    const hoyLima = new Date(Date.now() - 5 * 3600 * 1000).getUTCDate()
+    const dia = hoyLima < 28 ? hoyLima + 1 : 1
+    const ok = await call("PUT", "/api/admin/carga", { token: admin, body: { tope_mensual: 100, maximo_por_corrida: 50, dia_reinicio: dia } })
     expect(ok.status).toBe(200)
-    expect(ok.body).toMatchObject({ pausada: true, tope_mensual: 100, maximo_por_corrida: 50 })
+    expect(ok.body).toMatchObject({ pausada: true, tope_mensual: 100, maximo_por_corrida: 50, dia_reinicio: dia })
+    expect((await call("PUT", "/api/admin/carga", { token: admin, body: { tope_mensual: 1500 } })).status).toBe(200)
+    await call("PUT", "/api/admin/carga", { token: admin, body: { tope_mensual: 100 } })
   })
 
   it("pausada o sin configurar, no se lanza nada ni se llama a Apify", async () => {
@@ -1048,7 +1057,7 @@ describe("carga automática (Apify)", () => {
 
     const u = new URL((fetchMock.mock.calls[0] as unknown as [string])[0])
     expect(u.searchParams.get("maxItems")).toBe("50")
-    expect(Number(u.searchParams.get("maxTotalChargeUsd"))).toBeCloseTo(0.2, 5)
+    expect(Number(u.searchParams.get("maxTotalChargeUsd"))).toBeCloseTo(0.18, 5)
 
     // Reserva inmediata: cuenta contra el tope aunque Apify aún no haya respondido.
     expect((await callApify("GET", "/api/admin/carga", { token: admin })).body).toMatchObject({ usado: 50, restante: 50 })
@@ -1077,7 +1086,9 @@ describe("carga automática (Apify)", () => {
     expect(rows[0]).toMatchObject({ portal: "adondevivir", precio: "2500", precio_usd: "625" }) // 2500 / 4
 
     // Ahora cuentan los avisos recibidos (2), no los pedidos (50).
-    expect((await callApify("GET", "/api/admin/carga", { token: admin })).body).toMatchObject({ usado: 2 })
+    const estado = (await callApify("GET", "/api/admin/carga", { token: admin })).body
+    expect(estado).toMatchObject({ usado: 2 })
+    expect(estado.credito.gasto_estimado_usd).toBeCloseTo(0.01, 2) // 2 avisos x US$ 0.003
 
     // Apify puede reenviar el aviso: no se procesa dos veces.
     const repetido = await callApify("POST", "/api/internal/apify-webhook?secret=s3cr3t", { body: evento })

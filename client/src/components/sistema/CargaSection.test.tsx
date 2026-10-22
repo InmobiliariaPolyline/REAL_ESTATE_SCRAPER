@@ -22,10 +22,12 @@ vi.mock("@/lib/carga", async importOriginal => {
 
 const estado = (over: Partial<EstadoCarga> = {}): EstadoCarga => ({
   configurada: true,
-  config: { pausada: true, tope_mensual: 1000, maximo_por_corrida: 200 },
+  config: { pausada: true, tope_mensual: 1000, maximo_por_corrida: 200, dia_reinicio: 23 },
   usado: 300,
   restante: 700,
-  limites: { tope_mensual: 5000, maximo_por_corrida: 2000 },
+  ventana: { desde: "2026-09-23", reinicia: "2026-10-23" },
+  credito: { usd: 5, costo_por_mil: 3, gasto_estimado_usd: 0.9 },
+  limites: { tope_mensual: 1500, maximo_por_corrida: 1500, dia_reinicio: [1, 28] },
   corridas: [],
   ...over,
 })
@@ -55,8 +57,15 @@ describe("CargaSection", () => {
   it("muestra el uso del mes y lo que quedaría por pedir", async () => {
     fetchCarga.mockResolvedValue(estado())
     setup()
-    expect(await screen.findByRole("img", { name: "300 de 1000 avisos usados este mes" })).toBeInTheDocument()
+    expect(await screen.findByRole("img", { name: "300 de 1000 avisos usados en este ciclo" })).toBeInTheDocument()
     expect(screen.getByText(/Pediría hasta 200 avisos/)).toBeInTheDocument()
+  })
+
+  it("muestra el gasto sobre el crédito gratis y cuándo se reinicia", async () => {
+    fetchCarga.mockResolvedValue(estado())
+    setup()
+    expect(await screen.findByText(/Gasto estimado: US\$ 0[.,]90 de US\$ 5[.,]00 de crédito gratis/)).toBeInTheDocument()
+    expect(screen.getByText(/Se reinicia el/)).toBeInTheDocument()
   })
 
   it("nunca ofrece pedir más de lo que queda del tope", async () => {
@@ -105,11 +114,19 @@ describe("CargaSection", () => {
     expect(guardar).toBeDisabled() // sin cambios
 
     await user.clear(tope)
-    await user.type(tope, "9999")
-    expect(guardar).toBeDisabled() // supera el máximo de 5000
+    await user.type(tope, "1501")
+    expect(guardar).toBeDisabled() // supera el máximo permitido (1500)
 
     await user.clear(tope)
     await user.type(tope, "800")
+    expect(guardar).toBeEnabled()
+
+    const dia = screen.getByLabelText(/Día en que se reinicia/)
+    await user.clear(dia)
+    await user.type(dia, "30")
+    expect(guardar).toBeDisabled() // el día va del 1 al 28
+    await user.clear(dia)
+    await user.type(dia, "15")
     expect(guardar).toBeEnabled()
   })
 

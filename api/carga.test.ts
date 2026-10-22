@@ -3,17 +3,21 @@ import {
   URLS_POR_DEFECTO,
   configurada,
   costoPorMil,
+  creditoUsd,
+  cupoRestante,
   elegirUrl,
   lanzarCorrida,
   mapearAviso,
   planificar,
   sitioPublico,
   topeDolares,
+  topeMensualMaximo,
   urlsDeBusqueda,
+  ventanaDeUso,
   type CargaConfig,
 } from "./carga"
 
-const config: CargaConfig = { pausada: false, tope_mensual: 1000, maximo_por_corrida: 200 }
+const config: CargaConfig = { pausada: false, tope_mensual: 1000, maximo_por_corrida: 200, dia_reinicio: 23 }
 
 describe("planificar (los topes)", () => {
   it("pausada: nunca se pide nada", () => {
@@ -40,11 +44,66 @@ describe("planificar (los topes)", () => {
   })
 })
 
+describe("tope mensual máximo según el crédito gratuito", () => {
+  it("con US$ 5 y US$ 3 por 1 000 caben 1 500 avisos (se usa el 90 % del crédito)", () => {
+    expect(topeMensualMaximo()).toBe(1500)
+    expect(topeMensualMaximo({ costoPorMil: 3, creditoUsd: 5 })).toBe(1500)
+  })
+
+  it("se ajusta si cambia el precio o el crédito, y nunca supera el límite de la base", () => {
+    expect(topeMensualMaximo({ costoPorMil: 8, creditoUsd: 5 })).toBe(562)
+    expect(topeMensualMaximo({ costoPorMil: 3, creditoUsd: 10 })).toBe(3000)
+    expect(topeMensualMaximo({ costoPorMil: 0.1, creditoUsd: 500 })).toBe(5000)
+  })
+
+  it("un tope configurado más alto que el permitido se recorta", () => {
+    expect(cupoRestante({ ...config, tope_mensual: 5000 }, 0).restante).toBe(1500)
+    expect(planificar({ ...config, tope_mensual: 5000, maximo_por_corrida: 2000 }, 1400, false)).toEqual({ ok: true, items: 100 })
+    expect(planificar({ ...config, tope_mensual: 5000 }, 1500, false)).toMatchObject({ ok: false, motivo: "tope" })
+  })
+
+  it("APIFY_CREDIT_USD ajusta el crédito, con valores inválidos ignorados", () => {
+    expect(creditoUsd({})).toBe(5)
+    expect(creditoUsd({ APIFY_CREDIT_USD: "10" })).toBe(10)
+    expect(creditoUsd({ APIFY_CREDIT_USD: "-3" })).toBe(5)
+    expect(creditoUsd({ APIFY_CREDIT_USD: "100000" })).toBe(5)
+  })
+})
+
+describe("ventanaDeUso (el ciclo del crédito de Apify)", () => {
+  const v = (dia: number, iso: string) => ventanaDeUso(dia, new Date(iso))
+
+  it("antes del día de reinicio el ciclo empezó el mes anterior", () => {
+    expect(v(23, "2026-10-22T17:00:00Z")).toMatchObject({ desdeFecha: "2026-09-23", reiniciaFecha: "2026-10-23" })
+  })
+
+  it("el cambio ocurre a medianoche de Lima (05:00 UTC)", () => {
+    expect(v(23, "2026-10-23T04:59:00Z").desdeFecha).toBe("2026-09-23")
+    expect(v(23, "2026-10-23T05:00:00Z")).toMatchObject({ desdeFecha: "2026-10-23", reiniciaFecha: "2026-11-23" })
+  })
+
+  it("cruza el cambio de año en ambos sentidos", () => {
+    expect(v(23, "2027-01-10T12:00:00Z")).toMatchObject({ desdeFecha: "2026-12-23", reiniciaFecha: "2027-01-23" })
+    expect(v(23, "2026-12-30T12:00:00Z")).toMatchObject({ desdeFecha: "2026-12-23", reiniciaFecha: "2027-01-23" })
+  })
+
+  it("con el día 1 equivale al mes calendario", () => {
+    expect(v(1, "2026-10-22T12:00:00Z")).toMatchObject({ desdeFecha: "2026-10-01", reiniciaFecha: "2026-11-01" })
+  })
+
+  it("un día inválido se corrige a un valor seguro y `desde` es un instante de Lima", () => {
+    expect(v(0, "2026-10-22T12:00:00Z").desdeFecha).toBe("2026-09-23") // 0 -> día por defecto (23)
+    expect(v(99, "2026-10-22T12:00:00Z").desdeFecha).toBe("2026-09-28") // se recorta a 28
+    expect(v(23, "2026-10-22T12:00:00Z").desde).toBe("2026-09-23T00:00:00-05:00")
+  })
+})
+
 describe("topeDolares", () => {
-  it("costo esperado + 25 % de margen, redondeado hacia arriba, más un centavo", () => {
-    expect(topeDolares(100, 3)).toBeCloseTo(0.39, 5) // 0.30 x 1.25 = 0.375 -> 0.38 -> 0.39
-    expect(topeDolares(50, 3)).toBeCloseTo(0.2, 5)
-    expect(topeDolares(1000, 8)).toBeCloseTo(10.01, 5)
+  it("costo esperado + 10 % de margen, redondeado hacia arriba, más un centavo", () => {
+    expect(topeDolares(100, 3)).toBeCloseTo(0.34, 5) // 0.30 x 1.10 = 0.33 -> 0.34
+    expect(topeDolares(50, 3)).toBeCloseTo(0.18, 5)
+    expect(topeDolares(1000, 8)).toBeGreaterThanOrEqual(8.81)
+    expect(topeDolares(1000, 8)).toBeLessThanOrEqual(8.83)
   })
 
   it("siempre cubre el costo real esperado", () => {

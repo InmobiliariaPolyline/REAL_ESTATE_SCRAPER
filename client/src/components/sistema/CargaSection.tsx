@@ -23,7 +23,6 @@ import { useToast } from "@/contexts/ToastContext"
 import { timeAgo } from "@/lib/account"
 import { ApiError } from "@/lib/api"
 import {
-  avisosEnCupoGratis,
   costoEstimadoUsd,
   fetchCarga,
   runCarga,
@@ -31,6 +30,7 @@ import {
   type Corrida,
   type EstadoCarga,
 } from "@/lib/carga"
+import { formatDate } from "@/lib/dates"
 import { cn } from "@/lib/utils"
 
 const ESTADO: Record<Corrida["estado"], { label: string; badge: string; icon: LucideIcon }> = {
@@ -40,10 +40,11 @@ const ESTADO: Record<Corrida["estado"], { label: string; badge: string; icon: Lu
 }
 
 const BARRERAS = [
-  "Sin tarjeta en Apify: el plan gratuito se bloquea al agotarse el cupo, no cobra.",
-  "Tope de gasto mensual en tu cuenta de Apify (Configuración → Límites).",
+  "Sin tarjeta en Apify: el plan gratuito se bloquea al agotarse el crédito, no cobra.",
+  "Solo se planea usar el 90 % del crédito gratuito del ciclo; el resto queda de colchón.",
+  "El conteo sigue el ciclo de tu cuenta de Apify (se reinicia el día que indiques).",
   "Cada corrida envía a Apify un máximo de avisos y un máximo en dólares.",
-  "El tope mensual de este módulo se reserva antes de pedir nada, así que no se puede rebasar.",
+  "El tope se reserva antes de pedir nada, así que no se puede rebasar.",
   "Una sola corrida a la vez, y la carga empieza pausada hasta que la actives.",
 ]
 
@@ -54,6 +55,7 @@ export default function CargaSection() {
   const [loading, setLoading] = useState(true)
   const [tope, setTope] = useState("")
   const [maximo, setMaximo] = useState("")
+  const [dia, setDia] = useState("")
   const [guardando, setGuardando] = useState(false)
   const [cambiando, setCambiando] = useState(false)
   const [confirmar, setConfirmar] = useState(false)
@@ -66,6 +68,7 @@ export default function CargaSection() {
       setEstado(e)
       setTope(String(e.config.tope_mensual))
       setMaximo(String(e.config.maximo_por_corrida))
+      setDia(String(e.config.dia_reinicio))
     } catch (err) {
       console.error(err)
       addToast("No se pudo cargar el estado de la carga de datos", "error")
@@ -80,15 +83,23 @@ export default function CargaSection() {
 
   const topeNum = Number(tope)
   const maxNum = Number(maximo)
+  const diaNum = Number(dia)
   const lim = estado?.limites
   const valido =
     !!lim &&
     Number.isInteger(topeNum) && topeNum >= 0 && topeNum <= lim.tope_mensual &&
-    Number.isInteger(maxNum) && maxNum >= 1 && maxNum <= lim.maximo_por_corrida
-  const sinCambios = estado ? topeNum === estado.config.tope_mensual && maxNum === estado.config.maximo_por_corrida : true
+    Number.isInteger(maxNum) && maxNum >= 1 && maxNum <= lim.maximo_por_corrida &&
+    Number.isInteger(diaNum) && diaNum >= lim.dia_reinicio[0] && diaNum <= lim.dia_reinicio[1]
+  const sinCambios = estado
+    ? topeNum === estado.config.tope_mensual &&
+      maxNum === estado.config.maximo_por_corrida &&
+      diaNum === estado.config.dia_reinicio
+    : true
 
-  const fraccion = estado && estado.config.tope_mensual > 0 ? Math.min(1, estado.usado / estado.config.tope_mensual) : 0
+  const tapa = estado ? Math.min(estado.config.tope_mensual, estado.limites.tope_mensual) : 0
+  const fraccion = tapa > 0 ? Math.min(1, (estado?.usado ?? 0) / tapa) : 0
   const colorAnillo = fraccion >= 1 ? "text-rose" : fraccion >= 0.8 ? "text-amber" : "text-gold"
+  const costoMil = estado?.credito.costo_por_mil ?? 3
   const aPedir = useMemo(
     () => (estado ? Math.max(0, Math.min(estado.config.maximo_por_corrida, estado.restante)) : 0),
     [estado]
@@ -98,7 +109,7 @@ export default function CargaSection() {
     if (!valido) return
     setGuardando(true)
     try {
-      await saveCarga({ tope_mensual: topeNum, maximo_por_corrida: maxNum })
+      await saveCarga({ tope_mensual: topeNum, maximo_por_corrida: maxNum, dia_reinicio: diaNum })
       addToast("Topes guardados", "success")
       await cargar()
     } catch (err) {
@@ -172,17 +183,23 @@ export default function CargaSection() {
             size={156}
             stroke={12}
             className={cn("mt-5", colorAnillo)}
-            label={`${estado.usado} de ${estado.config.tope_mensual} avisos usados este mes`}
+            label={`${estado.usado} de ${tapa} avisos usados en este ciclo`}
           >
             <span className="mono text-3xl font-semibold leading-none text-text">
               <AnimatedNumber value={estado.usado} />
             </span>
-            <span className="mt-1 text-xs text-text-muted">de {estado.config.tope_mensual.toLocaleString("es-PE")}</span>
+            <span className="mt-1 text-xs text-text-muted">de {tapa.toLocaleString("es-PE")}</span>
           </ProgressRing>
           <p className="mt-4 text-sm text-text-muted">
-            Quedan <strong className="mono text-text">{estado.restante.toLocaleString("es-PE")}</strong> avisos este mes
+            Quedan <strong className="mono text-text">{estado.restante.toLocaleString("es-PE")}</strong> avisos en este ciclo
           </p>
-          <p className="mt-1 text-xs text-text-faint">Costo estimado: {usd(costoEstimadoUsd(estado.usado))}</p>
+          <p className="mt-1 text-xs text-text-faint">
+            Gasto estimado: {usd(estado.credito.gasto_estimado_usd)} de {usd(estado.credito.usd)} de crédito gratis
+          </p>
+          <p className="mt-1 flex items-center gap-1 text-xs text-text-faint">
+            <CalendarClock className="size-3" aria-hidden="true" />
+            Se reinicia el {formatDate(estado.ventana.reinicia)}
+          </p>
         </section>
 
         <div className="space-y-6">
@@ -221,7 +238,7 @@ export default function CargaSection() {
               </button>
               <p className="text-xs text-text-muted">
                 {puedeLanzar
-                  ? `Pediría hasta ${aPedir.toLocaleString("es-PE")} avisos (≈ ${usd(costoEstimadoUsd(aPedir))}).`
+                  ? `Pediría hasta ${aPedir.toLocaleString("es-PE")} avisos (≈ ${usd(costoEstimadoUsd(aPedir, costoMil))}).`
                   : !estado.configurada
                     ? "Conecta Apify para poder cargar."
                     : estado.corridas.some(c => c.estado === "iniciada")
@@ -249,7 +266,8 @@ export default function CargaSection() {
                   aria-invalid={tope !== "" && !(topeNum >= 0 && topeNum <= (lim?.tope_mensual ?? 0))}
                 />
                 <p className="field-hint">
-                  Máximo {lim?.tope_mensual.toLocaleString("es-PE")}. Con este tope: hasta ≈ {usd(costoEstimadoUsd(topeNum || 0))} al mes.
+                  Máximo permitido: {lim?.tope_mensual.toLocaleString("es-PE")} (90 % de tu crédito). Con este tope: hasta ≈{" "}
+                  {usd(costoEstimadoUsd(topeNum || 0, costoMil))} por ciclo.
                 </p>
               </div>
               <div>
@@ -264,11 +282,22 @@ export default function CargaSection() {
                 />
                 <p className="field-hint">Entre 1 y {lim?.maximo_por_corrida.toLocaleString("es-PE")}.</p>
               </div>
+              <div>
+                <label htmlFor="carga-dia" className="field-label">Día en que se reinicia tu crédito de Apify</label>
+                <input
+                  id="carga-dia"
+                  inputMode="numeric"
+                  value={dia}
+                  onChange={e => setDia(e.target.value.replace(/\D/g, ""))}
+                  className="field mono"
+                  aria-invalid={dia !== "" && !(diaNum >= 1 && diaNum <= 28)}
+                />
+                <p className="field-hint">Del 1 al 28. Lo ves en Apify, en Billing (el plan Free muestra «Limit resets on…»).</p>
+              </div>
             </div>
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
               <p className="text-xs text-text-faint">
-                El cupo gratuito de Apify (≈ {avisosEnCupoGratis().toLocaleString("es-PE")} avisos al mes) lo da su plan, no este
-                sistema: mantén el tope por debajo.
+                El actor cuesta ≈ {usd(estado.credito.costo_por_mil)} por 1 000 avisos y el uso de plataforma va incluido.
               </p>
               <button onClick={guardarTopes} disabled={!valido || sinCambios || guardando} className="btn btn-secondary btn-sm">
                 {guardando ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" aria-hidden="true" />}
@@ -344,8 +373,8 @@ export default function CargaSection() {
           onConfirm={cargarAhora}
           onCancel={() => setConfirmar(false)}
         >
-          Se pedirán hasta <strong>{aPedir.toLocaleString("es-PE")}</strong> avisos de Adondevivir a Apify (≈ {usd(costoEstimadoUsd(aPedir))}).
-          Contarán contra el tope de este mes.
+          Se pedirán hasta <strong>{aPedir.toLocaleString("es-PE")}</strong> avisos de Adondevivir a Apify (≈ {usd(costoEstimadoUsd(aPedir, costoMil))}).
+          Contarán contra el tope de este ciclo.
         </ConfirmModal>
       )}
     </div>

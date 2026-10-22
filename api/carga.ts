@@ -15,9 +15,14 @@ export const FUENTE = "adondevivir"
 export const ACTOR_POR_DEFECTO = "gio21~adondevivir-scraper"
 /** Costo por 1 000 avisos del actor (US$); se usa solo para calcular el tope en dólares. */
 export const COSTO_POR_MIL_POR_DEFECTO = 3
-/** Márgenes absolutos: la configuración nunca puede superarlos. */
-export const TOPE_MENSUAL_MAX = 5000
-export const MAXIMO_CORRIDA_MAX = 2000
+/** Crédito gratuito mensual del plan Free de Apify (US$). Se puede ajustar con APIFY_CREDIT_USD. */
+export const CREDITO_USD_POR_DEFECTO = 5
+/** Solo se planea gastar este porcentaje del crédito: el resto queda de colchón (almacenamiento, etc.). */
+export const MARGEN_CREDITO = 0.9
+/** El crédito de Apify se reinicia un día fijo de cada mes (en el plan del usuario, el 23). */
+export const DIA_REINICIO_POR_DEFECTO = 23
+/** Límite duro de la base de datos para el tope mensual. */
+export const TOPE_MENSUAL_ABSOLUTO = 5000
 /** Una corrida sin respuesta pasado este tiempo se da por perdida (su reserva se conserva). */
 export const HORAS_CORRIDA_PERDIDA = 3
 
@@ -35,26 +40,101 @@ export interface CargaConfig {
   pausada: boolean
   tope_mensual: number
   maximo_por_corrida: number
+  /** Día del mes (1 a 28) en que se reinicia el crédito de Apify. */
+  dia_reinicio: number
 }
 
-export type MotivoNoEjecutar = "pausada" | "tope" | "en_curso" | "sin_configurar"
+export type MotivoNoEjecutar = "pausada" | "tope" | "credito" | "en_curso" | "sin_configurar"
 
 export type Plan = { ok: true; items: number } | { ok: false; motivo: MotivoNoEjecutar; detalle: string }
 
+export interface LimitesDeGasto {
+  /** US$ por 1 000 avisos. */
+  costoPorMil: number
+  /** Crédito gratuito del ciclo, en US$. */
+  creditoUsd: number
+}
+
+const LIMITES_POR_DEFECTO: LimitesDeGasto = { costoPorMil: COSTO_POR_MIL_POR_DEFECTO, creditoUsd: CREDITO_USD_POR_DEFECTO }
+
+/** Avisos que caben en el crédito con el margen de seguridad (el 1e-9 evita errores de coma flotante). */
+const avisosQueCaben = (l: LimitesDeGasto) => Math.floor((l.creditoUsd * MARGEN_CREDITO * 1000) / l.costoPorMil + 1e-9)
+
+/** Tope mensual máximo que se acepta: lo que cabe en el crédito con el margen de seguridad. */
+export function topeMensualMaximo(l: LimitesDeGasto = LIMITES_POR_DEFECTO): number {
+  return Math.max(0, Math.min(TOPE_MENSUAL_ABSOLUTO, avisosQueCaben(l)))
+}
+
+/** Gasto estimado, en US$, de haber pedido `avisos` avisos. */
+export const gastoEstimadoUsd = (avisos: number, costoPorMil: number) => (avisos * costoPorMil) / 1000
+
+/**
+ * Avisos que aún se pueden pedir en el ciclo: el menor entre lo que queda del tope configurado
+ * y lo que queda del crédito en dólares (con margen). Son dos barreras independientes.
+ */
+export function cupoRestante(config: CargaConfig, usadoMes: number, l: LimitesDeGasto = LIMITES_POR_DEFECTO) {
+  const topeEfectivo = Math.min(config.tope_mensual, topeMensualMaximo(l))
+  const porTope = topeEfectivo - usadoMes
+  const porCredito = avisosQueCaben(l) - usadoMes
+  return { porTope, porCredito, restante: Math.max(0, Math.min(porTope, porCredito)) }
+}
+
 /** Decide cuántos avisos se pueden pedir ahora (función pura, probada aparte). */
-export function planificar(config: CargaConfig, usadoMes: number, hayCorridaActiva: boolean): Plan {
+export function planificar(
+  config: CargaConfig,
+  usadoMes: number,
+  hayCorridaActiva: boolean,
+  limites: LimitesDeGasto = LIMITES_POR_DEFECTO
+): Plan {
   if (config.pausada) return { ok: false, motivo: "pausada", detalle: "La carga automática está pausada." }
   if (hayCorridaActiva) return { ok: false, motivo: "en_curso", detalle: "Ya hay una carga en curso." }
-  const restante = config.tope_mensual - usadoMes
-  if (restante <= 0) {
-    return { ok: false, motivo: "tope", detalle: `Se alcanzó el tope mensual (${config.tope_mensual} avisos).` }
+  const { porTope, porCredito, restante } = cupoRestante(config, usadoMes, limites)
+  if (porTope <= 0) {
+    return { ok: false, motivo: "tope", detalle: `Se alcanzó el tope del ciclo (${Math.min(config.tope_mensual, topeMensualMaximo(limites))} avisos).` }
+  }
+  if (porCredito <= 0) {
+    return { ok: false, motivo: "credito", detalle: "Se agotó el crédito gratuito planeado de Apify para este ciclo." }
   }
   return { ok: true, items: Math.max(1, Math.min(config.maximo_por_corrida, restante)) }
 }
 
-/** Tope en dólares para una corrida: costo esperado + 25 % de margen, redondeado hacia arriba. */
+/** Tope en dólares para una corrida: costo esperado + 10 % de margen, redondeado hacia arriba. */
 export function topeDolares(items: number, costoPorMil: number): number {
-  return Math.ceil(((items * costoPorMil) / 1000) * 1.25 * 100) / 100 + 0.01
+  return Math.ceil(((items * costoPorMil) / 1000) * 1.1 * 100) / 100 + 0.01
+}
+
+/** Crédito gratuito del ciclo en US$ (APIFY_CREDIT_USD o el del plan Free). */
+export function creditoUsd(env: ApiEnv): number {
+  const n = Number(env.APIFY_CREDIT_USD)
+  return Number.isFinite(n) && n > 0 && n <= 500 ? n : CREDITO_USD_POR_DEFECTO
+}
+
+export function limitesDeGasto(env: ApiEnv): LimitesDeGasto {
+  return { costoPorMil: costoPorMil(env), creditoUsd: creditoUsd(env) }
+}
+
+const pad = (n: number) => String(n).padStart(2, "0")
+
+/**
+ * Ciclo de uso actual: empieza el último día de reinicio ya pasado (hora de Lima, UTC-5 todo el
+ * año) y termina el siguiente. `desde` va listo para comparar con timestamptz.
+ */
+export function ventanaDeUso(diaReinicio: number, ahora: Date = new Date()) {
+  const dia = Math.min(28, Math.max(1, Math.trunc(diaReinicio) || DIA_REINICIO_POR_DEFECTO))
+  const lima = new Date(ahora.getTime() - 5 * 3600 * 1000)
+  let y = lima.getUTCFullYear()
+  let m = lima.getUTCMonth() + 1 // 1 a 12
+  if (lima.getUTCDate() < dia) {
+    m -= 1
+    if (m === 0) {
+      m = 12
+      y -= 1
+    }
+  }
+  const desdeFecha = `${y}-${pad(m)}-${pad(dia)}`
+  const ny = m === 12 ? y + 1 : y
+  const nm = m === 12 ? 1 : m + 1
+  return { desde: `${desdeFecha}T00:00:00-05:00`, desdeFecha, reiniciaFecha: `${ny}-${pad(nm)}-${pad(dia)}` }
 }
 
 export function costoPorMil(env: ApiEnv): number {
@@ -197,20 +277,29 @@ export async function leerDataset(token: string, datasetId: string, limit: numbe
 // ── Estado y uso ─────────────────────────────────────────────────────────────
 
 export async function leerConfig(db: Db): Promise<CargaConfig> {
-  const rows = await db.query<CargaConfig>(
-    "select pausada, tope_mensual, maximo_por_corrida from public.carga_config where id = 1"
-  )
-  return rows[0] ?? { pausada: true, tope_mensual: 1000, maximo_por_corrida: 200 }
+  const defecto: CargaConfig = { pausada: true, tope_mensual: 1000, maximo_por_corrida: 200, dia_reinicio: DIA_REINICIO_POR_DEFECTO }
+  try {
+    const rows = await db.query<CargaConfig>(
+      "select pausada, tope_mensual, maximo_por_corrida, dia_reinicio from public.carga_config where id = 1"
+    )
+    return rows[0] ?? defecto
+  } catch (err) {
+    // Base con la versión anterior de db/007 (sin la columna): se sigue con el día por defecto.
+    if (!/dia_reinicio/.test(String((err as { message?: string })?.message ?? ""))) throw err
+    const rows = await db.query<Omit<CargaConfig, "dia_reinicio">>(
+      "select pausada, tope_mensual, maximo_por_corrida from public.carga_config where id = 1"
+    )
+    return { ...(rows[0] ?? defecto), dia_reinicio: DIA_REINICIO_POR_DEFECTO }
+  }
 }
 
-/** Avisos que cuentan contra el tope en el mes de Lima en curso. */
-export async function usoDelMes(db: Db): Promise<number> {
+/** Avisos que cuentan contra el tope desde el último reinicio del crédito de Apify. */
+export async function usoDelCiclo(db: Db, desde: string): Promise<number> {
   const rows = await db.query<{ usado: number }>(
     `select coalesce(sum(coalesce(avisos_recibidos, avisos_pedidos)), 0)::int as usado
        from public.carga_corridas
-      where fuente = $1
-        and iniciada_en >= (date_trunc('month', now() at time zone 'America/Lima') at time zone 'America/Lima')`,
-    [FUENTE]
+      where fuente = $1 and iniciada_en >= $2::timestamptz`,
+    [FUENTE, desde]
   )
   return rows[0]?.usado ?? 0
 }
@@ -238,13 +327,13 @@ export async function iniciarCarga(
     [FUENTE, HORAS_CORRIDA_PERDIDA]
   )
 
-  const [config, usado, activa, previas] = await Promise.all([
-    leerConfig(db),
-    usoDelMes(db),
+  const config = await leerConfig(db)
+  const [usado, activa, previas] = await Promise.all([
+    usoDelCiclo(db, ventanaDeUso(config.dia_reinicio).desde),
     db.query("select 1 from public.carga_corridas where fuente = $1 and estado = 'iniciada' limit 1", [FUENTE]),
     db.query<{ n: number }>("select count(*)::int as n from public.carga_corridas where fuente = $1", [FUENTE]),
   ])
-  const plan = planificar(config, usado, activa.length > 0)
+  const plan = planificar(config, usado, activa.length > 0, limitesDeGasto(env))
   if (!plan.ok) return plan
 
   const url = elegirUrl(urlsDeBusqueda(env), previas[0]?.n ?? 0)
