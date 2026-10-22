@@ -92,8 +92,16 @@ export default function PropertyCard({
         )}
         style={{ animationDelay: `${Math.min(index, 12) * 40}ms` }}
       >
-        {/* Imagen */}
+        {/* Imagen: al hacer clic abre la vista previa con todas las fotos */}
         <div className="relative aspect-[16/10] overflow-hidden bg-surface-3">
+          {onOpenDetail && (
+            <button
+              type="button"
+              onClick={() => onOpenDetail(id)}
+              className="absolute inset-0 z-[1] cursor-zoom-in focus-visible:ring-2 focus-visible:ring-gold/60"
+              aria-label={`Ver fotos y detalle: ${titulo}`}
+            />
+          )}
           {safeImage ? (
             <img
               src={safeImage}
@@ -109,12 +117,12 @@ export default function PropertyCard({
           )}
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/60 to-transparent" />
 
-          <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-xs font-medium capitalize text-white backdrop-blur-md">
+          <span className="pointer-events-none absolute left-3 top-3 z-[2] inline-flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-xs font-medium capitalize text-white backdrop-blur-md">
             <span className="dot" style={{ color: getPortalColor(portal) }} />
             {portal}
           </span>
 
-          <div className="absolute right-3 top-3 flex items-center gap-2">
+          <div className="absolute right-3 top-3 z-[2] flex items-center gap-2">
             <span
               className="rounded-full px-2.5 py-1 text-[0.6875rem] font-semibold uppercase tracking-wide text-[#10131a]"
               style={{ backgroundColor: getOperacionColor(operacion) }}

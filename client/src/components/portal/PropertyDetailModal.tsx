@@ -1,7 +1,8 @@
-import { ArrowDownRight, ArrowUpRight, Building2, ExternalLink, Heart, Link2, Loader2, MapPin, Minus, Scale, X } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, ExternalLink, Heart, Link2, Loader2, MapPin, Minus, Scale, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { pricePerM2 } from '@shared/area'
+import ImageGallery from '@/components/common/ImageGallery'
 import EnlacesPropiedad from '@/components/properties/EnlacesPropiedad'
 import { useToast } from '@/contexts/ToastContext'
 import { fetchPropertyDetail, type PropertyDetail } from '@/lib/propertiesApi'
@@ -28,7 +29,8 @@ interface PropertyDetailModalProps {
   onToggleFavorite: (id: string) => void
   isCompared: boolean
   compareDisabled: boolean
-  onToggleCompare: (propiedad: Propiedad) => void
+  /** Sin esta función no se ofrece comparar (p. ej. en el panel de administración). */
+  onToggleCompare?: (propiedad: Propiedad) => void
   onClose: () => void
 }
 
@@ -102,7 +104,7 @@ export default function PropertyDetailModal({
     }
   }, [series, price])
 
-  const image = safeHttpUrl(p?.imagen)
+  const fotos = p ? (p.imagenes && p.imagenes.length > 0 ? p.imagenes : [p.imagen]) : []
   const url = safeHttpUrl(p?.url)
   const hasHistory = series.length >= 2
 
@@ -119,7 +121,7 @@ export default function PropertyDetailModal({
           role="dialog"
           aria-modal="true"
           aria-label="Detalle de la propiedad"
-          className="animate-popIn card flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden shadow-2xl"
+          className="animate-popIn card flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden shadow-2xl"
           onClick={e => e.stopPropagation()}
         >
           <div className="flex items-center justify-between border-b border-line px-6 py-4">
@@ -136,15 +138,8 @@ export default function PropertyDetailModal({
             </div>
           ) : (
             <div className="overflow-y-auto">
-              <div className="grid gap-0 md:grid-cols-[1fr_1.1fr]">
-                <div className="relative min-h-[14rem] bg-surface-3">
-                  {image ? (
-                    <img src={image} alt={p.titulo} className="absolute inset-0 size-full object-cover" />
-                  ) : (
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <Building2 className="size-12 text-text-faint" strokeWidth={1.25} />
-                    </div>
-                  )}
+              <div className="grid gap-0 md:grid-cols-[1.35fr_1fr]">
+                <ImageGallery images={fotos} alt={p.titulo} className="md:min-h-[26rem]">
                   <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-xs font-medium capitalize text-white backdrop-blur-md">
                     <span className="dot" style={{ color: getPortalColor(p.portal) }} />
                     {p.portal}
@@ -155,7 +150,7 @@ export default function PropertyDetailModal({
                   >
                     {p.operacion}
                   </span>
-                </div>
+                </ImageGallery>
 
                 <div className="space-y-4 p-6">
                   <h2 className="text-lg font-semibold leading-snug text-text">{p.titulo}</h2>
@@ -327,15 +322,17 @@ export default function PropertyDetailModal({
                   <Heart className={cn('size-4', isFavorite && 'fill-rose text-rose')} />
                   {isFavorite ? 'En favoritos' : 'Favorito'}
                 </button>
-                <button
-                  onClick={() => onToggleCompare(p)}
-                  disabled={compareDisabled && !isCompared}
-                  aria-pressed={isCompared}
-                  className={cn('btn', isCompared ? 'btn-primary' : 'btn-secondary')}
-                >
-                  <Scale className="size-4" />
-                  {isCompared ? 'Quitar de la comparación' : 'Comparar'}
-                </button>
+                {onToggleCompare && (
+                  <button
+                    onClick={() => onToggleCompare(p)}
+                    disabled={compareDisabled && !isCompared}
+                    aria-pressed={isCompared}
+                    className={cn('btn', isCompared ? 'btn-primary' : 'btn-secondary')}
+                  >
+                    <Scale className="size-4" />
+                    {isCompared ? 'Quitar de la comparación' : 'Comparar'}
+                  </button>
+                )}
               </div>
             </div>
           )}

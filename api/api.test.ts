@@ -9,7 +9,7 @@ import { runWatchdog } from "./watchdog"
 
 /**
  * Pruebas de integración: la API completa contra un Postgres real (PGlite) con los scripts
- * db/001_schema.sql a db/007_carga.sql aplicados.
+ * db/001_schema.sql a db/008_imagenes.sql aplicados.
  */
 
 const root = path.resolve(import.meta.dirname, "..")
@@ -74,6 +74,7 @@ beforeAll(async () => {
   await pg.exec(fs.readFileSync(path.join(root, "db/005_sessions_audit.sql"), "utf8"))
   await pg.exec(fs.readFileSync(path.join(root, "db/006_idle_timeout.sql"), "utf8"))
   await pg.exec(fs.readFileSync(path.join(root, "db/007_carga.sql"), "utf8"))
+  await pg.exec(fs.readFileSync(path.join(root, "db/008_imagenes.sql"), "utf8"))
 
   // El admin crea a "cliente" con Premium mediante la propia función SQL.
   admin = (await login("admin", "admin-pass-123")).body.token
@@ -1356,6 +1357,36 @@ describe("carga automática (Apify)", () => {
     expect(r.body.lanzadas.map((l: any) => l.fuente)).toEqual(["adondevivir"])
     expect(r.body.omitidas).toEqual([expect.objectContaining({ fuente: "urbania", motivo: "tope" })])
     await call("PUT", "/api/admin/carga", { token: admin, body: { tope_urbania: 200 } })
+  })
+
+  it("el detalle devuelve todas las fotos guardadas por el webhook, y la portada si es un aviso antiguo", async () => {
+    await pg.exec("update carga_corridas set estado = 'completada', avisos_recibidos = 0 where estado = 'iniciada'")
+    vi.stubGlobal("fetch", apifyOk("run-F1", "ds-F1"))
+    await callApify("POST", "/api/admin/carga/ejecutar", { token: admin, body: { fuente: "urbania" } })
+    const item = {
+      code: "U-FOTOS",
+      propertyTitle: "Depa con fotos",
+      operation_type: "Venta",
+      property_type: "Departamento",
+      price: 100000,
+      currency: "US$",
+      thumbnail: "https://img.urbania.pe/portada.jpg",
+      images: ["https://img.urbania.pe/1.jpg", "https://img.urbania.pe/2.jpg", "https://img.urbania.pe/3.jpg"],
+    }
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify([item]), { status: 200 })))
+    await callApify("POST", "/api/internal/apify-webhook?secret=s3cr3t", {
+      body: { eventType: "ACTOR.RUN.SUCCEEDED", resource: { id: "run-F1", defaultDatasetId: "ds-F1" } },
+    })
+    const d = await call("GET", "/api/propiedades/urbania:U-FOTOS", { token: admin })
+    expect(d.body.propiedad.imagenes).toEqual([
+      "https://img.urbania.pe/portada.jpg",
+      "https://img.urbania.pe/1.jpg",
+      "https://img.urbania.pe/2.jpg",
+      "https://img.urbania.pe/3.jpg",
+    ])
+    // Un aviso sin galería guardada muestra al menos su portada.
+    await pg.exec("update propiedades set imagen = 'https://img.test/solo.jpg', imagenes = '{}' where id = 'urbania:U-FOTOS'")
+    expect((await call("GET", "/api/propiedades/urbania:U-FOTOS", { token: admin })).body.propiedad.imagenes).toEqual(["https://img.test/solo.jpg"])
   })
 
   it("los cambios de configuración y los lanzamientos quedan en la auditoría", async () => {

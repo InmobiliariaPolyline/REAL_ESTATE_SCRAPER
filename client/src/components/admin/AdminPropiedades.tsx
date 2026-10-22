@@ -1,9 +1,11 @@
 import { Bookmark, BookmarkPlus, Building2, Eye, EyeOff, Heart, History, Search, Trash2 } from 'lucide-react'
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import ConfirmModal from '@/components/common/ConfirmModal'
 import EmptyState from '@/components/common/EmptyState'
 import Pagination from '@/components/properties/Pagination'
 import PropertyCard from '@/components/properties/PropertyCard'
+
+const PropertyDetailModal = lazy(() => import('@/components/portal/PropertyDetailModal'))
 import BusquedasGuardadasList, {
   type BusquedaGuardada,
 } from './propiedades/BusquedasGuardadasList'
@@ -20,6 +22,7 @@ export default function AdminPropiedades() {
   const p = useAdminPropiedades()
 
   const [propiedadAEliminar, setPropiedadAEliminar] = useState<string | null>(null)
+  const [detalleId, setDetalleId] = useState<string | null>(null)
   const [busquedaAEliminar, setBusquedaAEliminar] = useState<BusquedaGuardada | null>(null)
   const [showLimpieza, setShowLimpieza] = useState(false)
   const [showGuardar, setShowGuardar] = useState(false)
@@ -168,6 +171,7 @@ export default function AdminPropiedades() {
                   onToggleFavorite={p.toggleFavorite}
                   onView={p.registerView}
                   onDelete={setPropiedadAEliminar}
+                  onOpenDetail={setDetalleId}
                 />
               ))}
             </div>
@@ -183,6 +187,20 @@ export default function AdminPropiedades() {
             />
           )}
         </>
+      )}
+
+      {detalleId && (
+        <Suspense fallback={null}>
+          <PropertyDetailModal
+            propertyId={detalleId}
+            moneda="USD"
+            isFavorite={p.favoritos.has(detalleId)}
+            onToggleFavorite={p.toggleFavorite}
+            isCompared={false}
+            compareDisabled
+            onClose={() => setDetalleId(null)}
+          />
+        </Suspense>
       )}
 
       {propiedadAEliminar && (

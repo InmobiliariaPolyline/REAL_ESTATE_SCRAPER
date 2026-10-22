@@ -355,6 +355,7 @@ export function mapearAviso(item: Record<string, unknown>): Aviso | null {
     banios: num(item.bathrooms) !== undefined ? String(item.bathrooms) : undefined,
     area: area ? `${area} m2` : undefined,
     imagen: str(item.image) ?? str(item.imageUrl),
+    imagenes: fotosDe(item),
     url: str(item.url),
   }
 }
@@ -367,6 +368,20 @@ function distritoUrbania(item: Record<string, unknown>): string | undefined {
     .filter(p => p && !/^peru\b/i.test(p))
   const distrito = partes.length > 0 ? partes[Math.max(0, partes.length - 3)] : undefined
   return distrito && !/^s\/?n$/i.test(distrito) ? distrito : str(item.location_name)
+}
+
+/** Fotos de un registro: listas de textos o de objetos con `url`/`src`, en cualquiera de los campos habituales. */
+export function fotosDe(item: Record<string, unknown>): string[] {
+  const salida: string[] = []
+  for (const campo of ["images", "imageUrls", "photos", "pictures", "gallery"]) {
+    const lista = item[campo]
+    if (!Array.isArray(lista)) continue
+    for (const f of lista) {
+      const url = typeof f === "string" ? f : str((f as Record<string, unknown> | null)?.url) ?? str((f as Record<string, unknown> | null)?.src)
+      if (url) salida.push(url)
+    }
+  }
+  return salida
 }
 
 /** Convierte un registro del actor de Urbania (`sian.agency`) en un aviso del sistema. */
@@ -400,6 +415,7 @@ export function mapearAvisoUrbania(item: Record<string, unknown>): Aviso | null 
     banios: num(item.bathrooms) !== undefined ? String(item.bathrooms) : undefined,
     area: area ? `${area} m2` : undefined,
     imagen: str(item.thumbnail) ?? str(imagenes[0]),
+    imagenes: fotosDe(item),
     url: str(item.url),
   }
 }

@@ -35,6 +35,8 @@ export interface Propiedad {
   banios: string
   area: string
   imagen: string | null
+  /** Todas las fotos del aviso (solo en el detalle). */
+  imagenes?: string[]
   url: string
   creado_en?: string
 }

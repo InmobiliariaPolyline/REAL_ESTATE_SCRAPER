@@ -23,6 +23,16 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "1.11.0",
+    fecha: "2026-10-22",
+    titulo: "Vista previa de propiedades con galería de fotos",
+    cambios: [
+      { tipo: "implementacion", texto: "Al hacer clic en la foto de una tarjeta se abre la vista previa con la galería: foto grande, flechas, contador, miniaturas que se desplazan cuando hay muchas y control con el teclado." },
+      { tipo: "implementacion", texto: "La carga guarda todas las fotos de cada aviso (hasta 20) en la nueva columna imagenes (db/008_imagenes.sql); los avisos ya cargados muestran su portada hasta que se vuelvan a cargar." },
+      { tipo: "mejora", texto: "El administrador también puede abrir la vista previa desde Propiedades; el botón de comparar solo aparece en el portal." },
+    ],
+  },
+  {
     version: "1.10.1",
     fecha: "2026-10-22",
     titulo: "La carga trae todas las fuentes a la vez",

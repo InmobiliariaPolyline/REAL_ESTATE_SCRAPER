@@ -7,7 +7,7 @@ Guía para dejar funcionando la carga de avisos de Adondevivir. Son **5 pasos** 
 
 ## 1. Base de datos (Neon)
 
-En el **SQL Editor** de Neon pega y ejecuta el contenido de `db/007_carga.sql` (es seguro repetirlo,
+En el **SQL Editor** de Neon pega y ejecuta el contenido de `db/007_carga.sql` y, para la galería de fotos de la vista previa, `db/008_imagenes.sql` (es seguro repetirlo,
 también si ya lo ejecutaste antes: añade la columna del día de reinicio). Crea la configuración
 (empieza **pausada**) y el historial de cargas.
 

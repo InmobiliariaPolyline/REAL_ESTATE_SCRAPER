@@ -22,6 +22,8 @@ export interface Aviso {
   banios?: string
   area?: string
   imagen?: string
+  /** Todas las fotos del aviso, en orden (si se omite, solo `imagen`). */
+  imagenes?: string[]
   url?: string
 }
 
@@ -40,12 +42,26 @@ export interface FilaPropiedad {
   banios: string | null
   area: string | null
   imagen: string | null
+  imagenes: string[]
   url: string | null
 }
 
 const clean = (v: string | undefined) => {
   const t = v?.trim()
   return t ? t : null
+}
+/** Máximo de fotos que se guardan por aviso. */
+export const MAX_FOTOS = 20
+
+/** Fotos válidas (http/https), sin repetir y en orden; la portada va primero. */
+export function normalizarFotos(portada: string | undefined, fotos: string[] | undefined): string[] {
+  const salida: string[] = []
+  for (const f of [portada, ...(fotos ?? [])]) {
+    const u = safeHttpUrl(f)
+    if (u && !salida.includes(u)) salida.push(u)
+    if (salida.length >= MAX_FOTOS) break
+  }
+  return salida
 }
 const money = (n: number | undefined) => (Number.isFinite(n) && (n as number) > 0 ? (n as number) : 0)
 
@@ -63,6 +79,7 @@ export function normalizarAviso(
   let precioUsd = money(aviso.precioUsd)
   if (!precioUsd && precio) precioUsd = moneda === "USD" ? precio : precio / usdToPen
 
+  const imagenes = normalizarFotos(aviso.imagen, aviso.imagenes)
   return {
     id: `${aviso.portal}:${codigo}`,
     portal: aviso.portal,
@@ -76,7 +93,8 @@ export function normalizarAviso(
     dormitorios: clean(aviso.dormitorios),
     banios: clean(aviso.banios),
     area: clean(aviso.area),
-    imagen: safeHttpUrl(aviso.imagen),
+    imagen: imagenes[0] ?? null,
+    imagenes,
     url: safeHttpUrl(aviso.url),
   }
 }
@@ -89,8 +107,25 @@ export interface Db {
 const CHUNK = 200
 const COLUMNAS = [
   "id", "portal", "operacion", "inmueble", "titulo", "precio", "precio_usd", "moneda",
-  "distrito", "dormitorios", "banios", "area", "imagen", "url",
+  "distrito", "dormitorios", "banios", "area", "imagen", "url", "imagenes",
 ] as const
+
+async function insertarLote(db: Db, lote: FilaPropiedad[], columnas: readonly (typeof COLUMNAS)[number][]) {
+  const params: unknown[] = []
+  const valores = lote.map(fila => {
+    const base = params.length
+    for (const col of columnas) params.push(fila[col])
+    return `(${columnas.map((_, j) => `$${base + j + 1}`).join(", ")}, now(), now())`
+  })
+  await db.query(
+    `insert into public.propiedades (${columnas.join(", ")}, creado_en, ultima_vista_en)
+     values ${valores.join(", ")}
+     on conflict (id) do update set
+       ${columnas.filter(c => c !== "id").map(c => `${c} = excluded.${c}`).join(", ")},
+       ultima_vista_en = now()`,
+    params
+  )
+}
 
 /**
  * UPSERT por `id` (ver docs/INGESTA.md): `creado_en` no se toca y `ultima_vista_en` se refresca
@@ -111,22 +146,20 @@ export async function guardarAvisos(
   }
 
   const lista = [...filas.values()]
+  // Sin la migración 008 (columna `imagenes`) se sigue guardando todo, solo sin la galería.
+  let columnas: readonly (typeof COLUMNAS)[number][] = COLUMNAS
   for (let i = 0; i < lista.length; i += CHUNK) {
     const lote = lista.slice(i, i + CHUNK)
-    const params: unknown[] = []
-    const valores = lote.map(fila => {
-      const base = params.length
-      for (const col of COLUMNAS) params.push(fila[col])
-      return `(${COLUMNAS.map((_, j) => `$${base + j + 1}`).join(", ")}, now(), now())`
-    })
-    await db.query(
-      `insert into public.propiedades (${COLUMNAS.join(", ")}, creado_en, ultima_vista_en)
-       values ${valores.join(", ")}
-       on conflict (id) do update set
-         ${COLUMNAS.filter(c => c !== "id").map(c => `${c} = excluded.${c}`).join(", ")},
-         ultima_vista_en = now()`,
-      params
-    )
+    try {
+      await insertarLote(db, lote, columnas)
+    } catch (err) {
+      if (columnas === COLUMNAS && /\bimagenes\b/.test(String((err as { message?: string })?.message ?? ""))) {
+        columnas = COLUMNAS.filter(c => c !== "imagenes")
+        await insertarLote(db, lote, columnas)
+      } else {
+        throw err
+      }
+    }
   }
   return { guardados: lista.length, descartados }
 }

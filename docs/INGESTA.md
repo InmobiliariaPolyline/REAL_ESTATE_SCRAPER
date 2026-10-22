@@ -23,6 +23,7 @@ necesita que quien cargue los datos escriba en `public.propiedades` con estas re
 | `operacion` | text | `VENTA` o `ALQUILER` (mayúsculas). |
 | `inmueble` | text | `Departamento`, `Casa`, ... |
 | `titulo`, `distrito`, `dormitorios`, `banios`, `area`, `imagen`, `url` | text | `url` e `imagen` deben ser http(s). |
+| `imagenes` | text[] | Todas las fotos del aviso (http/https, hasta 20; la portada va primero). Requiere `db/008_imagenes.sql`; sin ella todo se guarda igual, solo sin galería. |
 | `precio` | numeric | Precio publicado, en la moneda de `moneda`. `0` si no tiene. |
 | `moneda` | text | `PEN` o `USD`. |
 | `precio_usd` | numeric | Precio normalizado a USD con el tipo de cambio de SUNAT. `0` si no tiene. |

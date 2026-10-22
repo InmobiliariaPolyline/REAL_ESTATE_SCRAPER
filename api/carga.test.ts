@@ -11,6 +11,7 @@ import {
   cupoRestante,
   elegirActor,
   elegirFuente,
+  fotosDe,
   fuentesDeCarga,
   mapearAvisoUrbania,
   elegirUrl,
@@ -539,5 +540,29 @@ describe("mapearAvisoUrbania", () => {
     expect(mapearAvisoUrbania({ ...real, propertyTitle: undefined, title: undefined })).toBeNull()
     expect(mapearAvisoUrbania({ ...real, code: undefined, id: undefined })).toBeNull()
     expect(mapearAvisoUrbania({ ...real, operation_type: "Traspaso" })).toBeNull()
+  })
+})
+
+describe("fotos de los avisos", () => {
+  it("fotosDe lee listas de textos y de objetos con url o src", () => {
+    expect(fotosDe({ images: ["https://a/1.jpg", { url: "https://a/2.jpg" }, { src: "https://a/3.jpg" }, 5, null] })).toEqual([
+      "https://a/1.jpg",
+      "https://a/2.jpg",
+      "https://a/3.jpg",
+    ])
+    expect(fotosDe({ photos: ["https://b/1.jpg"] })).toEqual(["https://b/1.jpg"])
+    expect(fotosDe({})).toEqual([])
+  })
+
+  it("Urbania guarda todas sus fotos, con la miniatura de portada primero", () => {
+    const aviso = mapearAvisoUrbania({
+      code: "U-1",
+      propertyTitle: "Depa",
+      operation_type: "Venta",
+      thumbnail: "https://img/t.jpg",
+      images: ["https://img/1.jpg", "https://img/2.jpg"],
+    })
+    expect(aviso!.imagen).toBe("https://img/t.jpg")
+    expect(aviso!.imagenes).toEqual(["https://img/1.jpg", "https://img/2.jpg"])
   })
 })

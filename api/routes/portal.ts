@@ -129,7 +129,17 @@ export const portalRoutes: Route[] = [
         // Sin la migración 004 el detalle sigue funcionando, solo sin historial.
         if (!isMissingTable(err)) throw err
       }
-      return { propiedad: rows[0], historial }
+
+      // Fotos del aviso; sin la migración 008 se muestra solo la portada.
+      let imagenes: string[] = []
+      try {
+        imagenes = (await db.query<{ imagenes: string[] | null }>("select imagenes from public.propiedades where id = $1", [params.id]))[0]?.imagenes ?? []
+      } catch (err) {
+        if (!/\bimagenes\b/.test(String((err as { message?: string })?.message ?? ""))) throw err
+      }
+      const portada = (rows[0] as { imagen: string | null }).imagen
+      if (imagenes.length === 0 && portada) imagenes = [portada]
+      return { propiedad: { ...rows[0], imagenes }, historial }
     },
   },
 

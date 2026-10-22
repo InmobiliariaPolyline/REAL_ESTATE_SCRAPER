@@ -101,3 +101,22 @@ describe("guardarAvisos", () => {
     expect((await guardarAvisos(db, muchos)).guardados).toBe(450)
   })
 })
+
+describe("fotos del aviso", () => {
+  const base = { portal: "urbania", codigo: "F1", operacion: "VENTA", inmueble: "Casa" } as const
+
+  it("la portada va primero, sin repetir, solo http(s) y hasta 20", () => {
+    const fotos = Array.from({ length: 30 }, (_, i) => `https://img/${i}.jpg`)
+    const fila = normalizarAviso({ ...base, imagen: "https://img/5.jpg", imagenes: ["javascript:alert(1)", ...fotos] })!
+    expect(fila.imagen).toBe("https://img/5.jpg")
+    expect(fila.imagenes).toHaveLength(20)
+    expect(fila.imagenes[0]).toBe("https://img/5.jpg")
+    expect(new Set(fila.imagenes).size).toBe(20)
+    expect(fila.imagenes.every(u => u.startsWith("https://"))).toBe(true)
+  })
+
+  it("sin lista usa solo la portada; sin nada queda vacío", () => {
+    expect(normalizarAviso({ ...base, imagen: "https://img/a.jpg" })!.imagenes).toEqual(["https://img/a.jpg"])
+    expect(normalizarAviso(base)).toMatchObject({ imagen: null, imagenes: [] })
+  })
+})
