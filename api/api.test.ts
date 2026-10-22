@@ -1099,17 +1099,17 @@ describe("carga automática (Apify)", () => {
 
     const ok = await callApify("POST", "/api/internal/apify-webhook?secret=s3cr3t", { body: evento })
     expect(ok.status).toBe(200)
-    expect(ok.body).toMatchObject({ procesada: true, recibidos: 2, guardados: 1 })
+    expect(ok.body).toMatchObject({ procesada: true, recibidos: 1, guardados: 1 }) // el aviso «no-listings» no es un aviso
 
     const { rows } = await pg.query<{ portal: string; precio: string; precio_usd: string }>(
       "select portal, precio::text, precio_usd::text from propiedades where id = 'adondevivir:900001'"
     )
     expect(rows[0]).toMatchObject({ portal: "adondevivir", precio: "2500", precio_usd: "625" }) // 2500 / 4
 
-    // Ahora cuentan los avisos recibidos (2), no los pedidos (50).
+    // Ahora cuentan los avisos recibidos (1), no los pedidos (50).
     const estado = (await callApify("GET", "/api/admin/carga", { token: admin })).body
-    expect(estado).toMatchObject({ usado: 2 })
-    expect(estado.credito.gasto_usd).toBeCloseTo(0.006, 3) // sin datos de Apify: 2 avisos x US$ 0.003
+    expect(estado).toMatchObject({ usado: 1 })
+    expect(estado.credito.gasto_usd).toBeCloseTo(0.003, 3) // sin datos de Apify: 1 aviso x US$ 0.003
 
     // Apify puede reenviar el aviso: no se procesa dos veces.
     const repetido = await callApify("POST", "/api/internal/apify-webhook?secret=s3cr3t", { body: evento })
@@ -1121,8 +1121,8 @@ describe("carga automática (Apify)", () => {
     const fetchMock = apifyOk("run-B", "ds-B")
     vi.stubGlobal("fetch", fetchMock)
     const r = await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })
-    expect(r.body).toEqual({ ok: true, items: 3 }) // tope 5 - usado 2
-    expect(new URL((lanzamientos(fetchMock)[0] as unknown as [string])[0]).searchParams.get("maxItems")).toBe("3")
+    expect(r.body).toEqual({ ok: true, items: 4 }) // tope 5 - usado 1
+    expect(new URL((lanzamientos(fetchMock)[0] as unknown as [string])[0]).searchParams.get("maxItems")).toBe("4")
   })
 
   it("una corrida fallida igual guarda lo que alcanzó a entregar y cuenta lo recibido", async () => {
@@ -1205,6 +1205,41 @@ describe("carga automática (Apify)", () => {
     vi.stubGlobal("fetch", apifyOk("x", "y", 0, 5))
     expect((await callApify("PUT", "/api/admin/carga", { token: admin, body: { tope_mensual: 3000 } })).status).toBe(400)
     await callApify("PUT", "/api/admin/carga", { token: admin, body: { tope_mensual: 100 } })
+  })
+
+  it("un timeout del sitio queda como corrida fallida con el motivo y NO cuenta como avisos recibidos", async () => {
+    await pg.exec("update carga_corridas set estado = 'completada', avisos_recibidos = 0 where estado = 'iniciada'")
+    await call("PUT", "/api/admin/carga", { token: admin, body: { pausada: false, tope_mensual: 1000, maximo_por_corrida: 200 } })
+    vi.stubGlobal("fetch", apifyOk("run-T", "ds-T", 0))
+    expect((await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })).status).toBe(200)
+
+    // Lo mismo que se vio en producción: el actor termina bien pero entrega un único registro de error.
+    const error = [{ url: "https://www.adondevivir.com/departamentos-en-venta.html", error: "fetch-failed", message: "The operation was aborted due to timeout" }]
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(error), { status: 200 })))
+    const r = await callApify("POST", "/api/internal/apify-webhook?secret=s3cr3t", {
+      body: { eventType: "ACTOR.RUN.SUCCEEDED", resource: { id: "run-T", defaultDatasetId: "ds-T" } },
+    })
+    expect(r.body).toMatchObject({ procesada: true, recibidos: 0, guardados: 0, errores: 1 })
+
+    const { rows } = await pg.query<{ estado: string; avisos_recibidos: number; detalle: string }>(
+      "select estado, avisos_recibidos, detalle from carga_corridas where run_id = 'run-T'"
+    )
+    expect(rows[0]).toMatchObject({ estado: "fallida", avisos_recibidos: 0 })
+    expect(rows[0].detalle).toContain("timeout")
+  })
+
+  it("una búsqueda sin resultados queda completada, sin avisos y con su explicación", async () => {
+    await pg.exec("update carga_corridas set estado = 'completada', avisos_recibidos = 0 where estado = 'iniciada'")
+    vi.stubGlobal("fetch", apifyOk("run-N", "ds-N", 0))
+    expect((await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })).status).toBe(200)
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify([{ type: "no-listings" }]), { status: 200 })))
+    await callApify("POST", "/api/internal/apify-webhook?secret=s3cr3t", {
+      body: { eventType: "ACTOR.RUN.SUCCEEDED", resource: { id: "run-N", defaultDatasetId: "ds-N" } },
+    })
+    const { rows } = await pg.query<{ estado: string; avisos_recibidos: number; detalle: string }>(
+      "select estado, avisos_recibidos, detalle from carga_corridas where run_id = 'run-N'"
+    )
+    expect(rows[0]).toEqual({ estado: "completada", avisos_recibidos: 0, detalle: "Esa búsqueda no devolvió avisos" })
   })
 
   it("los cambios de configuración y los lanzamientos quedan en la auditoría", async () => {

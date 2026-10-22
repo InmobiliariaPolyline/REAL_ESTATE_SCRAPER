@@ -23,6 +23,15 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "1.8.3",
+    fecha: "2026-10-22",
+    titulo: "Historial de cargas más fiel",
+    cambios: [
+      { tipo: "correccion", texto: "Un fallo del sitio (por ejemplo un timeout) ya no se cuenta como aviso recibido: la corrida queda «Fallida» con el motivo en el historial." },
+      { tipo: "mejora", texto: "Una búsqueda sin resultados queda «Completada» con la explicación, y los errores de páginas sueltas se indican sin ocultar los avisos buenos." },
+    ],
+  },
+  {
     version: "1.8.2",
     fecha: "2026-10-22",
     titulo: "Carga de datos más simple y con datos reales",

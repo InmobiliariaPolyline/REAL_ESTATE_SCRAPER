@@ -438,6 +438,31 @@ export async function iniciarCarga(
   }
 }
 
+/** Separa los avisos reales de los registros que el actor usa para avisar de un problema. */
+export function separarResultados(items: Record<string, unknown>[]) {
+  const errores = items.filter(i => typeof i.error === "string")
+  const validos = items.filter(i => typeof i.error !== "string" && i.type !== "no-listings")
+  return { validos, errores }
+}
+
+/** Resultado legible de una corrida: estado y explicación (null si todo salió normal). */
+export function veredicto(
+  exito: boolean,
+  evento: string | undefined,
+  validos: number,
+  errores: Record<string, unknown>[]
+): { estado: "completada" | "fallida"; detalle: string | null } {
+  const motivoError = () => {
+    const m = String(errores[0]?.message ?? errores[0]?.error ?? "error desconocido")
+    return `Adondevivir no respondió bien (${m.slice(0, 120)})`
+  }
+  if (!exito) return { estado: "fallida", detalle: evento ?? "fallo" }
+  if (validos === 0 && errores.length > 0) return { estado: "fallida", detalle: motivoError() }
+  if (validos === 0) return { estado: "completada", detalle: "Esa búsqueda no devolvió avisos" }
+  if (errores.length > 0) return { estado: "completada", detalle: `${errores.length} página(s) fallaron` }
+  return { estado: "completada", detalle: null }
+}
+
 export interface EventoApify {
   eventType?: string
   resource?: { id?: string; defaultDatasetId?: string; status?: string }
@@ -459,16 +484,20 @@ export async function procesarResultado(db: Db, env: ApiEnv, evento: EventoApify
   const exito = evento.eventType === "ACTOR.RUN.SUCCEEDED"
   try {
     // Aunque la corrida falle, lo que alcanzó a entregar ya se cobró: se guarda y se cuenta.
-    const items = (await leerDataset(env.APIFY_TOKEN, datasetId, corrida.avisos_pedidos)).slice(0, corrida.avisos_pedidos)
-    const avisos = items.map(mapearAviso).filter((a): a is Aviso => a !== null)
+    const crudos = (await leerDataset(env.APIFY_TOKEN, datasetId, corrida.avisos_pedidos)).slice(0, corrida.avisos_pedidos)
+    const { validos, errores } = separarResultados(crudos)
+    const avisos = validos.map(mapearAviso).filter((a): a is Aviso => a !== null)
     const { guardados } = avisos.length > 0 ? await guardarAvisos(db, avisos, usdToPenRate(env)) : { guardados: 0 }
+
+    // Los registros de error del actor no son avisos ni se cobran: no cuentan como recibidos.
+    const { estado, detalle } = veredicto(exito, evento.eventType, validos.length, errores)
     await db.query(
       `update public.carga_corridas
           set estado = $2, avisos_recibidos = $3, avisos_guardados = $4, finalizada_en = now(), detalle = $5
         where id = $1`,
-      [corrida.id, exito ? "completada" : "fallida", items.length, guardados, exito ? null : (evento.eventType ?? "fallo")]
+      [corrida.id, estado, validos.length, guardados, detalle]
     )
-    return { procesada: true as const, recibidos: items.length, guardados }
+    return { procesada: true as const, recibidos: validos.length, guardados, errores: errores.length }
   } catch (err) {
     console.error("No se pudo procesar el resultado de Apify:", err)
     // Se conserva la reserva (avisos_recibidos queda null) y se marca para revisión.

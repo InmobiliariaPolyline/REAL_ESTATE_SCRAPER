@@ -11,10 +11,12 @@ import {
   leerEstadoApify,
   mapearAviso,
   planificar,
+  separarResultados,
   sitioPublico,
   topeDolares,
   topeMensualMaximo,
   urlsDeBusqueda,
+  veredicto,
   ventanaDeUso,
   type CargaConfig,
 } from "./carga"
@@ -310,5 +312,41 @@ describe("estado real de Apify", () => {
       vi.stubGlobal("fetch", f)
       expect(await leerEstadoApify("t")).toBeNull()
     }
+  })
+})
+
+describe("resultados del actor: avisos reales frente a errores", () => {
+  const aviso = { id: "1", title: "Depa", operationType: "Venta" }
+  const error = { url: "https://www.adondevivir.com/x.html", error: "fetch-failed", message: "The operation was aborted due to timeout" }
+
+  it("separa los avisos de los registros de error y de «sin resultados»", () => {
+    const r = separarResultados([aviso, error, { type: "no-listings" }, { ...aviso, id: "2" }])
+    expect(r.validos).toHaveLength(2)
+    expect(r.errores).toHaveLength(1)
+  })
+
+  it("un timeout sin ningún aviso es una corrida fallida y explica el motivo", () => {
+    const v = veredicto(true, "ACTOR.RUN.SUCCEEDED", 0, [error])
+    expect(v.estado).toBe("fallida")
+    expect(v.detalle).toContain("no respondió bien")
+    expect(v.detalle).toContain("timeout")
+  })
+
+  it("una búsqueda sin avisos no es un fallo", () => {
+    expect(veredicto(true, "ACTOR.RUN.SUCCEEDED", 0, [])).toEqual({ estado: "completada", detalle: "Esa búsqueda no devolvió avisos" })
+  })
+
+  it("con avisos y algún error queda completada con aviso; sin errores, sin detalle", () => {
+    expect(veredicto(true, "ACTOR.RUN.SUCCEEDED", 50, [error])).toEqual({ estado: "completada", detalle: "1 página(s) fallaron" })
+    expect(veredicto(true, "ACTOR.RUN.SUCCEEDED", 50, [])).toEqual({ estado: "completada", detalle: null })
+  })
+
+  it("si Apify avisa de un fallo del actor, la corrida es fallida", () => {
+    expect(veredicto(false, "ACTOR.RUN.TIMED_OUT", 3, [])).toEqual({ estado: "fallida", detalle: "ACTOR.RUN.TIMED_OUT" })
+  })
+
+  it("el mensaje de error se recorta para no llenar el historial", () => {
+    const largo = veredicto(true, "ACTOR.RUN.SUCCEEDED", 0, [{ error: "x", message: "m".repeat(500) }])
+    expect((largo.detalle ?? "").length).toBeLessThan(200)
   })
 })
