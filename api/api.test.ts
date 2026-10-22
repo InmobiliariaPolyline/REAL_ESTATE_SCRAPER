@@ -1072,9 +1072,9 @@ describe("carga automática (Apify)", () => {
     const fetchMock = apifyOk("run-A", "ds-A")
     vi.stubGlobal("fetch", fetchMock)
 
-    const r = await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })
+    const r = await callApify("POST", "/api/admin/carga/ejecutar", { token: admin, body: { fuente: "adondevivir" } })
     expect(r.status).toBe(200)
-    expect(r.body).toEqual({ ok: true, items: 50 })
+    expect(r.body).toEqual({ ok: true, items: 50, fuente: "adondevivir" })
 
     const u = new URL((lanzamientos(fetchMock)[0] as unknown as [string])[0])
     expect(u.searchParams.get("maxItems")).toBe("50")
@@ -1082,7 +1082,7 @@ describe("carga automática (Apify)", () => {
 
     // Reserva inmediata: cuenta contra el tope aunque Apify aún no haya respondido.
     expect((await callApify("GET", "/api/admin/carga", { token: admin })).body).toMatchObject({ usado: 50, restante: 50 })
-    expect((await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })).status).toBe(409)
+    expect((await callApify("POST", "/api/admin/carga/ejecutar", { token: admin, body: { fuente: "adondevivir" } })).status).toBe(409)
     expect(lanzamientos(fetchMock)).toHaveLength(1)
   })
 
@@ -1120,8 +1120,8 @@ describe("carga automática (Apify)", () => {
     await call("PUT", "/api/admin/carga", { token: admin, body: { pausada: false, tope_mensual: 5, maximo_por_corrida: 50 } })
     const fetchMock = apifyOk("run-B", "ds-B")
     vi.stubGlobal("fetch", fetchMock)
-    const r = await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })
-    expect(r.body).toEqual({ ok: true, items: 4 }) // tope 5 - usado 1
+    const r = await callApify("POST", "/api/admin/carga/ejecutar", { token: admin, body: { fuente: "adondevivir" } })
+    expect(r.body).toEqual({ ok: true, items: 4, fuente: "adondevivir" }) // tope 5 - usado 1
     expect(new URL((lanzamientos(fetchMock)[0] as unknown as [string])[0]).searchParams.get("maxItems")).toBe("4")
   })
 
@@ -1140,7 +1140,7 @@ describe("carga automática (Apify)", () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("no autorizado", { status: 401 })))
     vi.spyOn(console, "error").mockImplementation(() => {})
 
-    const r = await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })
+    const r = await callApify("POST", "/api/admin/carga/ejecutar", { token: admin, body: { fuente: "adondevivir" } })
     expect(r.status).toBe(502)
     expect(JSON.stringify(r.body)).not.toContain("tok")
     expect((await callApify("GET", "/api/admin/carga", { token: admin })).body.usado).toBe(antes)
@@ -1152,7 +1152,7 @@ describe("carga automática (Apify)", () => {
     const antes = (await callApify("GET", "/api/admin/carga", { token: admin })).body.usado
 
     vi.stubGlobal("fetch", apifyOk("run-C", "ds-C"))
-    const r = await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })
+    const r = await callApify("POST", "/api/admin/carga/ejecutar", { token: admin, body: { fuente: "adondevivir" } })
     expect(r.status).toBe(200)
 
     const { rows } = await pg.query<{ estado: string }>("select estado from carga_corridas where run_id = 'run-perdida'")
@@ -1184,8 +1184,8 @@ describe("carga automática (Apify)", () => {
     // La cuenta ya gastó US$ 4.40 (p. ej. con pruebas manuales): solo caben 33 avisos más.
     const f = apifyOk("run-D", "ds-D", 4.4)
     vi.stubGlobal("fetch", f)
-    const r = await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })
-    expect(r.body).toEqual({ ok: true, items: 33 })
+    const r = await callApify("POST", "/api/admin/carga/ejecutar", { token: admin, body: { fuente: "adondevivir" } })
+    expect(r.body).toEqual({ ok: true, items: 33, fuente: "adondevivir" })
     expect(new URL((lanzamientos(f)[0] as unknown as [string])[0]).searchParams.get("maxItems")).toBe("33")
   })
 
@@ -1193,7 +1193,7 @@ describe("carga automática (Apify)", () => {
     await pg.exec("update carga_corridas set estado = 'completada', avisos_recibidos = 0 where estado = 'iniciada'")
     const f = apifyOk("run-E", "ds-E", 4.5)
     vi.stubGlobal("fetch", f)
-    const r = await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })
+    const r = await callApify("POST", "/api/admin/carga/ejecutar", { token: admin, body: { fuente: "adondevivir" } })
     expect(r.status).toBe(409)
     expect(r.body.error).toBe("carga_credito")
     expect(lanzamientos(f)).toHaveLength(0)
@@ -1211,7 +1211,7 @@ describe("carga automática (Apify)", () => {
     await pg.exec("update carga_corridas set estado = 'completada', avisos_recibidos = 0 where estado = 'iniciada'")
     await call("PUT", "/api/admin/carga", { token: admin, body: { pausada: false, tope_mensual: 1000, maximo_por_corrida: 200 } })
     vi.stubGlobal("fetch", apifyOk("run-T", "ds-T", 0))
-    expect((await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })).status).toBe(200)
+    expect((await callApify("POST", "/api/admin/carga/ejecutar", { token: admin, body: { fuente: "adondevivir" } })).status).toBe(200)
 
     // Lo mismo que se vio en producción: el actor termina bien pero entrega un único registro de error.
     const error = [{ url: "https://www.adondevivir.com/departamentos-en-venta.html", error: "fetch-failed", message: "The operation was aborted due to timeout" }]
@@ -1231,7 +1231,7 @@ describe("carga automática (Apify)", () => {
   it("una búsqueda sin resultados queda completada, sin avisos y con su explicación", async () => {
     await pg.exec("update carga_corridas set estado = 'completada', avisos_recibidos = 0 where estado = 'iniciada'")
     vi.stubGlobal("fetch", apifyOk("run-N", "ds-N", 0))
-    expect((await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })).status).toBe(200)
+    expect((await callApify("POST", "/api/admin/carga/ejecutar", { token: admin, body: { fuente: "adondevivir" } })).status).toBe(200)
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify([{ type: "no-listings" }]), { status: 200 })))
     await callApify("POST", "/api/internal/apify-webhook?secret=s3cr3t", {
       body: { eventType: "ACTOR.RUN.SUCCEEDED", resource: { id: "run-N", defaultDatasetId: "ds-N" } },
@@ -1259,8 +1259,8 @@ describe("carga automática (Apify)", () => {
     // 2) La siguiente va al respaldo: tope de 10 avisos y costo propio.
     const f1 = apifyOk("run-R1", "ds-R1")
     vi.stubGlobal("fetch", f1)
-    const r1 = await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })
-    expect(r1.body).toEqual({ ok: true, items: 10 })
+    const r1 = await callApify("POST", "/api/admin/carga/ejecutar", { token: admin, body: { fuente: "adondevivir" } })
+    expect(r1.body).toEqual({ ok: true, items: 10, fuente: "adondevivir" })
     const [url1, init1] = lanzamientos(f1)[0] as unknown as [string, RequestInit]
     expect(url1).toContain("/acts/scrapers_lat~adondevivir-scraper/runs")
     expect(new URL(url1).searchParams.get("maxItems")).toBe("10")
@@ -1271,7 +1271,7 @@ describe("carga automática (Apify)", () => {
     await webhook("run-R1", "ds-R1", fallo)
     const f2 = apifyOk("run-R2", "ds-R2")
     vi.stubGlobal("fetch", f2)
-    const r2 = await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })
+    const r2 = await callApify("POST", "/api/admin/carga/ejecutar", { token: admin, body: { fuente: "adondevivir" } })
     expect(r2.body).toMatchObject({ ok: true })
     expect((lanzamientos(f2)[0] as unknown as [string])[0]).toContain("/acts/gio21~adondevivir-scraper/runs")
 
@@ -1280,12 +1280,63 @@ describe("carga automática (Apify)", () => {
     await webhook("run-R2", "ds-R2", [aviso])
     const f3 = apifyOk("run-R3", "ds-R3")
     vi.stubGlobal("fetch", f3)
-    await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })
+    await callApify("POST", "/api/admin/carga/ejecutar", { token: admin, body: { fuente: "adondevivir" } })
     expect((lanzamientos(f3)[0] as unknown as [string])[0]).toContain("/acts/gio21~adondevivir-scraper/runs")
 
     // El historial muestra qué actor hizo cada corrida.
     const lista = (await callApify("GET", "/api/admin/carga", { token: admin })).body.corridas
     expect(lista.map((c: any) => c.actor)).toEqual(expect.arrayContaining(["scrapers_lat~adondevivir-scraper", "gio21~adondevivir-scraper"]))
+  })
+
+  it("Urbania: tope propio, corrida de 25 avisos con su tarifa, y sus avisos se guardan como portal urbania", async () => {
+    await pg.exec("update carga_corridas set estado = 'completada', avisos_recibidos = 0 where estado = 'iniciada'")
+    const put = await call("PUT", "/api/admin/carga", { token: admin, body: { pausada: false, tope_urbania: 60 } })
+    expect(put.body).toMatchObject({ tope_urbania: 60 })
+    expect((await call("PUT", "/api/admin/carga", { token: admin, body: { tope_urbania: 999999 } })).status).toBe(400)
+
+    const f = apifyOk("run-U1", "ds-U1")
+    vi.stubGlobal("fetch", f)
+    const r = await callApify("POST", "/api/admin/carga/ejecutar", { token: admin, body: { fuente: "urbania" } })
+    expect(r.body).toEqual({ ok: true, items: 25, fuente: "urbania" })
+    const [url, init] = lanzamientos(f)[0] as unknown as [string, RequestInit]
+    expect(url).toContain("/acts/sian.agency~urbania-property-scraper/runs")
+    expect(new URL(url).searchParams.get("maxItems")).toBe("25")
+    expect(Number(new URL(url).searchParams.get("maxTotalChargeUsd"))).toBeCloseTo(0.19, 2)
+    expect(JSON.parse(init.body as string)).toMatchObject({ scrapeMode: "overview", searchMode: "bySearchUrl", maxResults: 25 })
+
+    const item = {
+      id: 555,
+      code: "U-555",
+      propertyTitle: "Casa en alquiler en Surco",
+      operation_type: "Alquiler",
+      property_type: "Casa",
+      price: 3500,
+      currency: "S/",
+      location_path: "Monterrico > Santiago de Surco > Lima > Lima > Peru urbania",
+    }
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify([item]), { status: 200 })))
+    const w = await callApify("POST", "/api/internal/apify-webhook?secret=s3cr3t", {
+      body: { eventType: "ACTOR.RUN.SUCCEEDED", resource: { id: "run-U1", defaultDatasetId: "ds-U1" } },
+    })
+    expect(w.body).toMatchObject({ recibidos: 1, guardados: 1 })
+    const fila = (await pg.query("select portal, distrito from propiedades where id = 'urbania:U-555'")).rows[0]
+    expect(fila).toEqual({ portal: "urbania", distrito: "Santiago de Surco" })
+
+    // El estado muestra el uso de cada fuente por separado.
+    const estado = (await callApify("GET", "/api/admin/carga", { token: admin })).body
+    expect(estado.fuentes.find((x: any) => x.id === "urbania")).toMatchObject({ usado: 1, tope: 60 })
+    expect(estado.fuentes.find((x: any) => x.id === "adondevivir").tope).toBe(estado.config.tope_mensual)
+    expect(estado.corridas[0].fuente).toBe("urbania")
+  })
+
+  it("sin elegir fuente, carga una con cupo; una fuente desconocida se rechaza", async () => {
+    await pg.exec("update carga_corridas set estado = 'completada', avisos_recibidos = 0 where estado = 'iniciada'")
+    expect((await callApify("POST", "/api/admin/carga/ejecutar", { token: admin, body: { fuente: "otra" } })).status).toBe(400)
+    const f = apifyOk("run-U2", "ds-U2")
+    vi.stubGlobal("fetch", f)
+    const r = await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })
+    expect(r.body).toMatchObject({ ok: true })
+    expect(["adondevivir", "urbania"]).toContain(r.body.fuente)
   })
 
   it("los cambios de configuración y los lanzamientos quedan en la auditoría", async () => {

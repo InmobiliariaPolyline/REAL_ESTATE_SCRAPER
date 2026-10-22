@@ -1,13 +1,16 @@
 import { audit } from "../audit"
 import type { Db } from "../db"
 import {
-  FUENTE,
+  FUENTES_IDS,
   configurada,
   contextoDeGasto,
   cupoRestante,
   gastoEstimadoUsd,
   topeMensualMaximo,
-  usoDelCiclo,
+  usosPorFuente,
+  topeDeFuente,
+  fuentesDeCarga,
+  type FuenteId,
   iniciarCarga,
   leerConfig,
   procesarResultado,
@@ -18,15 +21,17 @@ import type { Route } from "../router"
 
 /** Últimas corridas; tolera una base sin la columna `actor` (aún sin re-ejecutar db/007). */
 async function corridasRecientes(db: Db) {
-  const columnas = `id::int as id, estado, origen, iniciada_por, avisos_pedidos, avisos_recibidos,
+  const columnas = `id::int as id, fuente, estado, origen, iniciada_por, avisos_pedidos, avisos_recibidos,
                     avisos_guardados, detalle, iniciada_en, finalizada_en`
   try {
-    return await db.query(`select ${columnas}, actor from public.carga_corridas where fuente = $1 order by iniciada_en desc limit 10`, [FUENTE])
+    return await db.query(`select ${columnas}, actor from public.carga_corridas order by iniciada_en desc limit 10`)
   } catch (err) {
     if (!/\bactor\b/.test(String((err as { message?: string })?.message ?? ""))) throw err
-    return db.query(`select ${columnas} from public.carga_corridas where fuente = $1 order by iniciada_en desc limit 10`, [FUENTE])
+    return db.query(`select ${columnas} from public.carga_corridas order by iniciada_en desc limit 10`)
   }
 }
+
+const catalogoUrbania = (env: Parameters<typeof fuentesDeCarga>[0]) => fuentesDeCarga(env).urbania.actores.principal
 
 const entero = (value: unknown, campo: string, min: number, max: number): number => {
   if (typeof value !== "number" || !Number.isInteger(value) || value < min || value > max) {
@@ -44,13 +49,30 @@ export const cargaRoutes: Route[] = [
     handler: async ({ db, env }) => {
       const config = await leerConfig(db)
       const { apify, limites: l, ciclo: ventana } = await contextoDeGasto(env, config.dia_reinicio)
-      const [usado, corridas] = await Promise.all([usoDelCiclo(db, ventana.desde), corridasRecientes(db)])
+      const [usos, corridas] = await Promise.all([usosPorFuente(db, ventana.desde), corridasRecientes(db)])
+      const usado = usos.adondevivir
       const tope = topeMensualMaximo(l)
-      const gasto = apify ? apify.gastoUsd : gastoEstimadoUsd(usado, l.costoPorMil)
+      const gasto = apify ? apify.gastoUsd : gastoEstimadoUsd(usado + usos.urbania, l.costoPorMil)
+      const catalogo = fuentesDeCarga(env)
+      const fuentes = FUENTES_IDS.map(id => {
+        const actor = catalogo[id].actores.principal
+        const lim = { ...l, costoPorMil: actor.costoPorMil, costoFijoUsd: actor.costoFijoUsd }
+        const maxCorrida = actor.maxPorCorrida ?? config.maximo_por_corrida
+        return {
+          id,
+          nombre: catalogo[id].nombre,
+          usado: usos[id],
+          tope: topeDeFuente(config, id),
+          tope_maximo: topeMensualMaximo(lim),
+          maximo_por_corrida: maxCorrida,
+          restante: cupoRestante({ ...config, tope_mensual: topeDeFuente(config, id) }, usos[id], lim, apify?.gastoUsd).restante,
+        }
+      })
       return {
         configurada: configurada(env),
         config,
         usado,
+        fuentes,
         restante: cupoRestante(config, usado, l, apify?.gastoUsd).restante,
         // `apify`: los datos de ciclo, crédito y gasto vienen de la cuenta de Apify (automáticos).
         origen_datos: apify ? "apify" : "estimado",
@@ -81,17 +103,23 @@ export const cargaRoutes: Route[] = [
           ? actual.maximo_por_corrida
           : entero(body.maximo_por_corrida, "El máximo por corrida", 1, Math.max(1, maximoPermitido))
 
+      const urbania = catalogoUrbania(env)
+      const topeUrbania =
+        body.tope_urbania === undefined
+          ? actual.tope_urbania
+          : entero(body.tope_urbania, "El tope de Urbania", 0, topeMensualMaximo((await contextoDeGasto(env, actual.dia_reinicio, urbania)).limites))
+
       const dia =
         body.dia_reinicio === undefined ? actual.dia_reinicio : entero(body.dia_reinicio, "El día de reinicio", 1, 28)
 
       await db.query(
         `update public.carga_config
-            set pausada = $1, tope_mensual = $2, maximo_por_corrida = $3, dia_reinicio = $4, actualizado_en = now()
+            set pausada = $1, tope_mensual = $2, maximo_por_corrida = $3, dia_reinicio = $4, tope_urbania = $5, actualizado_en = now()
           where id = 1`,
-        [pausada, tope, maximo, dia]
+        [pausada, tope, maximo, dia, topeUrbania]
       )
-      await audit({ db, req, access }, "carga.config", null, { pausada, tope_mensual: tope, maximo_por_corrida: maximo, dia_reinicio: dia })
-      return { pausada, tope_mensual: tope, maximo_por_corrida: maximo, dia_reinicio: dia }
+      await audit({ db, req, access }, "carga.config", null, { pausada, tope_mensual: tope, maximo_por_corrida: maximo, dia_reinicio: dia, tope_urbania: topeUrbania })
+      return { pausada, tope_mensual: tope, maximo_por_corrida: maximo, dia_reinicio: dia, tope_urbania: topeUrbania }
     },
   },
   {
@@ -99,13 +127,15 @@ export const cargaRoutes: Route[] = [
     path: "/api/admin/carga/ejecutar",
     level: "admin",
     handler: async ({ req, db, env, access }) => {
-      const r = await iniciarCarga(db, env, "manual", access.usuario.usuario)
+      const pedida = (await readJson(req).catch((): Record<string, unknown> => ({}))).fuente
+      if (pedida !== undefined && !FUENTES_IDS.includes(pedida as FuenteId)) throw badRequest("fuente desconocida")
+      const r = await iniciarCarga(db, env, "manual", access.usuario.usuario, pedida as FuenteId | undefined)
       if (!r.ok) {
         const status = r.motivo === "error" ? 502 : r.motivo === "sin_configurar" ? 501 : 409
         throw new HttpError(status, `carga_${r.motivo}`, r.detalle)
       }
-      await audit({ db, req, access }, "carga.iniciar", FUENTE, { avisos: r.items, origen: "manual" })
-      return { ok: true, items: r.items }
+      await audit({ db, req, access }, "carga.iniciar", r.fuente, { avisos: r.items, origen: "manual" })
+      return { ok: true, items: r.items, fuente: r.fuente }
     },
   },
   {

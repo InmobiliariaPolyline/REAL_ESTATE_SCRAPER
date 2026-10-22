@@ -20,5 +20,5 @@ export default async () => {
   }
 }
 
-// Lunes a las 14:00 UTC (09:00 en Lima).
-export const config = { schedule: "0 14 * * 1" }
+// Lunes y jueves a las 14:00 UTC (09:00 en Lima); cada vez carga la fuente que lleva menos de su tope.
+export const config = { schedule: "0 14 * * 1,4" }

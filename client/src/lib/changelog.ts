@@ -23,6 +23,16 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "1.10.0",
+    fecha: "2026-10-22",
+    titulo: "Urbania como segunda fuente de avisos",
+    cambios: [
+      { tipo: "implementacion", texto: "La carga automática ahora también trae avisos de Urbania (portal urbania), con su actor, sus búsquedas y su propio tope por ciclo (200 por defecto)." },
+      { tipo: "mejora", texto: "Sin elegir fuente se carga la que lleva menos de su tope; «Cargar ahora» permite elegir Adondevivir o Urbania, y la pantalla muestra el uso de cada una." },
+      { tipo: "mejora", texto: "Los topes en dólares suman la tarifa por corrida de Urbania (US$ 0.015) y la carga programada corre lunes y jueves." },
+    ],
+  },
+  {
     version: "1.9.0",
     fecha: "2026-10-22",
     titulo: "Actor de respaldo para la carga",

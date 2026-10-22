@@ -47,6 +47,49 @@ beforeEach(() => {
 })
 
 describe("CargaSection", () => {
+  const conFuentes = (over: Partial<EstadoCarga> = {}) =>
+    estado({
+      config: { pausada: false, tope_mensual: 1000, maximo_por_corrida: 200, dia_reinicio: 23, tope_urbania: 200 },
+      fuentes: [
+        { id: "adondevivir", nombre: "Adondevivir", usado: 300, tope: 1000, tope_maximo: 1500, maximo_por_corrida: 200, restante: 700 },
+        { id: "urbania", nombre: "Urbania", usado: 20, tope: 200, tope_maximo: 700, maximo_por_corrida: 25, restante: 180 },
+      ],
+      ...over,
+    })
+
+  it("muestra el uso de cada fuente y guarda el tope propio de Urbania", async () => {
+    fetchCarga.mockResolvedValue(conFuentes())
+    saveCarga.mockResolvedValue({})
+    setup()
+    const lista = await screen.findByRole("list", { name: "Uso por fuente" })
+    expect(lista).toHaveTextContent("Urbania")
+    expect(lista).toHaveTextContent("20 / 200")
+    const campo = screen.getByLabelText("Tope de Urbania (avisos)")
+    await userEvent.clear(campo)
+    await userEvent.type(campo, "100")
+    await userEvent.click(screen.getByRole("button", { name: /Guardar topes/ }))
+    expect(saveCarga).toHaveBeenCalledWith({ tope_mensual: 1000, maximo_por_corrida: 200, tope_urbania: 100 })
+  })
+
+  it("no deja pasar el tope de Urbania de su máximo", async () => {
+    fetchCarga.mockResolvedValue(conFuentes())
+    setup()
+    const campo = await screen.findByLabelText("Tope de Urbania (avisos)")
+    await userEvent.clear(campo)
+    await userEvent.type(campo, "9999")
+    expect(screen.getByRole("button", { name: /Guardar topes/ })).toBeDisabled()
+  })
+
+  it("«Cargar ahora» envía la fuente elegida", async () => {
+    fetchCarga.mockResolvedValue(conFuentes())
+    runCarga.mockResolvedValue({ ok: true, items: 25, fuente: "urbania" })
+    setup()
+    await userEvent.selectOptions(await screen.findByLabelText("Fuente a cargar"), "urbania")
+    await userEvent.click(screen.getByRole("button", { name: /Cargar ahora/ }))
+    await userEvent.click(await screen.findByRole("button", { name: "Cargar" }))
+    expect(runCarga).toHaveBeenCalledWith("urbania")
+  })
+
   it("avisa cuando Apify no está conectado y no deja activar ni cargar", async () => {
     fetchCarga.mockResolvedValue(estado({ configurada: false }))
     setup()

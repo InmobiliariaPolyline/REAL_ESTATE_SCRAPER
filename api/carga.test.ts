@@ -10,6 +10,9 @@ import {
   creditoUsd,
   cupoRestante,
   elegirActor,
+  elegirFuente,
+  fuentesDeCarga,
+  mapearAvisoUrbania,
   elegirUrl,
   lanzarCorrida,
   leerEstadoApify,
@@ -446,5 +449,95 @@ describe("mapearAviso con el formato de scrapers_lat", () => {
 
   it("el mismo aviso visto por los dos actores tiene el mismo código (no se duplica)", () => {
     expect(mapearAviso({ id: "150868929", title: "x", operationType: "Venta" })!.codigo).toBe(mapearAviso(real)!.codigo)
+  })
+})
+
+describe("tarifa fija por corrida (Urbania)", () => {
+  it("el tope en dólares suma la tarifa de arranque", () => {
+    expect(topeDolares(25, 6, 0.015)).toBeCloseTo(0.19, 2) // 25 x 0.006 x 1.1 + 0.015 + 0.01
+    expect(topeDolares(25, 6)).toBeLessThan(topeDolares(25, 6, 0.015))
+  })
+
+  it("los avisos que caben en el crédito descuentan la tarifa fija", () => {
+    const sin = topeMensualMaximo({ costoPorMil: 6, creditoUsd: 5 })
+    const con = topeMensualMaximo({ costoPorMil: 6, creditoUsd: 5, costoFijoUsd: 0.015 })
+    expect(con).toBeLessThan(sin)
+  })
+})
+
+describe("fuentes de carga", () => {
+  it("Urbania: actor de sian.agency, 25 avisos por corrida y entrada por enlace de búsqueda", () => {
+    const u = fuentesDeCarga({}).urbania
+    expect(u.actores.respaldo).toBeNull()
+    expect(u.actores.principal).toMatchObject({ id: "sian.agency~urbania-property-scraper", costoPorMil: 6, costoFijoUsd: 0.015, maxPorCorrida: 25 })
+    expect(u.actores.principal.entrada(u.busquedas[0], 25)).toEqual({
+      scrapeMode: "overview",
+      searchMode: "bySearchUrl",
+      searchUrls: [u.busquedas[0]],
+      maxResults: 25,
+    })
+  })
+
+  it("solo acepta búsquedas propias que sean de urbania.pe/buscar", () => {
+    const u = fuentesDeCarga({ CARGA_URLS_URBANIA: "https://urbania.pe/buscar/venta-de-terrenos, https://malo.com/x, http://urbania.pe/buscar/a" }).urbania
+    expect(u.busquedas).toEqual(["https://urbania.pe/buscar/venta-de-terrenos"])
+  })
+
+  it("elegirFuente toma la que lleva menos de su tope y salta las agotadas", () => {
+    const c: CargaConfig = { pausada: false, tope_mensual: 1000, maximo_por_corrida: 200, dia_reinicio: 23, tope_urbania: 200 }
+    expect(elegirFuente(c, { adondevivir: 0, urbania: 0 })).toBe("adondevivir") // empate
+    expect(elegirFuente(c, { adondevivir: 500, urbania: 50 })).toBe("urbania") // 50 % vs 25 %
+    expect(elegirFuente(c, { adondevivir: 100, urbania: 200 })).toBe("adondevivir") // urbania agotada
+    expect(elegirFuente({ ...c, tope_urbania: 0 }, { adondevivir: 1000, urbania: 0 })).toBeNull()
+  })
+})
+
+describe("mapearAvisoUrbania", () => {
+  // Registro con la forma real del actor (recortado).
+  const real = {
+    id: 1234567,
+    code: "U-98765",
+    propertyTitle: "Departamento en venta en San Isidro",
+    operation_type: "Venta",
+    property_type: "Departamento",
+    posting_kind: "PROPERTY",
+    price: 250000,
+    currency: "US$",
+    price_usd: 250000,
+    total_area: 90,
+    bedrooms: 3,
+    bathrooms: 2,
+    location_path: "Orrantia > San Isidro > Lima > Lima > Peru urbania",
+    thumbnail: "https://img.urbania.pe/a.jpg",
+    url: "https://urbania.pe/inmueble/depa-98765",
+  }
+
+  it("lee código, operación, tipo, precio, distrito y foto", () => {
+    expect(mapearAvisoUrbania(real)).toMatchObject({
+      portal: "urbania",
+      codigo: "U-98765",
+      operacion: "VENTA",
+      inmueble: "Departamento",
+      precio: 250000,
+      moneda: "USD",
+      precioUsd: 250000,
+      distrito: "San Isidro",
+      dormitorios: "3",
+      banios: "2",
+      area: "90 m2",
+      imagen: "https://img.urbania.pe/a.jpg",
+    })
+  })
+
+  it("soles, alquiler, proyecto y distrito «S/n»", () => {
+    expect(mapearAvisoUrbania({ ...real, operation_type: "Alquiler", currency: "S/", price_usd: undefined })).toMatchObject({ operacion: "ALQUILER", moneda: "PEN" })
+    expect(mapearAvisoUrbania({ ...real, posting_kind: "DEVELOPMENT" })!.inmueble).toBe("Proyecto")
+    expect(mapearAvisoUrbania({ ...real, location_path: "S/n > Lima > Lima > Peru urbania", location_name: "Lima" })!.distrito).toBe("Lima")
+  })
+
+  it("descarta lo que no encaja: sin título, sin código o traspasos", () => {
+    expect(mapearAvisoUrbania({ ...real, propertyTitle: undefined, title: undefined })).toBeNull()
+    expect(mapearAvisoUrbania({ ...real, code: undefined, id: undefined })).toBeNull()
+    expect(mapearAvisoUrbania({ ...real, operation_type: "Traspaso" })).toBeNull()
   })
 })

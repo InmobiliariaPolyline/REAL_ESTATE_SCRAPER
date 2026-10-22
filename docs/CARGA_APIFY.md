@@ -48,12 +48,12 @@ un despliegue.
 1. Deja **Máximo por corrida** en un valor pequeño (20) y pulsa **Cargar ahora** para la primera prueba.
 2. A los pocos minutos aparecerá la corrida como *Completada* y los avisos en el catálogo.
 3. Sube el máximo (200) y el tope mensual al valor que quieras.
-4. Activa el interruptor **Carga automática**: cada lunes a las 09:00 (Lima) pedirá una tanda.
+4. Activa el interruptor **Carga automática**: lunes y jueves a las 09:00 (Lima) pedirá una tanda de la fuente que lleve menos de su tope.
 
 ## Cómo funciona
 
 ```
-Netlify (lunes 09:00 o botón) ──► Apify: ejecuta el scraper con límites
+Netlify (lunes y jueves 09:00 o botón) ──► Apify: ejecuta el scraper con límites
                                          │
 Apify termina ──► aviso (webhook) ──► /api/internal/apify-webhook ──► guarda en Neon
 ```
@@ -83,6 +83,21 @@ Apify termina ──► aviso (webhook) ──► /api/internal/apify-webhook �
   sin eso todo funciona, pero no se sabe quién hizo cada corrida y se asume el principal).
 - Cambiar o quitar actores: variables opcionales `APIFY_ACTOR`, `APIFY_ACTOR_RESPALDO` (`ninguno` lo
   desactiva). Otro actor distinto necesita adaptar la lectura de sus datos (`mapearAviso`).
+
+## Fuentes: Adondevivir y Urbania
+
+Cada fuente tiene su actor, sus búsquedas y su **propio tope** por ciclo. Sin elegir fuente, el sistema carga la que lleva
+menos de su tope (en proporción); en **Cargar ahora** puedes elegir una.
+
+| Fuente | Actor | Costo | Por corrida | Tope por defecto |
+|---|---|---|---|---|
+| Adondevivir | `gio21~adondevivir-scraper` (respaldo `scrapers_lat`) | US$ 3 por 1 000 avisos | hasta 200 | 1 000 |
+| Urbania | `sian.agency~urbania-property-scraper` | US$ 0.015 por corrida + US$ 6 por 1 000 avisos | 25 (plan gratuito) | 200 |
+
+Los dos topes caben dentro del 90 % del crédito (≈ US$ 3.00 + US$ 1.32). El gasto real de la cuenta de Apify se
+comparte, así que si se agota el crédito ninguna fuente carga. Variables opcionales: `APIFY_ACTOR_URBANIA` y
+`CARGA_URLS_URBANIA` (direcciones `https://urbania.pe/buscar/...`, separadas por comas). Los avisos de Urbania se guardan
+como portal `urbania` (`urbania:<código>`), sin duplicarse entre corridas.
 
 ## Qué es automático, qué se edita y qué es manual
 

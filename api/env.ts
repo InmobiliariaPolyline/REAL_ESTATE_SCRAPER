@@ -15,6 +15,9 @@ export interface ApiEnv {
   APIFY_WEBHOOK_SECRET?: string
   /** Actor de Apify (`usuario~nombre`); por defecto el de Adondevivir. */
   APIFY_ACTOR?: string
+  /** Actor de Urbania (`usuario~nombre`) y sus búsquedas a rotar (direcciones de urbania.pe/buscar/…, separadas por comas). */
+  APIFY_ACTOR_URBANIA?: string
+  CARGA_URLS_URBANIA?: string
   /** Actor de respaldo (`usuario~nombre`); "ninguno" lo desactiva. Por defecto scrapers_lat. */
   APIFY_ACTOR_RESPALDO?: string
   /** Crédito gratuito mensual de Apify en US$ (5 en el plan Free); define el tope máximo permitido. */

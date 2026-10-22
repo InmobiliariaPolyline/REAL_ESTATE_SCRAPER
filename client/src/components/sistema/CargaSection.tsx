@@ -29,6 +29,7 @@ import {
   saveCarga,
   type Corrida,
   type EstadoCarga,
+  type FuenteId,
 } from "@/lib/carga"
 import { formatDate } from "@/lib/dates"
 import { cn } from "@/lib/utils"
@@ -61,6 +62,8 @@ export default function CargaSection() {
   const [loading, setLoading] = useState(true)
   const [tope, setTope] = useState("")
   const [maximo, setMaximo] = useState("")
+  const [topeUrb, setTopeUrb] = useState("")
+  const [fuenteElegida, setFuenteElegida] = useState<"auto" | FuenteId>("auto")
   const [guardando, setGuardando] = useState(false)
   const [cambiando, setCambiando] = useState(false)
   const [confirmar, setConfirmar] = useState(false)
@@ -73,6 +76,7 @@ export default function CargaSection() {
       setEstado(e)
       setTope(String(e.config.tope_mensual))
       setMaximo(String(e.config.maximo_por_corrida))
+      setTopeUrb(String(e.config.tope_urbania ?? 200))
     } catch (err) {
       console.error(err)
       addToast("No se pudo cargar el estado de la carga de datos", "error")
@@ -88,11 +92,19 @@ export default function CargaSection() {
   const topeNum = Number(tope)
   const maxNum = Number(maximo)
   const lim = estado?.limites
+  const urbania = estado?.fuentes?.find(f => f.id === "urbania")
+  const topeUrbNum = Number(topeUrb)
+  const validoUrb = !urbania || (Number.isInteger(topeUrbNum) && topeUrbNum >= 0 && topeUrbNum <= urbania.tope_maximo)
   const valido =
     !!lim &&
+    validoUrb &&
     Number.isInteger(topeNum) && topeNum >= 0 && topeNum <= lim.tope_mensual &&
     Number.isInteger(maxNum) && maxNum >= 1 && maxNum <= lim.maximo_por_corrida
-  const sinCambios = estado ? topeNum === estado.config.tope_mensual && maxNum === estado.config.maximo_por_corrida : true
+  const sinCambios = estado
+    ? topeNum === estado.config.tope_mensual &&
+      maxNum === estado.config.maximo_por_corrida &&
+      (!urbania || topeUrbNum === (estado.config.tope_urbania ?? 200))
+    : true
 
   const tapa = estado ? Math.min(estado.config.tope_mensual, estado.limites.tope_mensual) : 0
   const fraccion = tapa > 0 ? Math.min(1, (estado?.usado ?? 0) / tapa) : 0
@@ -107,7 +119,7 @@ export default function CargaSection() {
     if (!valido) return
     setGuardando(true)
     try {
-      await saveCarga({ tope_mensual: topeNum, maximo_por_corrida: maxNum })
+      await saveCarga({ tope_mensual: topeNum, maximo_por_corrida: maxNum, ...(urbania ? { tope_urbania: topeUrbNum } : {}) })
       addToast("Topes guardados", "success")
       await cargar()
     } catch (err) {
@@ -133,7 +145,7 @@ export default function CargaSection() {
   const cargarAhora = async () => {
     setLanzando(true)
     try {
-      const r = await runCarga()
+      const r = await runCarga(fuenteElegida === "auto" ? undefined : fuenteElegida)
       addToast(`Carga iniciada: hasta ${r.items} avisos. Llegarán en unos minutos.`, "success")
       setConfirmar(false)
       await cargar()
@@ -151,6 +163,7 @@ export default function CargaSection() {
   }
 
   const activa = !estado.config.pausada
+  const nombreFuente = (id?: FuenteId) => (id === "urbania" ? "Urbania" : "Adondevivir")
   const puedeLanzar = estado.configurada && aPedir > 0 && !estado.corridas.some(c => c.estado === "iniciada")
 
   return (
@@ -191,6 +204,19 @@ export default function CargaSection() {
           <p className="mt-4 text-sm text-text-muted">
             Quedan <strong className="mono text-text">{estado.restante.toLocaleString("es-PE")}</strong> avisos en este ciclo
           </p>
+
+          {estado.fuentes && estado.fuentes.length > 1 && (
+            <ul className="mt-4 w-full space-y-1.5 border-t border-line pt-4 text-left text-xs" aria-label="Uso por fuente">
+              {estado.fuentes.map(f => (
+                <li key={f.id} className="flex items-center justify-between gap-3">
+                  <span className="text-text-muted">{f.nombre}</span>
+                  <span className="mono text-text">
+                    {f.usado.toLocaleString("es-PE")} / {f.tope.toLocaleString("es-PE")}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
 
           <dl className="mt-4 w-full space-y-2 border-t border-line pt-4 text-left text-xs">
             <div className="flex items-center justify-between gap-3">
@@ -235,11 +261,11 @@ export default function CargaSection() {
               </span>
               <div className="min-w-0 flex-1">
                 <h2 className="flex flex-wrap items-center gap-2 text-base font-semibold text-text">
-                  Carga automática de Adondevivir <Etiqueta tipo="Editable" />
+                  Carga automática de avisos <Etiqueta tipo="Editable" />
                 </h2>
                 <p className="text-sm text-text-muted">
                   {activa
-                    ? "Activa: cada lunes (09:00, Lima) pide una tanda de avisos si queda cupo."
+                    ? "Activa: lunes y jueves (09:00, Lima) pide una tanda de la fuente que lleva menos de su tope."
                     : "Pausada: no se pide nada hasta que la actives."}
                 </p>
               </div>
@@ -258,6 +284,19 @@ export default function CargaSection() {
                 Cargar ahora
               </button>
               <Etiqueta tipo="Manual" />
+              {estado.fuentes && estado.fuentes.length > 1 && (
+                <select
+                  aria-label="Fuente a cargar"
+                  value={fuenteElegida}
+                  onChange={e => setFuenteElegida(e.target.value as "auto" | FuenteId)}
+                  className="field !w-auto"
+                >
+                  <option value="auto">Automática (la que menos usó)</option>
+                  {estado.fuentes.map(f => (
+                    <option key={f.id} value={f.id}>{f.nombre}</option>
+                  ))}
+                </select>
+              )}
               <p className="text-xs text-text-muted">
                 {puedeLanzar
                   ? `Pediría hasta ${aPedir.toLocaleString("es-PE")} avisos (≈ ${usd(costoEstimadoUsd(aPedir, costoMil))}).`
@@ -291,6 +330,23 @@ export default function CargaSection() {
                 {usd(costoEstimadoUsd(topeNum || 0, costoMil))} por ciclo.
               </p>
             </div>
+
+            {urbania && (
+              <div className="mt-4 max-w-md">
+                <label htmlFor="carga-tope-urbania" className="field-label">Tope de Urbania (avisos)</label>
+                <input
+                  id="carga-tope-urbania"
+                  inputMode="numeric"
+                  value={topeUrb}
+                  onChange={e => setTopeUrb(e.target.value.replace(/\D/g, ""))}
+                  className="field mono"
+                  aria-invalid={topeUrb !== "" && !validoUrb}
+                />
+                <p className="field-hint">
+                  Máximo {urbania.tope_maximo.toLocaleString("es-PE")}; hasta {urbania.maximo_por_corrida} por corrida. Urbania cobra US$ 0.015 por corrida y ≈ US$ 6 por 1 000 avisos.
+                </p>
+              </div>
+            )}
 
             <details className="mt-4 rounded-2xl border border-line bg-surface-1 p-4">
               <summary className="cursor-pointer text-sm font-medium text-text-muted">Opciones avanzadas</summary>
@@ -349,6 +405,7 @@ export default function CargaSection() {
                       {c.avisos_guardados !== null && <span className="text-text-muted"> · {c.avisos_guardados} guardados</span>}
                     </p>
                     <p className="text-xs text-text-muted">
+                      {c.fuente ? `${nombreFuente(c.fuente)} · ` : ""}
                       {c.origen === "programada" ? "Programada" : `Manual${c.iniciada_por ? ` · ${c.iniciada_por}` : ""}`}
                       {c.actor ? ` · actor ${c.actor.split("~")[0]}` : ""}
                       {c.detalle ? ` · ${c.detalle}` : ""}
@@ -389,7 +446,7 @@ export default function CargaSection() {
           onConfirm={cargarAhora}
           onCancel={() => setConfirmar(false)}
         >
-          Se pedirán hasta <strong>{aPedir.toLocaleString("es-PE")}</strong> avisos de Adondevivir a Apify (≈ {usd(costoEstimadoUsd(aPedir, costoMil))}).
+          Se pedirán hasta <strong>{aPedir.toLocaleString("es-PE")}</strong> avisos a Apify (≈ {usd(costoEstimadoUsd(aPedir, costoMil))}){fuenteElegida === "auto" ? ", de la fuente que lleva menos de su tope" : ` de ${nombreFuente(fuenteElegida)}`}.
           Contarán contra el tope de este ciclo.
         </ConfirmModal>
       )}

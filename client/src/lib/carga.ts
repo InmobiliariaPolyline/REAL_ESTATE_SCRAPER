@@ -6,10 +6,26 @@ export interface CargaConfig {
   maximo_por_corrida: number
   /** Día del mes (1 a 28) en que se reinicia el crédito de Apify. */
   dia_reinicio: number
+  /** Tope propio de Urbania (avisos por ciclo). */
+  tope_urbania?: number
+}
+
+export type FuenteId = "adondevivir" | "urbania"
+
+/** Uso y tope de una fuente de avisos en el ciclo actual. */
+export interface FuenteCarga {
+  id: FuenteId
+  nombre: string
+  usado: number
+  tope: number
+  tope_maximo: number
+  maximo_por_corrida: number
+  restante: number
 }
 
 export interface Corrida {
   id: number
+  fuente?: FuenteId
   estado: "iniciada" | "completada" | "fallida"
   origen: "manual" | "programada"
   iniciada_por: string | null
@@ -29,6 +45,8 @@ export interface EstadoCarga {
   config: CargaConfig
   usado: number
   restante: number
+  /** Una entrada por fuente (Adondevivir, Urbania). */
+  fuentes?: FuenteCarga[]
   /** Ciclo de uso actual (fechas AAAA-MM-DD): desde el último reinicio hasta el próximo. */
   ventana: { desde: string; reinicia: string }
   /** De dónde salen ciclo, crédito y gasto: la cuenta de Apify (automático) o una estimación de respaldo. */
@@ -43,4 +61,5 @@ export const costoEstimadoUsd = (avisos: number, costoPorMil: number) => (avisos
 
 export const fetchCarga = () => api.get<EstadoCarga>("/admin/carga")
 export const saveCarga = (cambios: Partial<CargaConfig>) => api.put<CargaConfig>("/admin/carga", cambios)
-export const runCarga = () => api.post<{ ok: true; items: number }>("/admin/carga/ejecutar")
+export const runCarga = (fuente?: FuenteId) =>
+  api.post<{ ok: true; items: number; fuente?: FuenteId }>("/admin/carga/ejecutar", fuente ? { fuente } : undefined)
