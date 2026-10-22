@@ -94,12 +94,22 @@ const TIPOS: Record<string, string> = {
   terrenos: "Terreno",
   terreno: "Terreno",
   "locales comerciales": "Local comercial",
+  // Las búsquedas de Adondevivir mezclan avisos sueltos con proyectos inmobiliarios.
+  edificios: "Proyecto",
+  "desarrollos verticales": "Proyecto",
+  "desarrollos horizontales": "Proyecto",
   oficinas: "Oficina",
   habitaciones: "Habitación",
 }
 
 const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : undefined)
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? v : undefined)
+
+/** El actor a veces devuelve "S/n" (sin número) como barrio: en ese caso vale la ciudad. */
+const distrito = (item: Record<string, unknown>) => {
+  const barrio = str(item.neighborhood)
+  return barrio && !/^s\/?n$/i.test(barrio) ? barrio : str(item.city)
+}
 
 /** Convierte un registro del actor en un aviso del sistema; `null` si no sirve para guardarlo. */
 export function mapearAviso(item: Record<string, unknown>): Aviso | null {
@@ -120,7 +130,7 @@ export function mapearAviso(item: Record<string, unknown>): Aviso | null {
     titulo,
     precio: num(item.price),
     moneda,
-    distrito: str(item.neighborhood) ?? str(item.city),
+    distrito: distrito(item),
     dormitorios: num(item.bedrooms) !== undefined ? String(item.bedrooms) : undefined,
     banios: num(item.bathrooms) !== undefined ? String(item.bathrooms) : undefined,
     area: area ? `${area} m2` : undefined,

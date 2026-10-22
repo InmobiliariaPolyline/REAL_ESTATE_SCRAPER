@@ -126,6 +126,12 @@ describe("mapearAviso", () => {
     expect(a).toMatchObject({ operacion: "ALQUILER", moneda: "USD", inmueble: "Terreno", area: "1200 m2" })
   })
 
+  it("los proyectos inmobiliarios se agrupan y un barrio «S/n» se reemplaza por la ciudad", () => {
+    const a = mapearAviso({ id: "1", title: "Vizuale 5", operationType: "Alquiler", propertyType: "Desarrollos verticales", neighborhood: "S/n", city: "Lince", price: null })!
+    expect(a).toMatchObject({ inmueble: "Proyecto", distrito: "Lince" })
+    expect(mapearAviso({ id: "2", title: "x", operationType: "Venta", propertyType: "Edificios", neighborhood: "Miraflores" })).toMatchObject({ inmueble: "Proyecto", distrito: "Miraflores" })
+  })
+
   it("los campos que faltan quedan sin inventar", () => {
     const a = mapearAviso({ id: 9, title: "Lote", operationType: "Venta", price: null, bedrooms: null })!
     expect(a.codigo).toBe("9")
