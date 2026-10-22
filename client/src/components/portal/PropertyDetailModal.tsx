@@ -1,5 +1,6 @@
 import { ArrowDownRight, ArrowUpRight, ExternalLink, Heart, Link2, Loader2, MapPin, Minus, Scale, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { pricePerM2 } from '@shared/area'
 import ImageGallery from '@/components/common/ImageGallery'
@@ -76,6 +77,14 @@ export default function PropertyDetailModal({
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose, showLinks])
 
+  useEffect(() => {
+    const previo = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previo
+    }
+  }, [])
+
   const p = detail?.propiedad
   const price = p ? getDisplayPrice(p.precio, p.precio_usd, moneda) : null
   const perM2 = p && price ? pricePerM2(price.amount, p.area) : null
@@ -108,7 +117,9 @@ export default function PropertyDetailModal({
   const url = safeHttpUrl(p?.url)
   const hasHistory = series.length >= 2
 
-  return (
+  // Se dibuja directamente en <body>: dentro de la página, un ancestro con transformación o animación
+  // haría que `fixed` se midiera contra él y la vista previa quedara fuera de la pantalla.
+  return createPortal(
     <>
       <div
         className="animate-fadeIn fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4 backdrop-blur-sm"
@@ -340,6 +351,7 @@ export default function PropertyDetailModal({
       </div>
 
       {showLinks && p && <EnlacesPropiedad propiedadId={p.id} onClose={() => setShowLinks(false)} />}
-    </>
+    </>,
+    document.body
   )
 }

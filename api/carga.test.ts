@@ -11,6 +11,9 @@ import {
   cupoRestante,
   elegirActor,
   elegirFuente,
+  conPagina,
+  elegirBusquedaPaginada,
+  PAGINAS_POR_BUSQUEDA,
   fotosDe,
   fuentesDeCarga,
   mapearAvisoUrbania,
@@ -564,5 +567,23 @@ describe("fotos de los avisos", () => {
     })
     expect(aviso!.imagen).toBe("https://img/t.jpg")
     expect(aviso!.imagenes).toEqual(["https://img/1.jpg", "https://img/2.jpg"])
+  })
+})
+
+describe("búsquedas paginadas de Adondevivir", () => {
+  it("conPagina arma la dirección de cada página", () => {
+    expect(conPagina("https://www.adondevivir.com/casas-en-venta.html", 1)).toBe("https://www.adondevivir.com/casas-en-venta.html")
+    expect(conPagina("https://www.adondevivir.com/casas-en-venta.html", 3)).toBe("https://www.adondevivir.com/casas-en-venta-pagina-3.html")
+  })
+
+  it("recorre todas las búsquedas en la página 1, luego la 2… y vuelve a empezar", () => {
+    const urls = ["https://x.com/a.html", "https://x.com/b.html"]
+    expect(elegirBusquedaPaginada(urls, 0)).toBe("https://x.com/a.html")
+    expect(elegirBusquedaPaginada(urls, 1)).toBe("https://x.com/b.html")
+    expect(elegirBusquedaPaginada(urls, 2)).toBe("https://x.com/a-pagina-2.html")
+    expect(elegirBusquedaPaginada(urls, 3)).toBe("https://x.com/b-pagina-2.html")
+    expect(elegirBusquedaPaginada(urls, 2 * PAGINAS_POR_BUSQUEDA)).toBe("https://x.com/a.html")
+    expect(fuentesDeCarga({}).adondevivir.paginar).toBe(true)
+    expect(fuentesDeCarga({}).urbania.paginar).toBeFalsy()
   })
 })

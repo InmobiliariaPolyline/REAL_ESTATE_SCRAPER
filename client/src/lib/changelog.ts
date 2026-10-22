@@ -23,6 +23,16 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "1.11.1",
+    fecha: "2026-10-22",
+    titulo: "Vista previa siempre a la vista y datos más limpios",
+    cambios: [
+      { tipo: "correccion", texto: "La vista previa de una propiedad ya no queda fuera de la pantalla al hacer clic en una tarjeta con la página desplazada: se abre siempre centrada y la página no se mueve por detrás." },
+      { tipo: "correccion", texto: "Los títulos ya no muestran códigos como «&sup2;» (ahora «m²») y se corrigió un precio en dólares absurdo que entregaba una fuente (alquiler de S/ 1 199 con US$ 357 000)." },
+      { tipo: "mejora", texto: "Las fotos de Adondevivir y Urbania se piden en tamaño grande, y la carga de Adondevivir recorre también las páginas 2 a 5 de cada búsqueda para traer avisos nuevos en cada corrida." },
+    ],
+  },
+  {
     version: "1.11.0",
     fecha: "2026-10-22",
     titulo: "Vista previa de propiedades con galería de fotos",

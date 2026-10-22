@@ -113,6 +113,8 @@ export interface FuenteCarga {
   nombre: string
   /** Búsquedas a rotar, una por corrida. */
   busquedas: string[]
+  /** Recorre también las páginas siguientes de cada búsqueda (en las que lo permiten). */
+  paginar?: boolean
   actores: ActoresDeCarga
   mapear: (item: Record<string, unknown>) => Aviso | null
 }
@@ -132,6 +134,7 @@ export function fuentesDeCarga(env: ApiEnv): Record<FuenteId, FuenteCarga> {
       id: "adondevivir",
       nombre: "Adondevivir",
       busquedas: urlsDeBusqueda(env),
+      paginar: true,
       actores: actoresDeCarga(env),
       mapear: mapearAviso,
     },
@@ -279,6 +282,23 @@ export function costoPorMil(env: ApiEnv): number {
 /** Rota las búsquedas: la corrida número N usa la dirección N mod cantidad. */
 export function elegirUrl(urls: string[], corridasPrevias: number): string {
   return urls[corridasPrevias % urls.length]
+}
+
+/** Páginas de resultados que se recorren por búsqueda (cada página trae unos 30 avisos). */
+export const PAGINAS_POR_BUSQUEDA = 5
+
+/** `https://…/casas-en-venta.html` -> `https://…/casas-en-venta-pagina-2.html` (la página 1 es la dirección base). */
+export function conPagina(url: string, pagina: number): string {
+  return pagina <= 1 ? url : url.replace(/\.html$/, `-pagina-${pagina}.html`)
+}
+
+/**
+ * Búsqueda y página de la corrida número N: primero cada búsqueda en su página 1, luego todas en la 2…
+ * hasta PAGINAS_POR_BUSQUEDA, y vuelve a empezar. Así cada corrida trae avisos distintos.
+ */
+export function elegirBusquedaPaginada(urls: string[], corridasPrevias: number): string {
+  const pagina = (Math.floor(corridasPrevias / urls.length) % PAGINAS_POR_BUSQUEDA) + 1
+  return conPagina(elegirUrl(urls, corridasPrevias), pagina)
 }
 
 export function urlsDeBusqueda(env: ApiEnv): string[] {
@@ -675,7 +695,8 @@ export async function iniciarCarga(
   if (!plan.ok) return plan
   const items = Math.min(plan.items, actor.maxPorCorrida ?? plan.items)
 
-  const busqueda = elegirUrl(fuente.busquedas, previas[0]?.n ?? 0)
+  const n = previas[0]?.n ?? 0
+  const busqueda = fuente.paginar ? elegirBusquedaPaginada(fuente.busquedas, n) : elegirUrl(fuente.busquedas, n)
 
   // Se reserva el cupo ANTES de llamar a Apify: si algo falla a medias, el tope sigue protegido.
   let id: number

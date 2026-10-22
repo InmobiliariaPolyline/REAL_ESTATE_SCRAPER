@@ -46,23 +46,58 @@ export interface FilaPropiedad {
   url: string | null
 }
 
+const ENTIDADES: Record<string, string> = {
+  amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", sup2: "²", sup3: "³", deg: "°", ordm: "º", ordf: "ª",
+  aacute: "á", eacute: "é", iacute: "í", oacute: "ó", uacute: "ú", ntilde: "ñ", uuml: "ü",
+  Aacute: "Á", Eacute: "É", Iacute: "Í", Oacute: "Ó", Uacute: "Ú", Ntilde: "Ñ", iexcl: "¡", iquest: "¿",
+}
+
+/** Convierte entidades HTML (`&sup2;`, `&amp;`, `&#39;`…) en sus caracteres; las desconocidas quedan igual. */
+export function decodificarEntidades(texto: string): string {
+  return texto.replace(/&(#x[0-9a-f]+|#\d+|[a-z][a-z0-9]*);/gi, (m, e: string) => {
+    if (e[0] === "#") {
+      const code = e[1].toLowerCase() === "x" ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10)
+      return Number.isFinite(code) && code > 0 && code < 0x110000 ? String.fromCodePoint(code) : m
+    }
+    return ENTIDADES[e] ?? ENTIDADES[e.toLowerCase()] ?? m
+  })
+}
+
 const clean = (v: string | undefined) => {
-  const t = v?.trim()
+  const t = v ? decodificarEntidades(v).trim() : ""
   return t ? t : null
 }
 /** Máximo de fotos que se guardan por aviso. */
 export const MAX_FOTOS = 20
 
 /** Fotos válidas (http/https), sin repetir y en orden; la portada va primero. */
+/** Las fotos de Adondevivir/Urbania (naventcdn) traen el tamaño en la dirección; se pide el grande (720x532). */
+export function fotoGrande(url: string): string {
+  return /^https:\/\/[\w.-]*naventcdn\.com\//.test(url) ? url.replace(/\/\d{3,4}x\d{3,4}\//, "/720x532/") : url
+}
+
 export function normalizarFotos(portada: string | undefined, fotos: string[] | undefined): string[] {
   const salida: string[] = []
   for (const f of [portada, ...(fotos ?? [])]) {
-    const u = safeHttpUrl(f)
+    const seguro = safeHttpUrl(f)
+    const u = seguro ? fotoGrande(seguro) : null
     if (u && !salida.includes(u)) salida.push(u)
     if (salida.length >= MAX_FOTOS) break
   }
   return salida
 }
+/**
+ * Algunas fuentes entregan un precio en dólares que no cuadra con el publicado (p. ej. US$ 357 000
+ * para un alquiler de S/ 1 199). Si se aleja mucho de lo esperado con el tipo de cambio, se descarta
+ * y se recalcula.
+ */
+export function usdCoherente(precio: number, moneda: "PEN" | "USD", usd: number, usdToPen: number): number {
+  if (!usd || !precio) return usd
+  const esperado = moneda === "USD" ? precio : precio / usdToPen
+  const razon = usd / esperado
+  return razon >= 0.7 && razon <= 1.45 ? usd : 0
+}
+
 const money = (n: number | undefined) => (Number.isFinite(n) && (n as number) > 0 ? (n as number) : 0)
 
 /** Valida y normaliza un aviso. Devuelve `null` si no se puede identificar de forma estable. */
@@ -76,7 +111,7 @@ export function normalizarAviso(
 
   const moneda = aviso.moneda === "USD" ? "USD" : "PEN"
   const precio = money(aviso.precio)
-  let precioUsd = money(aviso.precioUsd)
+  let precioUsd = usdCoherente(money(aviso.precio), moneda, money(aviso.precioUsd), usdToPen)
   if (!precioUsd && precio) precioUsd = moneda === "USD" ? precio : precio / usdToPen
 
   const imagenes = normalizarFotos(aviso.imagen, aviso.imagenes)

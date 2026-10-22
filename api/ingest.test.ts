@@ -3,7 +3,7 @@ import path from "node:path"
 import { PGlite } from "@electric-sql/pglite"
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto"
 import { beforeAll, describe, expect, it } from "vitest"
-import { guardarAvisos, normalizarAviso, type Aviso } from "./ingest"
+import { decodificarEntidades, fotoGrande, guardarAvisos, normalizarAviso, usdCoherente, type Aviso } from "./ingest"
 
 const root = path.resolve(import.meta.dirname, "..")
 let pg: PGlite
@@ -118,5 +118,33 @@ describe("fotos del aviso", () => {
   it("sin lista usa solo la portada; sin nada queda vacío", () => {
     expect(normalizarAviso({ ...base, imagen: "https://img/a.jpg" })!.imagenes).toEqual(["https://img/a.jpg"])
     expect(normalizarAviso(base)).toMatchObject({ imagen: null, imagenes: [] })
+  })
+})
+
+describe("calidad de los datos al guardar", () => {
+  const base = { portal: "adondevivir", codigo: "Q1", operacion: "ALQUILER", inmueble: "Departamento" } as const
+
+  it("decodifica entidades HTML del título", () => {
+    expect(decodificarEntidades("Depa de 42 m&sup2; &amp; cochera &#39;full&#39; &#x41;")).toBe("Depa de 42 m² & cochera 'full' A")
+    expect(decodificarEntidades("&noexiste; sigue")).toBe("&noexiste; sigue")
+    expect(normalizarAviso({ ...base, titulo: "Moderno 40 m&sup2;" })!.titulo).toBe("Moderno 40 m²")
+  })
+
+  it("pide la foto grande a los portales Navent y no toca otras", () => {
+    expect(fotoGrande("https://img10.naventcdn.com/avisos/111/01/50/56/08/68/360x266/1620828125.jpg?rapc=x")).toBe(
+      "https://img10.naventcdn.com/avisos/111/01/50/56/08/68/720x532/1620828125.jpg?rapc=x"
+    )
+    expect(fotoGrande("https://otro.com/360x266/a.jpg")).toBe("https://otro.com/360x266/a.jpg")
+    expect(normalizarAviso({ ...base, imagen: "https://img10.naventcdn.com/a/360x266/1.jpg" })!.imagen).toContain("/720x532/")
+  })
+
+  it("descarta un precio en dólares que no cuadra con el publicado y lo recalcula", () => {
+    // Caso real: alquiler de S/ 1 199 con price_usd = 357 000.
+    const fila = normalizarAviso({ ...base, precio: 1199, moneda: "PEN", precioUsd: 357000 }, 3.75)!
+    expect(fila.precio_usd).toBeCloseTo(319.73, 1)
+    // Uno coherente se respeta tal cual.
+    expect(normalizarAviso({ ...base, precio: 1199, moneda: "PEN", precioUsd: 350 }, 3.75)!.precio_usd).toBe(350)
+    expect(usdCoherente(1000, "USD", 1010, 3.75)).toBe(1010)
+    expect(usdCoherente(1000, "USD", 5000, 3.75)).toBe(0)
   })
 })

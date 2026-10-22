@@ -99,6 +99,14 @@ comparte, así que si se agota el crédito ninguna fuente carga. Variables opcio
 `CARGA_URLS_URBANIA` (direcciones `https://urbania.pe/buscar/...`, separadas por comas). Los avisos de Urbania se guardan
 como portal `urbania` (`urbania:<código>`), sin duplicarse entre corridas.
 
+### Límites de los datos que entrega cada actor
+
+- **Fotos:** Urbania entrega la galería completa (≈ 8 fotos). Adondevivir entrega **una sola foto** por aviso: la galería completa
+  solo la da el modo `withDetails` del actor de respaldo, que exige un plan de pago de Apify (probado en el plan gratuito: no la devuelve).
+- **Variedad:** cada búsqueda de Adondevivir trae ≈ 30 avisos (una página); el sistema rota búsquedas y páginas 1 a 5. El actor
+  gratuito de Urbania ignora la paginación, el orden y los filtros: trae siempre los mismos primeros 25 de cada búsqueda.
+- **Proyectos** (edificios nuevos) vienen sin área, dormitorios ni baños: son datos que el portal no publica en el resumen.
+
 ## Qué es automático, qué se edita y qué es manual
 
 | Tipo | Valor | Quién lo maneja |
