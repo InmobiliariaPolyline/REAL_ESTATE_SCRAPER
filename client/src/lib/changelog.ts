@@ -23,6 +23,14 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "1.8.4",
+    fecha: "2026-10-22",
+    titulo: "Propiedades del admin: ya no se ocultan los avisos en soles",
+    cambios: [
+      { tipo: "correccion", texto: "El filtro de moneda de Propiedades (admin) escondía los avisos publicados en soles cuando estaba en «Dólares». Ahora solo define la moneda del rango de precios y no excluye avisos." },
+    ],
+  },
+  {
     version: "1.8.3",
     fecha: "2026-10-22",
     titulo: "Historial de cargas más fiel",

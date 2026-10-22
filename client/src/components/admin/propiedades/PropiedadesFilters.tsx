@@ -82,7 +82,7 @@ export default function PropiedadesFilters({
       </div>
 
       <div>
-        <label htmlFor="adm-moneda" className="field-label">Moneda</label>
+        <label htmlFor="adm-moneda" className="field-label">Moneda del rango</label>
         <select
           id="adm-moneda"
           value={filters.moneda ?? "USD"}

@@ -139,7 +139,8 @@ export function fetchAdminPage(
     distrito: filters.distrito.trim(),
     operacion: filters.operacion,
     portal: filters.portal,
-    moneda: filters.moneda,
+    // La moneda solo indica en qué moneda se escribe el rango de precios: NO filtra por la moneda
+    // original del aviso (si lo hiciera, con «USD» elegido se ocultarían todos los avisos en soles).
     minUsd: toUsd(filters.precioMin, filters.moneda),
     maxUsd: toUsd(filters.precioMax, filters.moneda),
   })
