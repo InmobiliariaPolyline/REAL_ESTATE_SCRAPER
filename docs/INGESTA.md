@@ -1,5 +1,8 @@
 # Contrato de ingesta del scraper
 
+> La carga automática de Adondevivir con Apify (`api/carga.ts`) ya implementa este contrato; ver
+> [`CARGA_APIFY.md`](CARGA_APIFY.md). Lo de abajo sirve para cualquier otra fuente.
+
 Guía para conectar el scraper (Python / GitHub Actions) a la base de Neon. El sistema solo
 necesita que quien cargue los datos escriba en `public.propiedades` con estas reglas.
 

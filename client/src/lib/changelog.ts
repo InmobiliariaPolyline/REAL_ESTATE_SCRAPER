@@ -23,6 +23,18 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "1.8.0",
+    fecha: "2026-10-22",
+    titulo: "Carga automática de avisos",
+    cambios: [
+      { tipo: "implementacion", texto: "Carga automática de avisos de Adondevivir con Apify: función programada semanal y botón «Cargar ahora» en Sistema → Carga de datos." },
+      { tipo: "implementacion", texto: "Los avisos se leen de Apify mediante un aviso de fin de corrida (webhook) autenticado y se guardan sin duplicar." },
+      { tipo: "seguridad", texto: "Topes de gasto en varias capas: interruptor de pausa, tope mensual y máximo por corrida reservados antes de pedir, y límites de avisos y de dólares enviados a Apify." },
+      { tipo: "mejora", texto: "Pantalla de carga con anillo de uso mensual, estimación de costo, historial de corridas y auditoría de cada cambio." },
+      { tipo: "mejora", texto: "Se retiró el lector experimental de páginas de Adondevivir, bloqueado por su protección anti-bots." },
+    ],
+  },
+  {
     version: "1.7.0",
     fecha: "2026-10-17",
     titulo: "Módulo Sistema",

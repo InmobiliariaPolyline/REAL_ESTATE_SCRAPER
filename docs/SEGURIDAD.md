@@ -41,6 +41,7 @@ La IP se toma de `x-nf-client-connection-ip` (Netlify) o `x-forwarded-for` (prox
 | ---------- | ---------- | -------- |
 | `DATABASE_URL` (app) | Variables de Netlify (secreta) | Cada 90 días y ante cualquier sospecha |
 | `BACKUP_DATABASE_URL`, `BACKUP_PASSPHRASE` | Secrets de GitHub Actions | Cada 6 meses; guarda la frase de cifrado también fuera de GitHub |
+| `APIFY_TOKEN`, `APIFY_WEBHOOK_SECRET` | Variables de Netlify (secretas) | Cada 6 meses, o si se filtran; el token se regenera en Apify |
 | `ALERT_WEBHOOK_URL`, `CRON_SECRET` | Variables de Netlify (secretas) | Si se filtran |
 | Contraseña del admin | Base de datos (hash) | Desde **Mi cuenta** |
 

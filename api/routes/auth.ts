@@ -1,19 +1,8 @@
 import { MIN_PASSWORD_LENGTH } from "../../shared/constants"
 import { audit, clientIp, userAgentOf } from "../audit"
 import type { Route } from "../router"
-import { HttpError, badRequest, forbidden, json, notFound, readJson, str } from "../http"
+import { HttpError, badRequest, forbidden, json, notFound, readJson, str, timingSafeEqual } from "../http"
 import { runWatchdog } from "../watchdog"
-
-/** Comparación en tiempo constante de dos cadenas (evita filtrar el secreto por tiempos). */
-function timingSafeEqual(a: string, b: string): boolean {
-  const ea = new TextEncoder().encode(a)
-  const eb = new TextEncoder().encode(b)
-  let diff = ea.length ^ eb.length
-  for (let i = 0; i < Math.max(ea.length, eb.length); i++) {
-    diff |= (ea[i] ?? 0) ^ (eb[i] ?? 0)
-  }
-  return diff === 0
-}
 
 interface LoginResult {
   ok: boolean

@@ -2,14 +2,14 @@ import fs from "node:fs"
 import path from "node:path"
 import { PGlite } from "@electric-sql/pglite"
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto"
-import { afterAll, beforeAll, describe, expect, it } from "vitest"
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest"
 import type { Db } from "./db"
 import { createApiHandler } from "./handler"
 import { runWatchdog } from "./watchdog"
 
 /**
  * Pruebas de integración: la API completa contra un Postgres real (PGlite) con los scripts
- * db/001_schema.sql a db/006_idle_timeout.sql aplicados.
+ * db/001_schema.sql a db/007_carga.sql aplicados.
  */
 
 const root = path.resolve(import.meta.dirname, "..")
@@ -73,6 +73,7 @@ beforeAll(async () => {
   await pg.exec(fs.readFileSync(path.join(root, "db/004_price_history.sql"), "utf8"))
   await pg.exec(fs.readFileSync(path.join(root, "db/005_sessions_audit.sql"), "utf8"))
   await pg.exec(fs.readFileSync(path.join(root, "db/006_idle_timeout.sql"), "utf8"))
+  await pg.exec(fs.readFileSync(path.join(root, "db/007_carga.sql"), "utf8"))
 
   // El admin crea a "cliente" con Premium mediante la propia función SQL.
   admin = (await login("admin", "admin-pass-123")).body.token
@@ -983,6 +984,154 @@ describe("sesiones activas", () => {
     const stale = await read()
     await call("GET", "/api/session", { token: t })
     expect(await read()).toBeGreaterThan(stale + 5 * 60 * 1000)
+  })
+})
+
+describe("carga automática (Apify)", () => {
+  const ENV = { USD_TO_PEN_RATE: "4", APIFY_TOKEN: "tok", APIFY_WEBHOOK_SECRET: "s3cr3t", URL: "https://sitio.test" }
+  const conApify = createApiHandler(() => db, ENV)
+
+  async function callApify(method: string, url: string, opts: { token?: string; body?: unknown } = {}) {
+    const headers: Record<string, string> = {}
+    if (opts.token) headers.Authorization = `Bearer ${opts.token}`
+    if (opts.body !== undefined) headers["Content-Type"] = "application/json"
+    const res = await conApify(
+      new Request(`http://localhost${url}`, { method, headers, body: opts.body === undefined ? undefined : JSON.stringify(opts.body) })
+    )
+    return { status: res.status, body: await res.json() }
+  }
+
+  const apifyOk = (id = "run1", ds = "ds1") =>
+    vi.fn(async () => new Response(JSON.stringify({ data: { id, defaultDatasetId: ds } }), { status: 201 }))
+
+  afterEach(() => vi.unstubAllGlobals())
+
+  it("solo el administrador ve y cambia la carga", async () => {
+    expect((await call("GET", "/api/admin/carga")).status).toBe(401)
+    expect((await call("GET", "/api/admin/carga", { token: member })).status).toBe(403)
+    expect((await call("PUT", "/api/admin/carga", { token: member, body: { pausada: false } })).status).toBe(403)
+    expect((await call("POST", "/api/admin/carga/ejecutar", { token: member })).status).toBe(403)
+  })
+
+  it("empieza pausada, con topes por defecto y sin configurar", async () => {
+    const r = await call("GET", "/api/admin/carga", { token: admin })
+    expect(r.status).toBe(200)
+    expect(r.body).toMatchObject({ configurada: false, usado: 0, config: { pausada: true, tope_mensual: 1000, maximo_por_corrida: 200 } })
+    expect(r.body.limites).toEqual({ tope_mensual: 5000, maximo_por_corrida: 2000 })
+  })
+
+  it("valida los topes: enteros y dentro de los límites absolutos", async () => {
+    for (const body of [{ tope_mensual: 6000 }, { tope_mensual: -1 }, { tope_mensual: 1.5 }, { maximo_por_corrida: 0 }, { maximo_por_corrida: 5000 }, { tope_mensual: "100" }]) {
+      expect((await call("PUT", "/api/admin/carga", { token: admin, body })).status).toBe(400)
+    }
+    const ok = await call("PUT", "/api/admin/carga", { token: admin, body: { tope_mensual: 100, maximo_por_corrida: 50 } })
+    expect(ok.status).toBe(200)
+    expect(ok.body).toMatchObject({ pausada: true, tope_mensual: 100, maximo_por_corrida: 50 })
+  })
+
+  it("pausada o sin configurar, no se lanza nada ni se llama a Apify", async () => {
+    const fetchMock = apifyOk()
+    vi.stubGlobal("fetch", fetchMock)
+    expect((await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })).status).toBe(409) // pausada
+    expect((await call("POST", "/api/admin/carga/ejecutar", { token: admin })).status).toBe(501) // sin APIFY_TOKEN
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it("lanza una corrida con los topes en Apify y no permite una segunda a la vez", async () => {
+    await call("PUT", "/api/admin/carga", { token: admin, body: { pausada: false, tope_mensual: 100, maximo_por_corrida: 50 } })
+    const fetchMock = apifyOk("run-A", "ds-A")
+    vi.stubGlobal("fetch", fetchMock)
+
+    const r = await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })
+    expect(r.status).toBe(200)
+    expect(r.body).toEqual({ ok: true, items: 50 })
+
+    const u = new URL((fetchMock.mock.calls[0] as unknown as [string])[0])
+    expect(u.searchParams.get("maxItems")).toBe("50")
+    expect(Number(u.searchParams.get("maxTotalChargeUsd"))).toBeCloseTo(0.2, 5)
+
+    // Reserva inmediata: cuenta contra el tope aunque Apify aún no haya respondido.
+    expect((await callApify("GET", "/api/admin/carga", { token: admin })).body).toMatchObject({ usado: 50, restante: 50 })
+    expect((await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })).status).toBe(409)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it("el aviso de Apify exige el secreto y guarda los avisos una sola vez", async () => {
+    const evento = { eventType: "ACTOR.RUN.SUCCEEDED", resource: { id: "run-A", defaultDatasetId: "ds-A", status: "SUCCEEDED" } }
+    expect((await callApify("POST", "/api/internal/apify-webhook?secret=malo", { body: evento })).status).toBe(403)
+    expect((await callApify("POST", "/api/internal/apify-webhook", { body: evento })).status).toBe(403)
+
+    const items = [
+      { id: "900001", title: "Depa en Surco", operationType: "Alquiler", price: 2500, currency: "S/", propertyType: "Departamentos", areaBuilt: 80, bedrooms: 2, bathrooms: 1, neighborhood: "Surco", url: "https://www.adondevivir.com/propiedades/clasificado/x-900001.html" },
+      { type: "no-listings" },
+    ]
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(items), { status: 200 })))
+
+    const ok = await callApify("POST", "/api/internal/apify-webhook?secret=s3cr3t", { body: evento })
+    expect(ok.status).toBe(200)
+    expect(ok.body).toMatchObject({ procesada: true, recibidos: 2, guardados: 1 })
+
+    const { rows } = await pg.query<{ portal: string; precio: string; precio_usd: string }>(
+      "select portal, precio::text, precio_usd::text from propiedades where id = 'adondevivir:900001'"
+    )
+    expect(rows[0]).toMatchObject({ portal: "adondevivir", precio: "2500", precio_usd: "625" }) // 2500 / 4
+
+    // Ahora cuentan los avisos recibidos (2), no los pedidos (50).
+    expect((await callApify("GET", "/api/admin/carga", { token: admin })).body).toMatchObject({ usado: 2 })
+
+    // Apify puede reenviar el aviso: no se procesa dos veces.
+    const repetido = await callApify("POST", "/api/internal/apify-webhook?secret=s3cr3t", { body: evento })
+    expect(repetido.body.procesada).toBe(false)
+  })
+
+  it("nunca pide más de lo que queda del tope mensual", async () => {
+    await call("PUT", "/api/admin/carga", { token: admin, body: { pausada: false, tope_mensual: 5, maximo_por_corrida: 50 } })
+    const fetchMock = apifyOk("run-B", "ds-B")
+    vi.stubGlobal("fetch", fetchMock)
+    const r = await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })
+    expect(r.body).toEqual({ ok: true, items: 3 }) // tope 5 - usado 2
+    expect(new URL((fetchMock.mock.calls[0] as unknown as [string])[0]).searchParams.get("maxItems")).toBe("3")
+  })
+
+  it("una corrida fallida igual guarda lo que alcanzó a entregar y cuenta lo recibido", async () => {
+    const evento = { eventType: "ACTOR.RUN.FAILED", resource: { id: "run-B", defaultDatasetId: "ds-B", status: "FAILED" } }
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify([{ id: "900002", title: "Casa", operationType: "Venta", price: 90000, currency: "US$" }]), { status: 200 })))
+    const r = await callApify("POST", "/api/internal/apify-webhook?secret=s3cr3t", { body: evento })
+    expect(r.body).toMatchObject({ procesada: true, recibidos: 1, guardados: 1 })
+    const { rows } = await pg.query<{ estado: string; avisos_recibidos: number }>("select estado, avisos_recibidos from carga_corridas where run_id = 'run-B'")
+    expect(rows[0]).toEqual({ estado: "fallida", avisos_recibidos: 1 })
+  })
+
+  it("si Apify rechaza el lanzamiento, la reserva se libera y se informa el error", async () => {
+    await call("PUT", "/api/admin/carga", { token: admin, body: { pausada: false, tope_mensual: 1000, maximo_por_corrida: 20 } })
+    const antes = (await callApify("GET", "/api/admin/carga", { token: admin })).body.usado
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("no autorizado", { status: 401 })))
+    vi.spyOn(console, "error").mockImplementation(() => {})
+
+    const r = await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })
+    expect(r.status).toBe(502)
+    expect(JSON.stringify(r.body)).not.toContain("tok")
+    expect((await callApify("GET", "/api/admin/carga", { token: admin })).body.usado).toBe(antes)
+  })
+
+  it("una corrida que nunca respondió se da por perdida y su reserva se conserva", async () => {
+    await pg.exec("update carga_corridas set estado = 'completada', avisos_recibidos = coalesce(avisos_recibidos, 0) where estado = 'iniciada'")
+    await pg.exec("insert into carga_corridas (fuente, run_id, avisos_pedidos, iniciada_en) values ('adondevivir', 'run-perdida', 40, now() - interval '5 hours')")
+    const antes = (await callApify("GET", "/api/admin/carga", { token: admin })).body.usado
+
+    vi.stubGlobal("fetch", apifyOk("run-C", "ds-C"))
+    const r = await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })
+    expect(r.status).toBe(200)
+
+    const { rows } = await pg.query<{ estado: string }>("select estado from carga_corridas where run_id = 'run-perdida'")
+    expect(rows[0].estado).toBe("fallida")
+    // La reserva de 40 sigue contando, más la nueva corrida.
+    expect((await callApify("GET", "/api/admin/carga", { token: admin })).body.usado).toBeGreaterThanOrEqual(antes + 20)
+  })
+
+  it("los cambios de configuración y los lanzamientos quedan en la auditoría", async () => {
+    const acciones = (await pg.query<{ accion: string }>("select distinct accion from auditoria where accion like 'carga.%'")).rows.map(r => r.accion)
+    expect(acciones).toEqual(expect.arrayContaining(["carga.config", "carga.iniciar"]))
   })
 })
 

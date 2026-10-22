@@ -10,6 +10,18 @@ export interface ApiEnv {
   ALERT_STALE_HOURS?: string
   /** Secreto que autoriza a un planificador externo a llamar a /api/internal/watchdog. */
   CRON_SECRET?: string
+  /** Carga automática con Apify (todas opcionales: sin token y secreto la carga no se puede lanzar). */
+  APIFY_TOKEN?: string
+  APIFY_WEBHOOK_SECRET?: string
+  /** Actor de Apify (`usuario~nombre`); por defecto el de Adondevivir. */
+  APIFY_ACTOR?: string
+  /** Costo por 1 000 avisos del actor en US$, para calcular el tope en dólares de cada corrida. */
+  APIFY_COST_PER_1000?: string
+  /** Búsquedas de Adondevivir a rotar, separadas por comas (por defecto, las incluidas en el código). */
+  CARGA_URLS?: string
+  /** Dirección pública del sitio; Netlify la define sola en `URL`. */
+  PUBLIC_URL?: string
+  URL?: string
 }
 
 export function usdToPenRate(env: ApiEnv): number {

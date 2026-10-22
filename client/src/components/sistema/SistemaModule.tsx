@@ -1,5 +1,6 @@
 import {
   Activity,
+  CloudDownload,
   Info,
   Palette,
   ScrollText,
@@ -14,6 +15,7 @@ const PerfilSection = lazy(() => import("./PerfilSection"))
 const SeguridadSection = lazy(() => import("./SeguridadSection"))
 const PersonalizacionSection = lazy(() => import("./PersonalizacionSection"))
 const AcercaSection = lazy(() => import("./AcercaSection"))
+const CargaSection = lazy(() => import("./CargaSection"))
 const AdminActividad = lazy(() => import("@/components/admin/AdminActividad"))
 const AdminAuditoria = lazy(() => import("@/components/admin/AdminAuditoria"))
 
@@ -23,6 +25,7 @@ export type SistemaSection =
   | "personalizacion"
   | "actividad"
   | "auditoria"
+  | "carga"
   | "acerca"
 
 export interface SistemaSectionInfo {
@@ -40,6 +43,7 @@ export const SISTEMA_SECTIONS: SistemaSectionInfo[] = [
   { id: "personalizacion", label: "Tema y personalización", title: "Tema y personalización", description: "Color, tamaño y movimiento de la interfaz a tu gusto.", icon: Palette },
   { id: "actividad", label: "Actividad", title: "Actividad del sistema", description: "Los últimos inicios de sesión de los usuarios.", icon: Activity, adminOnly: true },
   { id: "auditoria", label: "Auditoría", title: "Auditoría", description: "Registro de las acciones administrativas: quién hizo qué, sobre quién y cuándo.", icon: ScrollText, adminOnly: true },
+  { id: "carga", label: "Carga de datos", title: "Carga de datos", description: "Carga automática de avisos con Apify, con topes de gasto e interruptor de pausa.", icon: CloudDownload, adminOnly: true },
   { id: "acerca", label: "Acerca del sistema", title: "Acerca del sistema", description: "Versión, estado en vivo e historial de implementaciones, mejoras y correcciones.", icon: Info },
 ]
 
@@ -72,6 +76,8 @@ export default function SistemaModule({ esAdmin, section, onSectionChange, onLog
         return <AdminActividad />
       case "auditoria":
         return <AdminAuditoria />
+      case "carga":
+        return <CargaSection />
       case "acerca":
         return <AcercaSection />
       case "perfil":

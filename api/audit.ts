@@ -26,6 +26,8 @@ export type AuditAction =
   | "limpieza.ejecutar"
   | "cuenta.password_cambio"
   | "cuenta.sesiones_cerradas"
+  | "carga.iniciar"
+  | "carga.config"
 
 /** Acciones auditadas (el panel las usa para el filtro). */
 export const AUDIT_ACTIONS: AuditAction[] = [
@@ -38,6 +40,8 @@ export const AUDIT_ACTIONS: AuditAction[] = [
   "limpieza.ejecutar",
   "cuenta.password_cambio",
   "cuenta.sesiones_cerradas",
+  "carga.iniciar",
+  "carga.config",
 ]
 
 interface AuditContext {

@@ -63,3 +63,14 @@ export function optNumber(value: string | null | undefined): number | null {
   if (!Number.isFinite(n) || n < 0) throw badRequest("Parámetro numérico inválido")
   return n
 }
+
+/** Comparación en tiempo constante de dos cadenas (evita filtrar un secreto por tiempos). */
+export function timingSafeEqual(a: string, b: string): boolean {
+  const ea = new TextEncoder().encode(a)
+  const eb = new TextEncoder().encode(b)
+  let diff = ea.length ^ eb.length
+  for (let i = 0; i < Math.max(ea.length, eb.length); i++) {
+    diff |= (ea[i] ?? 0) ^ (eb[i] ?? 0)
+  }
+  return diff === 0
+}

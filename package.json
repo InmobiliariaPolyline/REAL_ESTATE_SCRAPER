@@ -1,6 +1,6 @@
 {
   "name": "real-estate-scraper",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "type": "module",
   "license": "MIT",
   "scripts": {
@@ -12,8 +12,7 @@
     "test": "vitest run",
     "format": "prettier --write .",
     "dev:api": "tsx watch server/index.ts --api-only",
-    "db:migrate": "node scripts/migrate.mjs",
-    "scraper": "tsx scraper/run.ts"
+    "db:migrate": "node scripts/migrate.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

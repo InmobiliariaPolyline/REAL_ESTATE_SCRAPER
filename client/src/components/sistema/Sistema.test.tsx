@@ -39,6 +39,7 @@ describe("secciones por rol", () => {
       "personalizacion",
       "actividad",
       "auditoria",
+      "carga",
       "acerca",
     ])
   })

@@ -17,7 +17,6 @@ export default defineConfig({
       "client/src/**/*.test.tsx",
       "api/**/*.test.ts",
       "shared/**/*.test.ts",
-      "scraper/**/*.test.ts",
     ],
     environment: "node",
     // Las pruebas de componentes declaran `// @vitest-environment jsdom` en su cabecera.

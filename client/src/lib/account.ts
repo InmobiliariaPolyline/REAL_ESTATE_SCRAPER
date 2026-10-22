@@ -51,6 +51,8 @@ export const AUDIT_LABELS: Record<string, string> = {
   "scraper.lanzar": "Scraper lanzado",
   "cuenta.password_cambio": "Contraseña propia cambiada",
   "cuenta.sesiones_cerradas": "Sesiones propias cerradas",
+  "carga.iniciar": "Carga de datos iniciada",
+  "carga.config": "Carga de datos configurada",
 }
 
 /** "Chrome en Windows" a partir de un User-Agent (aproximado, solo informativo). */

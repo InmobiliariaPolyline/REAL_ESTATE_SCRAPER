@@ -32,7 +32,7 @@ Portales ─► Scraper (Python, GitHub Actions) ─► PostgreSQL (Neon) ◄─
 api/                  API (handler, router, auth, consultas y rutas) + pruebas de integración
   routes/             auth · portal (propiedades y enlaces) · admin
 client/src            React: pages/, components/{admin,portal,properties,common,ui}, lib/, types/
-db/                   001..006: esquema, auth, cuenta, historial de precios, sesiones/auditoría e inactividad
+db/                   001..007: esquema, auth, cuenta, historial de precios, sesiones/auditoría, inactividad y carga
 netlify/functions/    Función que publica la API en Netlify
 server/index.ts       Servidor Express opcional (API + estáticos + CSP)
 shared/               Código compartido cliente/API (constantes, filtros, validación)
@@ -46,7 +46,7 @@ netlify.toml          Build, rutas, función y cabeceras de seguridad
 1. Crea el proyecto en Neon (región AWS US East 2, solo el servicio Postgres).
 2. Aplica el esquema (`db/001` a `db/005`), con `pnpm db:migrate` (lee `DATABASE_URL` del entorno o de `.env`;
    `pnpm db:migrate --check` solo lista tablas) o pegando en el **SQL Editor**, en orden,
-   los archivos `db/001_*.sql` a `db/006_*.sql`.
+   los archivos `db/001_*.sql` a `db/007_*.sql`.
 3. Crea el primer administrador con el `insert` comentado al final de `001_schema.sql`, con tu
    propia contraseña. No lo subas al repositorio.
 4. Copia la connection string (Dashboard → *Connect*). Es el valor de `DATABASE_URL`.
@@ -73,6 +73,7 @@ pnpm test                # API contra Postgres real, filtros, precios y componen
 | `DATABASE_URL` | Sí | Conexión a Neon (marcar *Contains secret values*). Solo servidor |
 | `USD_TO_PEN_RATE`, `VITE_USD_TO_PEN_RATE` | No | Tipo de cambio (3.75 por defecto); deben coincidir |
 | `VITE_ADMIN_WHATSAPP` | No | WhatsApp de contacto (solo dígitos) |
+| `APIFY_TOKEN`, `APIFY_WEBHOOK_SECRET` | No | Carga automática de avisos con Apify (ver [`docs/CARGA_APIFY.md`](docs/CARGA_APIFY.md)); ambas secretas |
 | `ALERT_WEBHOOK_URL`, `ALERT_STALE_HOURS` | No | Alertas del watchdog: webhook (Slack, Discord o compatible) y horas sin actividad (24 por defecto) |
 | `CRON_SECRET` | No | Permite a un planificador externo llamar a `POST /api/internal/watchdog` (cabecera `x-cron-secret`) |
 
@@ -204,4 +205,4 @@ que coincida con la última entrada de `changelog.ts`. Al publicar una versión 
   por webhook cuando no hay actividad en `ALERT_STALE_HOURS` (una alerta cada 24 h por incidente
   y otra inmediata si vuelve a fallar tras recuperarse). Sin Netlify, programa una llamada a
   `POST /api/internal/watchdog` con `x-cron-secret`. El Dashboard muestra además un aviso.
-- **Conectar el scraper:** ver [`docs/INGESTA.md`](docs/INGESTA.md) (contrato, UPSERT y ejemplo).
+- **Carga automática de avisos:** Sistema → Carga de datos (Apify, con topes de gasto e interruptor de pausa); guía en [`docs/CARGA_APIFY.md`](docs/CARGA_APIFY.md). El contrato de datos está en [`docs/INGESTA.md`](docs/INGESTA.md).
