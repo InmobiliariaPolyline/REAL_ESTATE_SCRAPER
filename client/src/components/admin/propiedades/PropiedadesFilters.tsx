@@ -31,11 +31,12 @@ export default function PropiedadesFilters({
         e.preventDefault()
         onSearch()
       }}
-      className="card grid grid-cols-1 gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-[1.4fr_1fr_1fr_1fr_1fr_1fr_auto]"
+      className="card space-y-6 p-5 sm:p-6"
       role="search"
       aria-label="Filtros de propiedades"
     >
-      <div>
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+      <div className="xl:col-span-2">
         <label htmlFor="adm-distrito" className="field-label">Distrito</label>
         <div className="field-icon">
           <Search className="size-4" />
@@ -82,7 +83,7 @@ export default function PropiedadesFilters({
       </div>
 
       <div>
-        <label htmlFor="adm-moneda" className="field-label">Moneda del rango</label>
+        <label htmlFor="adm-moneda" className="field-label">Moneda</label>
         <select
           id="adm-moneda"
           value={filters.moneda ?? "USD"}
@@ -120,20 +121,22 @@ export default function PropiedadesFilters({
         />
       </div>
 
-      <div className="flex items-end gap-2">
-        <button type="submit" className="btn btn-primary flex-1">
-          <Search className="size-4" />
-          Buscar
-        </button>
-        <button
-          type="button"
-          onClick={onClear}
-          className="btn btn-secondary btn-icon"
-          title="Limpiar filtros"
-          aria-label="Limpiar filtros"
-        >
-          <X className="size-4" />
-        </button>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
+        <p className="text-xs text-text-muted">
+          El rango de precio se interpreta en {filters.moneda === 'PEN' ? 'soles' : 'dólares'} y no oculta avisos publicados en la otra moneda.
+        </p>
+        <div className="flex gap-2.5">
+          <button type="button" onClick={onClear} className="btn btn-secondary" title="Limpiar filtros" aria-label="Limpiar filtros">
+            <X className="size-4" />
+            Limpiar
+          </button>
+          <button type="submit" className="btn btn-primary">
+            <Search className="size-4" />
+            Buscar
+          </button>
+        </div>
       </div>
     </form>
   )

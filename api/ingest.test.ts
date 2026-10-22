@@ -3,7 +3,7 @@ import path from "node:path"
 import { PGlite } from "@electric-sql/pglite"
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto"
 import { beforeAll, describe, expect, it } from "vitest"
-import { decodificarEntidades, fotoGrande, guardarAvisos, normalizarAviso, usdCoherente, type Aviso } from "./ingest"
+import { decodificarEntidades, fotoGrande, guardarAvisos, limpiarDescripcion, normalizarAviso, usdCoherente, type Aviso } from "./ingest"
 
 const root = path.resolve(import.meta.dirname, "..")
 let pg: PGlite
@@ -146,5 +146,51 @@ describe("calidad de los datos al guardar", () => {
     expect(normalizarAviso({ ...base, precio: 1199, moneda: "PEN", precioUsd: 350 }, 3.75)!.precio_usd).toBe(350)
     expect(usdCoherente(1000, "USD", 1010, 3.75)).toBe(1010)
     expect(usdCoherente(1000, "USD", 5000, 3.75)).toBe(0)
+  })
+})
+
+describe("datos extra del aviso (db/009)", () => {
+  const base = { portal: "urbania", codigo: "D1", operacion: "VENTA", inmueble: "Casa" } as const
+
+  it("limpia la descripción: sin HTML, con entidades decodificadas y espacios normalizados", () => {
+    expect(limpiarDescripcion("<p>Casa&nbsp;linda</p><br/>Cerca de <b>todo</b> &amp; m&sup2;")).toBe("Casa linda\nCerca de todo & m²")
+    expect(limpiarDescripcion("   ")).toBeNull()
+    expect(limpiarDescripcion(undefined)).toBeNull()
+    expect(limpiarDescripcion("x".repeat(9000))).toHaveLength(4000)
+  })
+
+  it("normaliza dirección, cochera, antigüedad, anunciante, coordenadas y mantenimiento", () => {
+    const f = normalizarAviso({
+      ...base, descripcion: "Bonita", direccion: "  Av. Perú 123  ", estacionamientos: "2", antiguedad: "5 años", publicador: "Inmobiliaria X",
+      latitud: -12.1, longitud: -77.03, mantenimiento: 150,
+    })!
+    expect(f).toMatchObject({ descripcion: "Bonita", direccion: "Av. Perú 123", estacionamientos: "2", antiguedad: "5 años", publicador: "Inmobiliaria X", latitud: -12.1, longitud: -77.03, mantenimiento: 150 })
+  })
+
+  it("descarta coordenadas imposibles y mantenimiento no positivo", () => {
+    const f = normalizarAviso({ ...base, latitud: 999, longitud: -500, mantenimiento: -3 })!
+    expect(f).toMatchObject({ latitud: null, longitud: null, mantenimiento: null, descripcion: null, direccion: null })
+  })
+
+  it("si la base no tiene las columnas nuevas, guarda igual con menos columnas", async () => {
+    const consultas: string[] = []
+    const db = {
+      query: async (text: string) => {
+        consultas.push(text)
+        if (text.includes("descripcion")) throw new Error('column "descripcion" of relation "propiedades" does not exist')
+        if (text.includes("imagenes")) throw new Error('column "imagenes" of relation "propiedades" does not exist')
+      },
+    }
+    const r = await guardarAvisos(db, [{ ...base, codigo: "D2", descripcion: "x", imagenes: ["https://a/1.jpg"] }])
+    expect(r.guardados).toBe(1)
+    expect(consultas).toHaveLength(3)
+    expect(consultas[2]).not.toContain("imagenes")
+    expect(consultas[2]).not.toContain("descripcion")
+    expect(consultas[2]).toContain("titulo")
+  })
+
+  it("un error que no es de columnas faltantes se propaga", async () => {
+    const db = { query: async () => { throw new Error("connection reset") } }
+    await expect(guardarAvisos(db, [{ ...base, codigo: "D3" }])).rejects.toThrow("connection reset")
   })
 })

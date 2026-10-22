@@ -198,6 +198,7 @@ export default function AdminPropiedades() {
             onToggleFavorite={p.toggleFavorite}
             isCompared={false}
             compareDisabled
+            onOpenProperty={setDetalleId}
             onClose={() => setDetalleId(null)}
           />
         </Suspense>

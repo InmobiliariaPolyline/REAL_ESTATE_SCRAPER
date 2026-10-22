@@ -25,6 +25,15 @@ export interface Aviso {
   /** Todas las fotos del aviso, en orden (si se omite, solo `imagen`). */
   imagenes?: string[]
   url?: string
+  /** Datos extra que algunas fuentes entregan (vista previa de la propiedad). */
+  descripcion?: string
+  direccion?: string
+  estacionamientos?: string
+  antiguedad?: string
+  publicador?: string
+  latitud?: number
+  longitud?: number
+  mantenimiento?: number
 }
 
 /** Fila lista para `public.propiedades`. */
@@ -44,6 +53,14 @@ export interface FilaPropiedad {
   imagen: string | null
   imagenes: string[]
   url: string | null
+  descripcion: string | null
+  direccion: string | null
+  estacionamientos: string | null
+  antiguedad: string | null
+  publicador: string | null
+  latitud: number | null
+  longitud: number | null
+  mantenimiento: number | null
 }
 
 const ENTIDADES: Record<string, string> = {
@@ -98,6 +115,22 @@ export function usdCoherente(precio: number, moneda: "PEN" | "USD", usd: number,
   return razon >= 0.7 && razon <= 1.45 ? usd : 0
 }
 
+/** Texto largo (descripción): sin etiquetas HTML, con entidades decodificadas y espacios normalizados. */
+export function limpiarDescripcion(v: string | undefined, max = 4000): string | null {
+  if (!v) return null
+  const t = decodificarEntidades(v.replace(/<\s*br\s*\/?>/gi, "\n").replace(/<[^>]*>/g, " "))
+    .replace(/[ \t]+/g, " ")
+    .replace(/\s*\n\s*/g, "\n")
+    .trim()
+  return t ? t.slice(0, max) : null
+}
+
+const corto = (v: string | undefined, max: number) => {
+  const t = clean(v)
+  return t ? t.slice(0, max) : null
+}
+const coord = (n: number | undefined, limite: number) => (Number.isFinite(n) && Math.abs(n as number) <= limite ? (n as number) : null)
+
 const money = (n: number | undefined) => (Number.isFinite(n) && (n as number) > 0 ? (n as number) : 0)
 
 /** Valida y normaliza un aviso. Devuelve `null` si no se puede identificar de forma estable. */
@@ -131,6 +164,14 @@ export function normalizarAviso(
     imagen: imagenes[0] ?? null,
     imagenes,
     url: safeHttpUrl(aviso.url),
+    descripcion: limpiarDescripcion(aviso.descripcion),
+    direccion: corto(aviso.direccion, 200),
+    estacionamientos: corto(aviso.estacionamientos, 40),
+    antiguedad: corto(aviso.antiguedad, 60),
+    publicador: corto(aviso.publicador, 120),
+    latitud: coord(aviso.latitud, 90),
+    longitud: coord(aviso.longitud, 180),
+    mantenimiento: money(aviso.mantenimiento) || null,
   }
 }
 
@@ -143,9 +184,21 @@ const CHUNK = 200
 const COLUMNAS = [
   "id", "portal", "operacion", "inmueble", "titulo", "precio", "precio_usd", "moneda",
   "distrito", "dormitorios", "banios", "area", "imagen", "url", "imagenes",
+  "descripcion", "direccion", "estacionamientos", "antiguedad", "publicador", "latitud", "longitud", "mantenimiento",
 ] as const
 
-async function insertarLote(db: Db, lote: FilaPropiedad[], columnas: readonly (typeof COLUMNAS)[number][]) {
+/** Columnas que existen solo con las migraciones 008 (fotos) y 009 (detalles). */
+const COLUMNAS_009 = ["descripcion", "direccion", "estacionamientos", "antiguedad", "publicador", "latitud", "longitud", "mantenimiento"] as const
+type Columna = (typeof COLUMNAS)[number]
+
+/** De la más completa a la más básica: se usa la primera que la base acepte. */
+const NIVELES: readonly (readonly Columna[])[] = [
+  COLUMNAS,
+  COLUMNAS.filter(c => !(COLUMNAS_009 as readonly string[]).includes(c)),
+  COLUMNAS.filter(c => c !== "imagenes" && !(COLUMNAS_009 as readonly string[]).includes(c)),
+]
+
+async function insertarLote(db: Db, lote: FilaPropiedad[], columnas: readonly Columna[]) {
   const params: unknown[] = []
   const valores = lote.map(fila => {
     const base = params.length
@@ -181,18 +234,18 @@ export async function guardarAvisos(
   }
 
   const lista = [...filas.values()]
-  // Sin la migración 008 (columna `imagenes`) se sigue guardando todo, solo sin la galería.
-  let columnas: readonly (typeof COLUMNAS)[number][] = COLUMNAS
+  // Sin las migraciones 008/009 se sigue guardando todo lo demás, solo sin galería ni detalles.
+  let nivel = 0
   for (let i = 0; i < lista.length; i += CHUNK) {
     const lote = lista.slice(i, i + CHUNK)
-    try {
-      await insertarLote(db, lote, columnas)
-    } catch (err) {
-      if (columnas === COLUMNAS && /\bimagenes\b/.test(String((err as { message?: string })?.message ?? ""))) {
-        columnas = COLUMNAS.filter(c => c !== "imagenes")
-        await insertarLote(db, lote, columnas)
-      } else {
-        throw err
+    for (;;) {
+      try {
+        await insertarLote(db, lote, NIVELES[nivel])
+        break
+      } catch (err) {
+        const falta = /column .*does not exist|no existe la columna/i.test(String((err as { message?: string })?.message ?? ""))
+        if (!falta || nivel === NIVELES.length - 1) throw err
+        nivel++
       }
     }
   }

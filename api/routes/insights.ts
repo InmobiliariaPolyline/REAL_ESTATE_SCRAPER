@@ -36,6 +36,11 @@ function filtrosDeBusqueda(filtros: Record<string, unknown>) {
   set("precioMin", filtros.precioMin)
   set("precioMax", filtros.precioMax)
   set("dormitorios", filtros.dormitorios)
+  set("banios", filtros.banios)
+  set("areaMin", filtros.areaMin)
+  set("areaMax", filtros.areaMax)
+  set("publicado", filtros.publicado)
+  set("texto", filtros.texto)
   if (Array.isArray(filtros.portales)) q.set("portales", filtros.portales.join(","))
   return parsePortalFilters(q)
 }

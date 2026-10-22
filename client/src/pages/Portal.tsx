@@ -249,6 +249,12 @@ export default function Portal({
     <PortalFilters
       filters={filters}
       onFiltersChange={setFilters}
+      onApply={next => {
+        setSoloFavoritos(false)
+        setFilters(next)
+        setApplied(next)
+        loadProperties(next, 0)
+      }}
       onSearch={() => {
         if (isMobileDrawer) setIsFilterDrawerOpen(false)
         handleSearch()
@@ -591,6 +597,7 @@ export default function Portal({
           isCompared={compare.has(detailId)}
           compareDisabled={!canCompareMore}
           onToggleCompare={toggleCompare}
+          onOpenProperty={setDetailId}
           onClose={() => setDetailId(null)}
         />
       )}

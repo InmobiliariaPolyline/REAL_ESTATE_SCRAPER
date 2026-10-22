@@ -339,6 +339,8 @@ const TIPOS: Record<string, string> = {
 
 const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : undefined)
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? v : undefined)
+/** Número con signo (las coordenadas del Perú son negativas). */
+const coordenada = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : undefined)
 
 /** El actor a veces devuelve "S/n" (sin número) como barrio: en ese caso vale la ciudad. */
 const distrito = (item: Record<string, unknown>) => {
@@ -377,6 +379,8 @@ export function mapearAviso(item: Record<string, unknown>): Aviso | null {
     imagen: str(item.image) ?? str(item.imageUrl),
     imagenes: fotosDe(item),
     url: str(item.url),
+    descripcion: str(item.description),
+    mantenimiento: num(item.maintenanceFee),
   }
 }
 
@@ -389,6 +393,9 @@ function distritoUrbania(item: Record<string, unknown>): string | undefined {
   const distrito = partes.length > 0 ? partes[Math.max(0, partes.length - 3)] : undefined
   return distrito && !/^s\/?n$/i.test(distrito) ? distrito : str(item.location_name)
 }
+
+/** Número o texto del actor como texto (p. ej. `parking: 2`); vacío si no hay dato. */
+const texto = (v: unknown): string | undefined => (typeof v === "number" && Number.isFinite(v) ? String(v) : str(v))
 
 /** Fotos de un registro: listas de textos o de objetos con `url`/`src`, en cualquiera de los campos habituales. */
 export function fotosDe(item: Record<string, unknown>): string[] {
@@ -437,6 +444,14 @@ export function mapearAvisoUrbania(item: Record<string, unknown>): Aviso | null 
     imagen: str(item.thumbnail) ?? str(imagenes[0]),
     imagenes: fotosDe(item),
     url: str(item.url),
+    descripcion: str(item.description),
+    direccion: str(item.address),
+    estacionamientos: texto(item.parking),
+    antiguedad: texto(item.antiquity),
+    publicador: str(item.publisher),
+    latitud: coordenada(item.latitude),
+    longitud: coordenada(item.longitude),
+    mantenimiento: num(item.expenses),
   }
 }
 

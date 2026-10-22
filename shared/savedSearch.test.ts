@@ -61,6 +61,11 @@ describe("sanitizeFilterState", () => {
       precioMin: 1500,
       precioMax: "",
       dormitorios: "4+",
+      banios: "todos",
+      areaMin: "",
+      areaMax: "",
+      publicado: "todos",
+      texto: "",
     })
     expect(Object.keys(r)).not.toContain("otra")
   })
@@ -72,5 +77,24 @@ describe("sanitizeFilterState", () => {
     })
     expect(r.distrito).toHaveLength(80)
     expect(r.portales).toHaveLength(10)
+  })
+})
+
+describe("filtros nuevos de la búsqueda guardada", () => {
+  it("acepta baños, área, publicación y texto, y descarta lo inválido", () => {
+    expect(sanitizeFilterState({ banios: "3+", areaMin: "60", areaMax: 120, publicado: "semana", texto: "  vista al mar  " })).toMatchObject({
+      banios: "3+",
+      areaMin: 60,
+      areaMax: 120,
+      publicado: "semana",
+      texto: "vista al mar",
+    })
+    expect(sanitizeFilterState({ banios: "9", areaMin: -4, areaMax: "x", publicado: "ayer", texto: "y".repeat(300) })).toMatchObject({
+      banios: "todos",
+      areaMin: "",
+      areaMax: "",
+      publicado: "todos",
+    })
+    expect(sanitizeFilterState({ texto: "y".repeat(300) }).texto).toHaveLength(80)
   })
 })

@@ -587,3 +587,18 @@ describe("búsquedas paginadas de Adondevivir", () => {
     expect(fuentesDeCarga({}).urbania.paginar).toBeFalsy()
   })
 })
+
+describe("datos extra en los mapeos", () => {
+  it("Urbania entrega descripción, dirección, cochera, antigüedad, anunciante, coordenadas y gastos", () => {
+    const a = mapearAvisoUrbania({
+      code: "U-9", propertyTitle: "Depa", operation_type: "Venta", description: "Lindo depa", address: "Av. Larco 123, Miraflores",
+      parking: 2, antiquity: 5, publisher: "Prisma", latitude: -12.12, longitude: -77.03, expenses: 180,
+    })!
+    expect(a).toMatchObject({ descripcion: "Lindo depa", direccion: "Av. Larco 123, Miraflores", estacionamientos: "2", antiguedad: "5", publicador: "Prisma", latitud: -12.12, longitud: -77.03, mantenimiento: 180 })
+  })
+
+  it("Adondevivir entrega descripción y mantenimiento cuando los trae", () => {
+    const a = mapearAviso({ id: "1", title: "Casa", operationType: "Venta", description: "Casa amplia", maintenanceFee: 90 })!
+    expect(a).toMatchObject({ descripcion: "Casa amplia", mantenimiento: 90 })
+  })
+})

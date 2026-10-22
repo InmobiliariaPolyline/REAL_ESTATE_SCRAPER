@@ -130,16 +130,55 @@ export const portalRoutes: Route[] = [
         if (!isMissingTable(err)) throw err
       }
 
-      // Fotos del aviso; sin la migración 008 se muestra solo la portada.
-      let imagenes: string[] = []
-      try {
-        imagenes = (await db.query<{ imagenes: string[] | null }>("select imagenes from public.propiedades where id = $1", [params.id]))[0]?.imagenes ?? []
-      } catch (err) {
-        if (!/\bimagenes\b/.test(String((err as { message?: string })?.message ?? ""))) throw err
+      // Fotos y datos extra del aviso; sin las migraciones 008/009 se muestra lo que haya.
+      const base = rows[0] as { imagen: string | null; operacion: string; distrito: string | null; precio_usd: number }
+      let extra: Record<string, unknown> = {}
+      for (const columnas of [
+        "imagenes, ultima_vista_en, descripcion, direccion, estacionamientos, antiguedad, publicador, latitud, longitud, mantenimiento::float8 as mantenimiento",
+        "imagenes, ultima_vista_en",
+        "ultima_vista_en",
+      ]) {
+        try {
+          extra = (await db.query<Record<string, unknown>>(`select ${columnas} from public.propiedades where id = $1`, [params.id]))[0] ?? {}
+          break
+        } catch (err) {
+          if (!/column .*does not exist|no existe la columna/i.test(String((err as { message?: string })?.message ?? ""))) throw err
+        }
       }
-      const portada = (rows[0] as { imagen: string | null }).imagen
-      if (imagenes.length === 0 && portada) imagenes = [portada]
-      return { propiedad: { ...rows[0], imagenes }, historial }
+      let imagenes = Array.isArray(extra.imagenes) ? (extra.imagenes as string[]) : []
+      if (imagenes.length === 0 && base.imagen) imagenes = [base.imagen]
+      const { imagenes: _fotos, ...detalles } = extra
+
+      // Mercado de la zona (mismo distrito y operación) y avisos parecidos.
+      let mercado: Record<string, unknown> | null = null
+      let similares: unknown[] = []
+      if (base.distrito) {
+        const usd = Number(base.precio_usd) || 0
+        const m2 = "(case when area ~ '^[0-9]+([.,][0-9]+)?' then replace((regexp_match(area, '^[0-9]+(?:[.,][0-9]+)?'))[1], ',', '.')::numeric end)"
+        mercado =
+          (
+            await db.query<Record<string, unknown>>(
+              `select count(*)::int as avisos,
+                      percentile_cont(0.5) within group (order by precio_usd)::float8 as mediana_usd,
+                      min(precio_usd)::float8 as min_usd,
+                      max(precio_usd)::float8 as max_usd,
+                      percentile_cont(0.5) within group (order by precio_usd / nullif(${m2}, 0))::float8 as mediana_m2_usd,
+                      (count(*) filter (where precio_usd < $3))::int as mas_baratos
+                 from public.propiedades
+                where operacion = $1 and distrito = $2 and precio_usd > 0`,
+              [base.operacion, base.distrito, usd]
+            )
+          )[0] ?? null
+        similares = await db.query(
+          `select ${PROPERTY_COLUMNS} from public.propiedades
+            where id <> $1 and operacion = $2 and distrito = $3
+              and ($4::float8 = 0 or precio_usd between $4::float8 * 0.6 and $4::float8 * 1.4)
+            order by abs(coalesce(precio_usd, 0) - $4::float8), creado_en desc
+            limit 4`,
+          [params.id, base.operacion, base.distrito, usd]
+        )
+      }
+      return { propiedad: { ...rows[0], ...detalles, imagenes }, historial, mercado, similares }
     },
   },
 

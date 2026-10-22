@@ -23,6 +23,20 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "2.1.0",
+    fecha: "2026-10-22",
+    titulo: "Filtros por secciones y vista previa con más de 60 detalles",
+    cambios: [
+      { tipo: "implementacion", texto: "Nuevo panel de filtros por secciones con buen espaciado: qué buscas y dónde, precio y portales, y un desglose «Más filtros» con dormitorios, baños, área mínima y máxima, y fecha de publicación." },
+      { tipo: "implementacion", texto: "Filtros nuevos: palabra clave (título y distrito), baños, área en m², y publicado hoy, en 7 o en 30 días. También valen para las búsquedas guardadas." },
+      { tipo: "mejora", texto: "Cada filtro aplicado aparece como chip que se quita con un clic y busca al instante; hay topes de precio rápidos según la moneda y la operación." },
+      { tipo: "implementacion", texto: "Vista previa de la propiedad rediseñada con más de 60 detalles explicados en lenguaje sencillo: precio en soles y dólares, precio por m², cuota de hipoteca de referencia, costos del alquiler, comparación con la mediana del distrito, tiempo en el sistema, ubicación y avisos parecidos." },
+      { tipo: "mejora", texto: "Iconos con volumen y fichas que se inclinan hacia el cursor (efecto 3D); sin emojis, solo iconos. Con «Reducir movimiento» las fichas quedan quietas." },
+      { tipo: "implementacion", texto: "La carga guarda además descripción, dirección, cocheras, antigüedad, anunciante, coordenadas y mantenimiento cuando la fuente los entrega (db/009_detalles.sql, opcional)." },
+      { tipo: "correccion", texto: "Los filtros del panel de administración ya no se amontonan ni cruzan: nueva distribución en filas con aire entre campos." },
+    ],
+  },
+  {
     version: "2.0.0",
     fecha: "2026-10-22",
     titulo: "Nuevo diseño: cristal, luz y movimiento",

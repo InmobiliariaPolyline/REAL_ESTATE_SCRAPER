@@ -39,6 +39,16 @@ export interface Propiedad {
   imagenes?: string[]
   url: string
   creado_en?: string
+  ultima_vista_en?: string
+  /** Datos extra del detalle (db/009_detalles.sql). */
+  descripcion?: string | null
+  direccion?: string | null
+  estacionamientos?: string | null
+  antiguedad?: string | null
+  publicador?: string | null
+  latitud?: number | null
+  longitud?: number | null
+  mantenimiento?: number | null
 }
 
 export type FilterState = PortalFilterState

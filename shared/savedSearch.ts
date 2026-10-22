@@ -1,4 +1,4 @@
-import type { Dormitorios } from "./filters"
+import type { Banios, Dormitorios, Publicado } from "./filters"
 
 /** Filtros del portal de clientes (forma exacta que se guarda en las búsquedas guardadas). */
 export interface PortalFilterState {
@@ -10,6 +10,12 @@ export interface PortalFilterState {
   precioMin: number | ""
   precioMax: number | ""
   dormitorios: Dormitorios
+  banios: Banios
+  areaMin: number | ""
+  areaMax: number | ""
+  publicado: Publicado
+  /** Texto libre: se busca en el título y el distrito. */
+  texto: string
 }
 
 export const DEFAULT_PORTAL_FILTERS: PortalFilterState = {
@@ -21,11 +27,18 @@ export const DEFAULT_PORTAL_FILTERS: PortalFilterState = {
   precioMin: "",
   precioMax: "",
   dormitorios: "todos",
+  banios: "todos",
+  areaMin: "",
+  areaMax: "",
+  publicado: "todos",
+  texto: "",
 }
 
 const OPERACIONES = ["todos", "ALQUILER", "VENTA"] as const
 const INMUEBLES = ["todos", "Departamento", "Casa"] as const
 const DORMITORIOS = ["todos", "1", "2", "3", "4+"] as const
+const BANIOS = ["todos", "1", "2", "3+"] as const
+const PUBLICADOS = ["todos", "hoy", "semana", "mes"] as const
 
 const pick = <T extends string>(value: unknown, allowed: readonly T[], fallback: T): T =>
   typeof value === "string" && (allowed as readonly string[]).includes(value) ? (value as T) : fallback
@@ -59,5 +72,10 @@ export function sanitizeFilterState(raw: unknown): PortalFilterState {
     precioMin: price(r.precioMin),
     precioMax: price(r.precioMax),
     dormitorios: pick(r.dormitorios, DORMITORIOS, "todos"),
+    banios: pick(r.banios, BANIOS, "todos"),
+    areaMin: price(r.areaMin),
+    areaMax: price(r.areaMax),
+    publicado: pick(r.publicado, PUBLICADOS, "todos"),
+    texto: typeof r.texto === "string" ? r.texto.trim().slice(0, 80) : "",
   }
 }

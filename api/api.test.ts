@@ -75,6 +75,7 @@ beforeAll(async () => {
   await pg.exec(fs.readFileSync(path.join(root, "db/006_idle_timeout.sql"), "utf8"))
   await pg.exec(fs.readFileSync(path.join(root, "db/007_carga.sql"), "utf8"))
   await pg.exec(fs.readFileSync(path.join(root, "db/008_imagenes.sql"), "utf8"))
+  await pg.exec(fs.readFileSync(path.join(root, "db/009_detalles.sql"), "utf8"))
 
   // El admin crea a "cliente" con Premium mediante la propia función SQL.
   admin = (await login("admin", "admin-pass-123")).body.token
@@ -870,6 +871,11 @@ describe("favoritos y búsquedas guardadas de clientes", () => {
       precioMin: 1000,
       precioMax: "",
       dormitorios: "todos",
+      banios: "todos",
+      areaMin: "",
+      areaMax: "",
+      publicado: "todos",
+      texto: "",
     })
     expect(JSON.stringify(list.body)).not.toContain("script")
 
@@ -1387,6 +1393,73 @@ describe("carga automática (Apify)", () => {
     // Un aviso sin galería guardada muestra al menos su portada.
     await pg.exec("update propiedades set imagen = 'https://img.test/solo.jpg', imagenes = '{}' where id = 'urbania:U-FOTOS'")
     expect((await call("GET", "/api/propiedades/urbania:U-FOTOS", { token: admin })).body.propiedad.imagenes).toEqual(["https://img.test/solo.jpg"])
+  })
+
+  it("el detalle trae datos extra, el mercado de la zona y avisos parecidos", async () => {
+    await pg.exec(`
+      insert into propiedades (id, portal, operacion, inmueble, titulo, precio, precio_usd, moneda, distrito, dormitorios, banios, area, descripcion, direccion, estacionamientos, publicador, latitud, longitud, mantenimiento) values
+        ('mk0','urbania','VENTA','Departamento','Depa objetivo',400000,100000,'PEN','Zona Test','2','2','80 m2','Descripcion larga','Calle 1','1','Inmobiliaria Z',-12.1,-77.0,120),
+        ('mk1','urbania','VENTA','Departamento','Barato',200000,50000,'PEN','Zona Test','1','1','40 m2',null,null,null,null,null,null,null),
+        ('mk2','urbania','VENTA','Departamento','Parecido A',420000,105000,'PEN','Zona Test','2','2','82 m2',null,null,null,null,null,null,null),
+        ('mk3','urbania','VENTA','Departamento','Parecido B',380000,95000,'PEN','Zona Test','2','1','78 m2',null,null,null,null,null,null,null),
+        ('mk4','urbania','VENTA','Departamento','Caro',1000000,250000,'PEN','Zona Test','4','3','200 m2',null,null,null,null,null,null,null),
+        ('mk5','urbania','ALQUILER','Departamento','Otro tipo de operacion',2000,500,'PEN','Zona Test','2','1','60 m2',null,null,null,null,null,null,null),
+        ('mk6','urbania','VENTA','Departamento','Sin distrito',400000,100000,'PEN',null,'2','2','80 m2',null,null,null,null,null,null,null)
+    `)
+    const d = (await call("GET", "/api/propiedades/mk0", { token: member })).body
+    expect(d.propiedad).toMatchObject({ descripcion: "Descripcion larga", direccion: "Calle 1", estacionamientos: "1", publicador: "Inmobiliaria Z", latitud: -12.1, longitud: -77, mantenimiento: 120 })
+    expect(d.propiedad.ultima_vista_en).toBeTruthy()
+    // Mercado: 5 avisos de venta en la zona (mk0..mk4); la mediana de 50k, 95k, 100k, 105k, 250k es 100k.
+    expect(d.mercado).toMatchObject({ avisos: 5, mediana_usd: 100000, min_usd: 50000, max_usd: 250000, mas_baratos: 2 })
+    expect(d.mercado.mediana_m2_usd).toBeGreaterThan(0)
+    // Parecidos: misma operación y zona, precio dentro de ±40 %, el más cercano primero y sin el propio aviso.
+    expect(d.similares.map((x: any) => x.id)).toEqual(["mk2", "mk3"])
+    // Sin distrito no hay comparación posible.
+    const sin = (await call("GET", "/api/propiedades/mk6", { token: member })).body
+    expect(sin.mercado).toBeNull()
+    expect(sin.similares).toEqual([])
+    expect((await call("GET", "/api/propiedades/no-existe", { token: member })).status).toBe(404)
+    await pg.exec("delete from propiedades where id like 'mk%'")
+  })
+
+  it("filtros nuevos del portal: baños, área, publicación y texto", async () => {
+    await pg.exec(`
+      insert into propiedades (id, portal, operacion, inmueble, titulo, precio, precio_usd, moneda, distrito, dormitorios, banios, area, creado_en) values
+        ('flt1','urbania','VENTA','Departamento','Depa con vista al mar',300000,80000,'PEN','Miraflores','3','3','120 m2', now() - interval '2 hours'),
+        ('flt2','urbania','VENTA','Departamento','Depa interior',200000,53000,'PEN','Lince','2','1','45,5 m2', now() - interval '3 days'),
+        ('flt3','urbania','VENTA','Casa','Casa sin datos',500000,133000,'PEN','Surco',null,null,null, now() - interval '40 days')
+    `)
+    const ids = async (q: string) => {
+      const r = await call("GET", `/api/propiedades?pageSize=50&${q}`, { token: member })
+      return r.body.data
+        .map((p: any) => p.id)
+        .filter((id: string) => id.startsWith("flt"))
+        .sort()
+    }
+
+    expect(await ids("banios=3%2B")).toEqual(["flt1"])
+    expect(await ids("banios=1")).toEqual(["flt2"])
+    expect(await ids("areaMin=100")).toEqual(["flt1"])
+    expect(await ids("areaMax=50")).toEqual(["flt2"]) // «45,5 m2» se entiende como 45.5
+    expect(await ids("areaMin=40&areaMax=130")).toEqual(["flt1", "flt2"])
+    expect(await ids("publicado=hoy")).toEqual(["flt1"])
+    expect(await ids("publicado=semana")).toEqual(["flt1", "flt2"])
+    expect(await ids("publicado=mes")).toEqual(["flt1", "flt2"])
+    expect(await ids("texto=vista%20al%20MAR")).toEqual(["flt1"])
+    expect(await ids("texto=lince")).toEqual(["flt2"]) // también busca en el distrito
+    expect(await ids("texto=100%25")).toEqual([]) // «%» se toma literal, no como comodín
+    // Combinados con los de siempre.
+    expect(await ids("operacion=VENTA&banios=3%2B&areaMin=100&publicado=hoy")).toEqual(["flt1"])
+
+    expect((await call("GET", "/api/propiedades?banios=9", { token: member })).status).toBe(400)
+    expect((await call("GET", "/api/propiedades?publicado=ayer", { token: member })).status).toBe(400)
+    expect((await call("GET", `/api/propiedades?texto=${"x".repeat(100)}`, { token: member })).status).toBe(400)
+    await pg.exec("delete from propiedades where id in ('flt1','flt2','flt3')")
+  })
+
+  it("los filtros nuevos también valen para las búsquedas guardadas y su conteo de novedades", async () => {
+    const { sanitizeFilterState } = await import("../shared/savedSearch")
+    expect(sanitizeFilterState({ banios: "2", publicado: "mes" })).toMatchObject({ banios: "2", publicado: "mes" })
   })
 
   it("los cambios de configuración y los lanzamientos quedan en la auditoría", async () => {

@@ -1,8 +1,12 @@
 import {
   accentInsensitivePattern,
+  bathroomsPattern,
   bedroomsPattern,
+  diasPublicado,
   escapeLike,
+  type Banios,
   type Dormitorios,
+  type Publicado,
 } from "../shared/filters"
 import { badRequest, optNumber } from "./http"
 
@@ -56,6 +60,11 @@ export interface PortalFilters {
   precioMin: number | null
   precioMax: number | null
   dormitorios: Dormitorios
+  banios: Banios
+  areaMin: number | null
+  areaMax: number | null
+  publicado: Publicado
+  texto: string
   orden: Orden
 }
 
@@ -63,6 +72,8 @@ export type Orden = "relevancia" | "recientes" | "precio_asc" | "precio_desc"
 const ORDENES = new Set<string>(["relevancia", "recientes", "precio_asc", "precio_desc"])
 
 const DORMITORIOS = new Set(["todos", "1", "2", "3", "4+"])
+const BANIOS = new Set(["todos", "1", "2", "3+"])
+const PUBLICADOS = new Set(["todos", "hoy", "semana", "mes"])
 
 const optionOf = (value: string | null): string | null => {
   const v = (value ?? "").trim()
@@ -76,6 +87,12 @@ export function parsePortalFilters(q: URLSearchParams): PortalFilters {
   if (!DORMITORIOS.has(dormitorios)) throw badRequest("Filtro de dormitorios inválido")
   const distrito = (q.get("distrito") ?? "").trim()
   if (distrito.length > 80) throw badRequest("Distrito demasiado largo")
+  const banios = q.get("banios") ?? "todos"
+  if (!BANIOS.has(banios)) throw badRequest("Filtro de baños inválido")
+  const publicado = q.get("publicado") ?? "todos"
+  if (!PUBLICADOS.has(publicado)) throw badRequest("Filtro de publicación inválido")
+  const texto = (q.get("texto") ?? "").trim()
+  if (texto.length > 80) throw badRequest("Texto de búsqueda demasiado largo")
 
   return {
     operacion: optionOf(q.get("operacion")),
@@ -89,6 +106,11 @@ export function parsePortalFilters(q: URLSearchParams): PortalFilters {
     precioMin: optNumber(q.get("precioMin")),
     precioMax: optNumber(q.get("precioMax")),
     dormitorios: dormitorios as Dormitorios,
+    banios: banios as Banios,
+    areaMin: optNumber(q.get("areaMin")),
+    areaMax: optNumber(q.get("areaMax")),
+    publicado: publicado as Publicado,
+    texto,
     orden: ORDENES.has(q.get("orden") ?? "") ? (q.get("orden") as Orden) : "relevancia",
   }
 }
@@ -102,6 +124,24 @@ function applyPortalWhere(w: Where, f: PortalFilters, usdToPen: number) {
 
   const dorm = bedroomsPattern(f.dormitorios)
   if (dorm) w.add(`dormitorios ~* ${w.p(dorm)}`)
+
+  const banios = bathroomsPattern(f.banios)
+  if (banios) w.add(`banios ~* ${w.p(banios)}`)
+
+  // Área: se toma el primer número del texto («85,5 m2»); sin número, el aviso no entra al filtrarla.
+  if ((f.areaMin ?? 0) > 0 || f.areaMax !== null) {
+    const area = `(case when area ~ '^[0-9]+([.,][0-9]+)?' then replace((regexp_match(area, '^[0-9]+(?:[.,][0-9]+)?'))[1], ',', '.')::numeric end)`
+    if ((f.areaMin ?? 0) > 0) w.add(`${area} >= ${w.p(f.areaMin)}`)
+    if (f.areaMax !== null) w.add(`${area} <= ${w.p(f.areaMax)}`)
+  }
+
+  const dias = diasPublicado(f.publicado)
+  if (dias) w.add(`creado_en >= now() - ${w.p(dias)}::int * interval '1 day'`)
+
+  if (f.texto) {
+    const like = w.p(`%${escapeLike(f.texto)}%`)
+    w.add(`(titulo ilike ${like} or distrito ilike ${like})`)
+  }
 
   // Rango de precio: el aviso entra si su precio nativo cae en el rango o, cuando solo tiene
   // el precio en la otra moneda, si esa cifra convertida cae en el rango.

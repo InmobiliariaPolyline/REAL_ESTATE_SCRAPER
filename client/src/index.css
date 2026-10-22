@@ -1492,3 +1492,89 @@
     color: transparent;
   }
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EFECTOS 3D — fichas que se inclinan hacia el cursor e iconos con volumen.
+   El giro lo calcula components/portal/detail/Tilt.tsx (variables --rx / --ry).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@layer components {
+  .tone-gold { --tone: var(--gold); }
+  .tone-blue { --tone: var(--blue); }
+  .tone-green { --tone: var(--green); }
+  .tone-amber { --tone: var(--amber); }
+  .tone-violet { --tone: var(--violet); }
+  .tone-rose { --tone: var(--rose); }
+  .tone-teal { --tone: var(--teal); }
+
+  .tilt {
+    --rx: 0deg;
+    --ry: 0deg;
+    transform: perspective(820px) rotateX(var(--rx)) rotateY(var(--ry));
+    transform-style: preserve-3d;
+    transition: transform 0.3s var(--ease-out), box-shadow 0.35s ease, border-color 0.3s ease;
+    will-change: transform;
+  }
+  .tilt:hover {
+    border-color: color-mix(in srgb, var(--tone, var(--gold)) 45%, transparent);
+    box-shadow: 0 28px 44px -24px rgb(0 0 0 / 0.75), 0 0 0 1px color-mix(in srgb, var(--tone, var(--gold)) 22%, transparent);
+  }
+  .tilt-icon { transform: translateZ(30px); }
+  .tilt-text { transform: translateZ(14px); }
+
+  /* Icono con volumen: cara con degradado, canto inferior y sombra proyectada */
+  .icon-3d {
+    position: relative;
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 2.75rem;
+    height: 2.75rem;
+    border-radius: 0.95rem;
+    color: var(--tone, var(--gold));
+    background:
+      radial-gradient(120% 90% at 20% 0%, rgb(255 255 255 / 0.28), transparent 55%),
+      linear-gradient(150deg, color-mix(in srgb, var(--tone, var(--gold)) 38%, var(--surface-3)), color-mix(in srgb, var(--tone, var(--gold)) 10%, var(--surface-2)));
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.4),
+      inset 0 -3px 0 rgb(0 0 0 / 0.3),
+      0 3px 0 color-mix(in srgb, var(--tone, var(--gold)) 28%, #000),
+      0 14px 22px -10px color-mix(in srgb, var(--tone, var(--gold)) 75%, transparent);
+    transition: transform 0.35s var(--ease-spring), box-shadow 0.3s ease;
+  }
+  .icon-3d svg { filter: drop-shadow(0 2px 0 rgb(0 0 0 / 0.35)) drop-shadow(0 5px 6px color-mix(in srgb, var(--tone, var(--gold)) 60%, transparent)); }
+  .icon-3d-sm { width: 2.25rem; height: 2.25rem; border-radius: 0.75rem; }
+  .icon-3d-lg { width: 3.5rem; height: 3.5rem; border-radius: 1.1rem; }
+  .tilt:hover .icon-3d, .icon-3d:hover { transform: translateY(-2px) scale(1.06); }
+
+  /* Barra de rango de precios de la zona, con marcador */
+  .range-track {
+    position: relative;
+    height: 0.625rem;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--green), var(--amber) 55%, var(--rose));
+    box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.35);
+  }
+  .range-marker {
+    position: absolute;
+    top: 50%;
+    width: 1.125rem;
+    height: 1.125rem;
+    border-radius: 999px;
+    background: var(--text);
+    border: 3px solid var(--app);
+    box-shadow: 0 4px 10px rgb(0 0 0 / 0.5), 0 0 0 2px var(--gold);
+    transform: translate(-50%, -50%);
+    transition: left 0.9s var(--ease-out);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tilt { transform: none; }
+  .tilt-icon, .tilt-text { transform: none; }
+}
+:root[data-motion="reduced"] .tilt,
+:root[data-motion="reduced"] .tilt-icon,
+:root[data-motion="reduced"] .tilt-text { transform: none; }

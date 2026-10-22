@@ -1,6 +1,7 @@
 import { api } from "./api"
 import { USD_TO_PEN_RATE } from "./config"
 import type { FilterState, Propiedad } from "@/types"
+import type { MercadoZona } from "./propertyInsights"
 
 export interface PropertyPage {
   data: Propiedad[]
@@ -27,6 +28,11 @@ function portalParams(filters: FilterState, orden: Orden) {
     precioMin: filters.precioMin,
     precioMax: filters.precioMax,
     dormitorios: filters.dormitorios,
+    banios: filters.banios,
+    areaMin: filters.areaMin,
+    areaMax: filters.areaMax,
+    publicado: filters.publicado,
+    texto: filters.texto.trim(),
     orden,
   }
 }
@@ -69,6 +75,10 @@ export interface PricePoint {
 export interface PropertyDetail {
   propiedad: Propiedad
   historial: PricePoint[]
+  /** Estadísticas de la zona (mismo distrito y operación). */
+  mercado?: MercadoZona | null
+  /** Avisos parecidos de la zona. */
+  similares?: Propiedad[]
 }
 
 export const fetchPropertyDetail = (id: string) =>
