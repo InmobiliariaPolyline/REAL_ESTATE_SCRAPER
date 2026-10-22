@@ -44,7 +44,7 @@ export default function StatCard({
 }: StatCardProps) {
   const t = TONES[tone]
   return (
-    <div className="card card-texture flex flex-col">
+    <div className="card card-texture card-interactive flex flex-col">
       <div className="flex items-start justify-between gap-3 p-5 pb-4">
         <div className="min-w-0 pl-1">
           <p className="text-sm text-text-muted">{label}</p>
@@ -60,11 +60,11 @@ export default function StatCard({
         <div className="flex flex-col items-end gap-3">
           <span
             className={cn(
-              "animate-float inline-flex size-11 shrink-0 items-center justify-center rounded-2xl ring-1",
+              "animate-float inline-flex size-12 shrink-0 items-center justify-center rounded-2xl ring-1 shadow-[0_10px_24px_-12px_currentColor]",
               t.ring
             )}
           >
-            <Icon className={cn("size-5", t.icon)} strokeWidth={1.75} aria-hidden="true" />
+            <Icon className={cn("size-[1.35rem]", t.icon)} strokeWidth={1.75} aria-hidden="true" />
           </span>
           {!loading && spark && spark.length > 1 && (
             <Sparkline values={spark} className={cn("h-8 w-24", t.icon)} />

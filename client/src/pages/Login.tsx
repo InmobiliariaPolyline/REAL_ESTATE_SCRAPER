@@ -62,17 +62,19 @@ export default function Login({ onLoginSuccess }: LoginProps) {
           fetchPriority="high"
         />
         <div className="absolute inset-0 bg-[linear-gradient(160deg,rgb(var(--app-rgb)/0.6)_0%,rgb(var(--app-rgb)/0.9)_55%,var(--app)_100%)]" />
+        <div className="orb orb-a -left-24 top-10 size-96 bg-gold/30" aria-hidden="true" />
+        <div className="orb orb-b -bottom-24 right-0 size-[28rem] bg-blue/25" aria-hidden="true" />
         <div className="relative flex h-full flex-col justify-between p-12">
           <Logo />
           <div className="max-w-lg">
             <p className="eyebrow mb-4">Inteligencia inmobiliaria</p>
-            <h2 className="font-display text-5xl font-semibold leading-[1.05] text-text">
+            <h2 className="font-display text-5xl font-semibold leading-[1.05] text-text [text-wrap:balance]">
               El mercado inmobiliario peruano, en tiempo real.
             </h2>
             <ul className="mt-10 space-y-5">
               {HIGHLIGHTS.map(({ icon: Icon, title, text }) => (
                 <li key={title} className="flex gap-4">
-                  <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl bg-gold-soft ring-1 ring-gold/25">
+                  <span className="animate-float inline-flex size-11 shrink-0 items-center justify-center rounded-2xl bg-gold-soft ring-1 ring-gold/30 shadow-[0_10px_24px_-12px_rgb(var(--gold-rgb)/0.8)]">
                     <Icon className="size-5 text-gold" strokeWidth={1.75} />
                   </span>
                   <span>
@@ -92,7 +94,7 @@ export default function Login({ onLoginSuccess }: LoginProps) {
         <div className="animate-slideInUp w-full max-w-md">
           <Logo className="mb-10 lg:hidden" />
 
-          <div className="card p-8 sm:p-10">
+          <div className="card glow-border p-8 sm:p-10">
             <p className="eyebrow mb-3">Acceso</p>
             <h1 className="font-display text-4xl font-semibold text-text">Bienvenido</h1>
             <p className="mt-2 text-sm text-text-muted">

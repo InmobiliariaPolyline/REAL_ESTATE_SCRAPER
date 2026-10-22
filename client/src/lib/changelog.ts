@@ -23,6 +23,19 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "2.0.0",
+    fecha: "2026-10-22",
+    titulo: "Nuevo diseño: cristal, luz y movimiento",
+    cambios: [
+      { tipo: "implementacion", texto: "Rediseño completo de la interfaz: nuevas tipografías (Fraunces y Plus Jakarta Sans), superficies de cristal con relieve, botones con luz, campos con halo al enfocar y esquinas más suaves en todo el sistema." },
+      { tipo: "implementacion", texto: "Iconos animados: cada icono hace su propio gesto al pasar el cursor (la lupa se mueve, el engranaje gira, la campana se balancea, el corazón late, la papelera se sacude…) sin tocar ninguna pantalla." },
+      { tipo: "implementacion", texto: "Movimiento nuevo: transición de entrada entre secciones, brillo que sigue al cursor sobre las tarjetas, indicador luminoso en la navegación, barra de tiempo en los avisos emergentes y fondo con auroras suaves." },
+      { tipo: "mejora", texto: "Pantalla de acceso con orbes luminosos y marco giratorio, barra lateral y cabecera de cristal, estados vacíos con halo, y títulos con filete dorado animado." },
+      { tipo: "mejora", texto: "Todo respeta «Reducir movimiento» (preferencia del sistema o ajuste en Tema y personalización) y funciona igual en tema claro, oscuro y móvil." },
+      { tipo: "correccion", texto: "Las tarjetas de propiedades vuelven a elevarse al pasar el cursor (la animación de entrada retenía la posición) y el Catálogo ya no repite el saludo del Inicio." },
+    ],
+  },
+  {
     version: "1.11.1",
     fecha: "2026-10-22",
     titulo: "Vista previa siempre a la vista y datos más limpios",

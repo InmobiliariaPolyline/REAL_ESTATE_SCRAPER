@@ -165,11 +165,11 @@ export default function PropertyDetailModal({
 
                 <div className="space-y-4 p-6">
                   <h2 className="text-lg font-semibold leading-snug text-text">{p.titulo}</h2>
-                  <p className="mono text-3xl font-semibold tracking-tight text-gold">
+                  <p className="mono text-gradient-gold text-[2rem] font-semibold tracking-tight">
                     {formatDisplayPrice(price)}
                   </p>
 
-                  <dl className="grid grid-cols-2 gap-3 text-sm">
+                  <dl className="grid grid-cols-2 gap-2.5 text-sm [&>div]:rounded-2xl [&>div]:border [&>div]:border-line [&>div]:bg-surface-3/60 [&>div]:px-3.5 [&>div]:py-2.5">
                     <div>
                       <dt className="text-xs text-text-muted">Precio por m²</dt>
                       <dd className="mono mt-0.5 font-medium text-text">

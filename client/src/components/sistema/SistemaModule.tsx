@@ -104,9 +104,9 @@ export default function SistemaModule({ esAdmin, section, onSectionChange, onLog
                   onClick={() => onSectionChange(s.id)}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "group flex w-full items-center gap-3 whitespace-nowrap rounded-xl px-3.5 py-2.5 text-left text-sm font-medium transition-all duration-300",
+                    "group flex w-full items-center gap-3 whitespace-nowrap rounded-2xl px-3.5 py-2.5 text-left text-sm font-medium transition-all duration-300 hover:translate-x-0.5",
                     active
-                      ? "bg-gold-soft text-text shadow-[inset_0_0_0_1px_rgb(var(--gold-rgb)/0.3)]"
+                      ? "bg-gradient-to-r from-gold/20 to-gold/5 text-text shadow-[inset_0_0_0_1px_rgb(var(--gold-rgb)/0.35),0_10px_24px_-14px_rgb(var(--gold-rgb)/0.7)]"
                       : "text-text-muted hover:bg-surface-3 hover:text-text"
                   )}
                 >
@@ -127,10 +127,10 @@ export default function SistemaModule({ esAdmin, section, onSectionChange, onLog
         <p className="mono mt-3 hidden px-3 text-xs text-text-faint xl:block">v{__APP_VERSION__}</p>
       </nav>
 
-      <div key={current.id} className="animate-slideInUp min-w-0">
+      <div key={current.id} className="page-enter min-w-0">
         <header className="mb-5 flex items-start gap-3">
-          <span className="inline-flex size-11 shrink-0 items-center justify-center rounded-2xl bg-gold-soft ring-1 ring-gold/25">
-            <CurrentIcon className="size-5 text-gold" strokeWidth={1.75} aria-hidden="true" />
+          <span className="animate-float inline-flex size-12 shrink-0 items-center justify-center rounded-2xl bg-gold-soft ring-1 ring-gold/30 shadow-[0_12px_28px_-14px_rgb(var(--gold-rgb)/0.8)]">
+            <CurrentIcon className="size-[1.35rem] text-gold" strokeWidth={1.75} aria-hidden="true" />
           </span>
           <div>
             <h2 className="font-display text-2xl font-semibold leading-tight text-text">{current.title}</h2>

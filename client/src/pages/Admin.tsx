@@ -103,7 +103,7 @@ export default function Admin({ usuario, onLogout }: AdminProps) {
             description={current.description}
           />
 
-          <div key={activeTab} className="animate-slideInUp">
+          <div key={activeTab} className="page-enter">
             <Suspense fallback={<div className="skeleton h-64" aria-busy="true" />}>
               {renderContent()}
             </Suspense>

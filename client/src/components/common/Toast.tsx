@@ -31,10 +31,11 @@ export function Toast({ toasts, onRemove }: ToastProps) {
           <div
             key={toast.id}
             role={toast.tipo === "error" ? "alert" : "status"}
-            className="animate-popIn pointer-events-auto relative flex items-start gap-3 overflow-hidden rounded-2xl border border-line-strong bg-surface-2/95 py-3 pl-5 pr-3 shadow-2xl backdrop-blur-md"
+            className="animate-popIn pointer-events-auto relative flex items-start gap-3 overflow-hidden rounded-2xl border border-line-strong bg-surface-2/90 py-3.5 pl-5 pr-3 shadow-[0_24px_48px_-20px_rgb(0_0_0/0.8)] backdrop-blur-xl"
           >
             <span className={cn("absolute inset-y-0 left-0 w-1", s.bar)} />
-            <Icon className={cn("mt-0.5 size-5 shrink-0", s.tone)} strokeWidth={1.75} />
+            <span aria-hidden="true" className={cn("toast-bar absolute inset-x-0 bottom-0 h-0.5 opacity-70", s.bar)} />
+            <Icon className={cn("mt-0.5 size-5 shrink-0 animate-float", s.tone)} strokeWidth={1.75} />
             <p className="min-w-0 flex-1 text-sm leading-snug text-text">{toast.mensaje}</p>
             <button
               onClick={() => onRemove(toast.id)}

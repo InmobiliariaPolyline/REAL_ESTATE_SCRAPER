@@ -366,11 +366,7 @@ export default function Portal({
         <div hidden={view !== "catalogo"}>
         <PageHeader
           eyebrow="Catálogo"
-          title={
-            <>
-              Hola, <span className="text-gold">{usuario}</span>
-            </>
-          }
+          title="Catálogo de propiedades"
           description="Explora los avisos de todos los portales con precios normalizados en soles y dólares."
         />
 

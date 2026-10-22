@@ -58,7 +58,7 @@ export default function AdminSidebar({
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-line bg-surface-1 px-3 py-5 transition-transform duration-300 md:translate-x-0",
+          "glass fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-line px-3 py-5 transition-transform duration-500 ease-[var(--ease-out)] md:translate-x-0",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
@@ -70,7 +70,7 @@ export default function AdminSidebar({
         <button
           type="button"
           onClick={() => setShowPassword(true)}
-          className="group mx-1 mb-2 flex items-center gap-3 rounded-2xl border border-line bg-surface-2 p-3 text-left transition hover:border-gold/40"
+          className="group card-interactive mx-1 mb-2 flex items-center gap-3 rounded-2xl border border-line bg-surface-2 p-3 text-left"
           title="Mi cuenta: contraseña y sesiones"
         >
           <Avatar name={adminName} />

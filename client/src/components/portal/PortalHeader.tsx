@@ -47,7 +47,7 @@ export default function PortalHeader({
 
   return (
     <>
-    <header className="fixed inset-x-0 top-0 z-40 border-b border-line bg-surface-1/80 backdrop-blur-xl">
+    <header className="glass fixed inset-x-0 top-0 z-40 border-b border-line shadow-[0_1px_0_rgb(var(--gold-rgb)/0.12),0_12px_30px_-24px_rgb(0_0_0/0.8)]">
       <div className="mx-auto flex h-16 max-w-[1500px] items-center justify-between px-4 sm:px-8">
         <Logo />
 
