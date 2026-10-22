@@ -110,10 +110,18 @@ export default function CargaSection() {
   const fraccion = tapa > 0 ? Math.min(1, (estado?.usado ?? 0) / tapa) : 0
   const colorAnillo = fraccion >= 1 ? "text-rose" : fraccion >= 0.8 ? "text-amber" : "text-gold"
   const costoMil = estado?.credito.costo_por_mil ?? 3
-  const aPedir = useMemo(
-    () => (estado ? Math.max(0, Math.min(estado.config.maximo_por_corrida, estado.restante)) : 0),
-    [estado]
-  )
+  // Fuentes que se cargarían: la elegida o todas (las que están en curso no cuentan).
+  const objetivo = useMemo(() => {
+    const fuentes = estado?.fuentes
+    if (!fuentes) return null
+    const libres = fuentes.filter(f => !estado.corridas.some(c => c.estado === "iniciada" && c.fuente === f.id))
+    return fuenteElegida === "auto" ? libres : libres.filter(f => f.id === fuenteElegida)
+  }, [estado, fuenteElegida])
+  const aPedir = useMemo(() => {
+    if (!estado) return 0
+    if (objetivo) return objetivo.reduce((n, f) => n + Math.max(0, Math.min(f.maximo_por_corrida, f.restante)), 0)
+    return Math.max(0, Math.min(estado.config.maximo_por_corrida, estado.restante))
+  }, [estado, objetivo])
 
   const guardarTopes = async () => {
     if (!valido) return
@@ -146,7 +154,8 @@ export default function CargaSection() {
     setLanzando(true)
     try {
       const r = await runCarga(fuenteElegida === "auto" ? undefined : fuenteElegida)
-      addToast(`Carga iniciada: hasta ${r.items} avisos. Llegarán en unos minutos.`, "success")
+      const fuentes = r.lanzadas && r.lanzadas.length > 1 ? ` (${r.lanzadas.map(l => nombreFuente(l.fuente)).join(" y ")})` : ""
+      addToast(`Carga iniciada${fuentes}: hasta ${r.items} avisos. Llegarán en unos minutos.`, "success")
       setConfirmar(false)
       await cargar()
     } catch (err) {
@@ -164,7 +173,8 @@ export default function CargaSection() {
 
   const activa = !estado.config.pausada
   const nombreFuente = (id?: FuenteId) => (id === "urbania" ? "Urbania" : "Adondevivir")
-  const puedeLanzar = estado.configurada && aPedir > 0 && !estado.corridas.some(c => c.estado === "iniciada")
+  const enCurso = objetivo ? objetivo.length === 0 : estado.corridas.some(c => c.estado === "iniciada")
+  const puedeLanzar = estado.configurada && aPedir > 0 && !enCurso
 
   return (
     <div className="space-y-6">
@@ -265,7 +275,7 @@ export default function CargaSection() {
                 </h2>
                 <p className="text-sm text-text-muted">
                   {activa
-                    ? "Activa: lunes y jueves (09:00, Lima) pide una tanda de la fuente que lleva menos de su tope."
+                    ? "Activa: lunes y jueves (09:00, Lima) pide una tanda de cada fuente, dentro de su tope."
                     : "Pausada: no se pide nada hasta que la actives."}
                 </p>
               </div>
@@ -291,7 +301,7 @@ export default function CargaSection() {
                   onChange={e => setFuenteElegida(e.target.value as "auto" | FuenteId)}
                   className="field !w-auto"
                 >
-                  <option value="auto">Automática (la que menos usó)</option>
+                  <option value="auto">Todas las fuentes</option>
                   {estado.fuentes.map(f => (
                     <option key={f.id} value={f.id}>{f.nombre}</option>
                   ))}
@@ -302,7 +312,7 @@ export default function CargaSection() {
                   ? `Pediría hasta ${aPedir.toLocaleString("es-PE")} avisos (≈ ${usd(costoEstimadoUsd(aPedir, costoMil))}).`
                   : !estado.configurada
                     ? "Conecta Apify para poder cargar."
-                    : estado.corridas.some(c => c.estado === "iniciada")
+                    : enCurso
                       ? "Hay una carga en curso."
                       : "Sin cupo en este ciclo."}
               </p>
@@ -446,7 +456,7 @@ export default function CargaSection() {
           onConfirm={cargarAhora}
           onCancel={() => setConfirmar(false)}
         >
-          Se pedirán hasta <strong>{aPedir.toLocaleString("es-PE")}</strong> avisos a Apify (≈ {usd(costoEstimadoUsd(aPedir, costoMil))}){fuenteElegida === "auto" ? ", de la fuente que lleva menos de su tope" : ` de ${nombreFuente(fuenteElegida)}`}.
+          Se pedirán hasta <strong>{aPedir.toLocaleString("es-PE")}</strong> avisos a Apify (≈ {usd(costoEstimadoUsd(aPedir, costoMil))}){fuenteElegida === "auto" ? ", repartidos entre todas las fuentes" : ` de ${nombreFuente(fuenteElegida)}`}.
           Contarán contra el tope de este ciclo.
         </ConfirmModal>
       )}

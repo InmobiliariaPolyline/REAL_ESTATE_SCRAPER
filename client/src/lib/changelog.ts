@@ -23,6 +23,15 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "1.10.1",
+    fecha: "2026-10-22",
+    titulo: "La carga trae todas las fuentes a la vez",
+    cambios: [
+      { tipo: "mejora", texto: "«Cargar ahora» y la carga programada (lunes y jueves) ahora lanzan una corrida por fuente (Adondevivir y Urbania), cada una con su actor y su tope; antes se cargaba una sola por vez." },
+      { tipo: "mejora", texto: "Si una fuente está en curso o sin cupo, las demás igual cargan; el selector permite cargar solo una." },
+    ],
+  },
+  {
     version: "1.10.0",
     fecha: "2026-10-22",
     titulo: "Urbania como segunda fuente de avisos",

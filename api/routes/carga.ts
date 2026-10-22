@@ -12,6 +12,7 @@ import {
   fuentesDeCarga,
   type FuenteId,
   iniciarCarga,
+  iniciarCargaTodas,
   leerConfig,
   procesarResultado,
   type EventoApify,
@@ -128,14 +129,27 @@ export const cargaRoutes: Route[] = [
     level: "admin",
     handler: async ({ req, db, env, access }) => {
       const pedida = (await readJson(req).catch((): Record<string, unknown> => ({}))).fuente
-      if (pedida !== undefined && !FUENTES_IDS.includes(pedida as FuenteId)) throw badRequest("fuente desconocida")
-      const r = await iniciarCarga(db, env, "manual", access.usuario.usuario, pedida as FuenteId | undefined)
-      if (!r.ok) {
-        const status = r.motivo === "error" ? 502 : r.motivo === "sin_configurar" ? 501 : 409
-        throw new HttpError(status, `carga_${r.motivo}`, r.detalle)
+      if (pedida !== undefined && pedida !== "todas" && !FUENTES_IDS.includes(pedida as FuenteId)) throw badRequest("fuente desconocida")
+      const fallo = (r: { motivo: string; detalle: string }) =>
+        new HttpError(r.motivo === "error" ? 502 : r.motivo === "sin_configurar" ? 501 : 409, `carga_${r.motivo}`, r.detalle)
+
+      if (pedida !== undefined && pedida !== "todas") {
+        const r = await iniciarCarga(db, env, "manual", access.usuario.usuario, pedida as FuenteId)
+        if (!r.ok) throw fallo(r)
+        await audit({ db, req, access }, "carga.iniciar", r.fuente, { avisos: r.items, origen: "manual" })
+        return { ok: true, items: r.items, fuente: r.fuente }
       }
-      await audit({ db, req, access }, "carga.iniciar", r.fuente, { avisos: r.items, origen: "manual" })
-      return { ok: true, items: r.items, fuente: r.fuente }
+
+      // Sin fuente (o «todas»): una corrida por fuente.
+      const todas = await iniciarCargaTodas(db, env, "manual", access.usuario.usuario)
+      const lanzadas = todas.flatMap(t => (t.resultado.ok ? [{ fuente: t.fuente, items: t.resultado.items }] : []))
+      if (lanzadas.length === 0) {
+        const primera = todas.find(t => !t.resultado.ok)?.resultado
+        throw fallo(primera && !primera.ok ? primera : { motivo: "tope", detalle: "No se pudo iniciar ninguna carga." })
+      }
+      for (const l of lanzadas) await audit({ db, req, access }, "carga.iniciar", l.fuente, { avisos: l.items, origen: "manual" })
+      const omitidas = todas.flatMap(t => (t.resultado.ok ? [] : [{ fuente: t.fuente, motivo: t.resultado.motivo, detalle: t.resultado.detalle }]))
+      return { ok: true, items: lanzadas.reduce((n, l) => n + l.items, 0), lanzadas, omitidas }
     },
   },
   {

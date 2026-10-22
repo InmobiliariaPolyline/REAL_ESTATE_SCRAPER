@@ -61,5 +61,12 @@ export const costoEstimadoUsd = (avisos: number, costoPorMil: number) => (avisos
 
 export const fetchCarga = () => api.get<EstadoCarga>("/admin/carga")
 export const saveCarga = (cambios: Partial<CargaConfig>) => api.put<CargaConfig>("/admin/carga", cambios)
-export const runCarga = (fuente?: FuenteId) =>
-  api.post<{ ok: true; items: number; fuente?: FuenteId }>("/admin/carga/ejecutar", fuente ? { fuente } : undefined)
+export interface RespuestaCarga {
+  ok: true
+  items: number
+  fuente?: FuenteId
+  lanzadas?: { fuente: FuenteId; items: number }[]
+  omitidas?: { fuente: FuenteId; motivo: string; detalle: string }[]
+}
+/** Sin fuente carga todas; con una, solo esa. */
+export const runCarga = (fuente?: FuenteId) => api.post<RespuestaCarga>("/admin/carga/ejecutar", fuente ? { fuente } : undefined)

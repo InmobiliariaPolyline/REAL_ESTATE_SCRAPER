@@ -647,7 +647,7 @@ export async function iniciarCarga(
 
   const { apify, limites } = await contextoDeGasto(env, config.dia_reinicio, actor)
   const [activa, previas] = await Promise.all([
-    db.query("select 1 from public.carga_corridas where estado = 'iniciada' limit 1"),
+    db.query("select 1 from public.carga_corridas where estado = 'iniciada' and fuente = $1 limit 1", [idFuente]),
     db.query<{ n: number }>("select count(*)::int as n from public.carga_corridas where fuente = $1", [idFuente]),
   ])
   const configFuente: CargaConfig = {
@@ -689,6 +689,23 @@ export async function iniciarCarga(
     )
     return { ok: false, motivo: "error", detalle: "No se pudo lanzar la corrida en Apify." }
   }
+}
+
+/**
+ * Carga todas las fuentes, una corrida por fuente (cada una con su tope y su actor). Las que no
+ * pueden correr (sin cupo, ya en curso) se informan sin frenar a las demás.
+ */
+export async function iniciarCargaTodas(
+  db: Db,
+  env: ApiEnv,
+  origen: "manual" | "programada",
+  usuario: string | null
+): Promise<{ fuente: FuenteId; resultado: ResultadoInicio }[]> {
+  const salida: { fuente: FuenteId; resultado: ResultadoInicio }[] = []
+  for (const fuente of FUENTES_IDS) {
+    salida.push({ fuente, resultado: await iniciarCarga(db, env, origen, usuario, fuente) })
+  }
+  return salida
 }
 
 /** Separa los avisos reales de los registros que el actor usa para avisar de un problema. */

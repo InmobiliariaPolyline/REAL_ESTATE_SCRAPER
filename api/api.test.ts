@@ -1329,14 +1329,33 @@ describe("carga automática (Apify)", () => {
     expect(estado.corridas[0].fuente).toBe("urbania")
   })
 
-  it("sin elegir fuente, carga una con cupo; una fuente desconocida se rechaza", async () => {
+  it("sin elegir fuente carga TODAS (una corrida por fuente); una fuente desconocida se rechaza", async () => {
     await pg.exec("update carga_corridas set estado = 'completada', avisos_recibidos = 0 where estado = 'iniciada'")
     expect((await callApify("POST", "/api/admin/carga/ejecutar", { token: admin, body: { fuente: "otra" } })).status).toBe(400)
-    const f = apifyOk("run-U2", "ds-U2")
+    // Cada corrida lanzada recibe su propio id, como en Apify.
+    let n = 0
+    const f = vi.fn(async (url: string) =>
+      String(url).includes("/users/me/limits")
+        ? new Response(JSON.stringify(limitesApify()), { status: 200 })
+        : new Response(JSON.stringify({ data: { id: `run-T1-${++n}`, defaultDatasetId: `ds-T1-${n}` } }), { status: 201 })
+    ) as unknown as ReturnType<typeof apifyOk>
     vi.stubGlobal("fetch", f)
     const r = await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })
-    expect(r.body).toMatchObject({ ok: true })
-    expect(["adondevivir", "urbania"]).toContain(r.body.fuente)
+    expect(r.body.ok).toBe(true)
+    expect(r.body.lanzadas.map((l: any) => l.fuente).sort()).toEqual(["adondevivir", "urbania"])
+    const actores = lanzamientos(f).map(c => String(c[0]))
+    expect(actores.some(u => u.includes("/acts/sian.agency~urbania-property-scraper/"))).toBe(true)
+    expect(actores.some(u => /\/acts\/(gio21|scrapers_lat)~adondevivir/.test(u))).toBe(true)
+  })
+
+  it("si una fuente está en curso o sin cupo, las demás igual cargan", async () => {
+    await pg.exec("update carga_corridas set estado = 'completada', avisos_recibidos = 0 where estado = 'iniciada'")
+    await call("PUT", "/api/admin/carga", { token: admin, body: { tope_urbania: 0 } })
+    vi.stubGlobal("fetch", apifyOk("run-T2", "ds-T2"))
+    const r = await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })
+    expect(r.body.lanzadas.map((l: any) => l.fuente)).toEqual(["adondevivir"])
+    expect(r.body.omitidas).toEqual([expect.objectContaining({ fuente: "urbania", motivo: "tope" })])
+    await call("PUT", "/api/admin/carga", { token: admin, body: { tope_urbania: 200 } })
   })
 
   it("los cambios de configuración y los lanzamientos quedan en la auditoría", async () => {

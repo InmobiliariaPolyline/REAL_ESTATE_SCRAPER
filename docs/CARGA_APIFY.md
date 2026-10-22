@@ -48,7 +48,7 @@ un despliegue.
 1. Deja **Máximo por corrida** en un valor pequeño (20) y pulsa **Cargar ahora** para la primera prueba.
 2. A los pocos minutos aparecerá la corrida como *Completada* y los avisos en el catálogo.
 3. Sube el máximo (200) y el tope mensual al valor que quieras.
-4. Activa el interruptor **Carga automática**: lunes y jueves a las 09:00 (Lima) pedirá una tanda de la fuente que lleve menos de su tope.
+4. Activa el interruptor **Carga automática**: lunes y jueves a las 09:00 (Lima) pedirá una tanda de cada fuente, dentro de su tope.
 
 ## Cómo funciona
 
@@ -86,8 +86,8 @@ Apify termina ──► aviso (webhook) ──► /api/internal/apify-webhook �
 
 ## Fuentes: Adondevivir y Urbania
 
-Cada fuente tiene su actor, sus búsquedas y su **propio tope** por ciclo. Sin elegir fuente, el sistema carga la que lleva
-menos de su tope (en proporción); en **Cargar ahora** puedes elegir una.
+Cada fuente tiene su actor, sus búsquedas y su **propio tope** por ciclo. Sin elegir fuente, el sistema lanza una corrida por
+fuente (si una está en curso o sin cupo, las demás igual cargan); en **Cargar ahora** puedes elegir una sola.
 
 | Fuente | Actor | Costo | Por corrida | Tope por defecto |
 |---|---|---|---|---|
