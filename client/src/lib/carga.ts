@@ -6,11 +6,13 @@ export interface CargaConfig {
   maximo_por_corrida: number
   /** Día del mes (1 a 28) en que se reinicia el crédito de Apify. */
   dia_reinicio: number
-  /** Tope propio de Urbania (avisos por ciclo). */
+  /** Topes propios de las demás fuentes (avisos por ciclo). */
   tope_urbania?: number
+  tope_infocasas?: number
+  tope_properati?: number
 }
 
-export type FuenteId = "adondevivir" | "urbania"
+export type FuenteId = "adondevivir" | "urbania" | "infocasas" | "properati"
 
 /** Uso y tope de una fuente de avisos en el ciclo actual. */
 export interface FuenteCarga {
@@ -45,7 +47,7 @@ export interface EstadoCarga {
   config: CargaConfig
   usado: number
   restante: number
-  /** Una entrada por fuente (Adondevivir, Urbania). */
+  /** Una entrada por fuente (Adondevivir, Urbania, InfoCasas, Properati). */
   fuentes?: FuenteCarga[]
   /** Ciclo de uso actual (fechas AAAA-MM-DD): desde el último reinicio hasta el próximo. */
   ventana: { desde: string; reinicia: string }

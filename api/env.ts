@@ -18,6 +18,11 @@ export interface ApiEnv {
   /** Actor de Urbania (`usuario~nombre`) y sus búsquedas a rotar (direcciones de urbania.pe/buscar/…, separadas por comas). */
   APIFY_ACTOR_URBANIA?: string
   CARGA_URLS_URBANIA?: string
+  /** InfoCasas («operación|tipo|lugar», p. ej. venta|casas|pe:lima) y Properati (direcciones de properati.com.pe/s/…). */
+  APIFY_ACTOR_INFOCASAS?: string
+  CARGA_URLS_INFOCASAS?: string
+  APIFY_ACTOR_PROPERATI?: string
+  CARGA_URLS_PROPERATI?: string
   /** Actor de respaldo (`usuario~nombre`); "ninguno" lo desactiva. Por defecto scrapers_lat. */
   APIFY_ACTOR_RESPALDO?: string
   /** Crédito gratuito mensual de Apify en US$ (5 en el plan Free); define el tope máximo permitido. */

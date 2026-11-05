@@ -9,6 +9,7 @@ import {
   topeMensualMaximo,
   usosPorFuente,
   topeDeFuente,
+  COLUMNA_TOPE,
   fuentesDeCarga,
   type FuenteId,
   iniciarCarga,
@@ -32,8 +33,6 @@ async function corridasRecientes(db: Db) {
   }
 }
 
-const catalogoUrbania = (env: Parameters<typeof fuentesDeCarga>[0]) => fuentesDeCarga(env).urbania.actores.principal
-
 const entero = (value: unknown, campo: string, min: number, max: number): number => {
   if (typeof value !== "number" || !Number.isInteger(value) || value < min || value > max) {
     throw badRequest(`${campo} debe ser un número entero entre ${min} y ${max}`)
@@ -53,7 +52,7 @@ export const cargaRoutes: Route[] = [
       const [usos, corridas] = await Promise.all([usosPorFuente(db, ventana.desde), corridasRecientes(db)])
       const usado = usos.adondevivir
       const tope = topeMensualMaximo(l)
-      const gasto = apify ? apify.gastoUsd : gastoEstimadoUsd(usado + usos.urbania, l.costoPorMil)
+      const gasto = apify ? apify.gastoUsd : gastoEstimadoUsd(Object.values(usos).reduce((n, v) => n + v, 0), l.costoPorMil)
       const catalogo = fuentesDeCarga(env)
       const fuentes = FUENTES_IDS.map(id => {
         const actor = catalogo[id].actores.principal
@@ -104,11 +103,18 @@ export const cargaRoutes: Route[] = [
           ? actual.maximo_por_corrida
           : entero(body.maximo_por_corrida, "El máximo por corrida", 1, Math.max(1, maximoPermitido))
 
-      const urbania = catalogoUrbania(env)
-      const topeUrbania =
-        body.tope_urbania === undefined
-          ? actual.tope_urbania
-          : entero(body.tope_urbania, "El tope de Urbania", 0, topeMensualMaximo((await contextoDeGasto(env, actual.dia_reinicio, urbania)).limites))
+      // Topes propios de las demás fuentes: cada uno se valida contra el costo de su actor.
+      const catalogo = fuentesDeCarga(env)
+      const topes: Record<string, number> = {}
+      for (const id of FUENTES_IDS) {
+        if (id === "adondevivir") continue
+        const col = COLUMNA_TOPE[id]
+        const nombre = catalogo[id].nombre
+        topes[col] =
+          body[col] === undefined
+            ? actual[col]
+            : entero(body[col], `El tope de ${nombre}`, 0, topeMensualMaximo((await contextoDeGasto(env, actual.dia_reinicio, catalogo[id].actores.principal)).limites))
+      }
 
       const dia =
         body.dia_reinicio === undefined ? actual.dia_reinicio : entero(body.dia_reinicio, "El día de reinicio", 1, 28)
@@ -117,10 +123,17 @@ export const cargaRoutes: Route[] = [
         `update public.carga_config
             set pausada = $1, tope_mensual = $2, maximo_por_corrida = $3, dia_reinicio = $4, tope_urbania = $5, actualizado_en = now()
           where id = 1`,
-        [pausada, tope, maximo, dia, topeUrbania]
+        [pausada, tope, maximo, dia, topes.tope_urbania]
       )
-      await audit({ db, req, access }, "carga.config", null, { pausada, tope_mensual: tope, maximo_por_corrida: maximo, dia_reinicio: dia, tope_urbania: topeUrbania })
-      return { pausada, tope_mensual: tope, maximo_por_corrida: maximo, dia_reinicio: dia, tope_urbania: topeUrbania }
+      // Las columnas de InfoCasas y Properati existen solo con db/010_fuentes.sql: sin ella se ignoran sin romper.
+      try {
+        await db.query("update public.carga_config set tope_infocasas = $1, tope_properati = $2 where id = 1", [topes.tope_infocasas, topes.tope_properati])
+      } catch (err) {
+        if (!/column .*does not exist|no existe la columna/i.test(String((err as { message?: string })?.message ?? ""))) throw err
+      }
+      const guardado = { pausada, tope_mensual: tope, maximo_por_corrida: maximo, dia_reinicio: dia, tope_urbania: topes.tope_urbania, tope_infocasas: topes.tope_infocasas, tope_properati: topes.tope_properati }
+      await audit({ db, req, access }, "carga.config", null, guardado)
+      return guardado
     },
   },
   {

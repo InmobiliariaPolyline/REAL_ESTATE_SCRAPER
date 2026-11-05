@@ -9,7 +9,7 @@ import { runWatchdog } from "./watchdog"
 
 /**
  * Pruebas de integración: la API completa contra un Postgres real (PGlite) con los scripts
- * db/001_schema.sql a db/008_imagenes.sql aplicados.
+ * db/001_schema.sql a db/010_fuentes.sql aplicados.
  */
 
 const root = path.resolve(import.meta.dirname, "..")
@@ -76,6 +76,7 @@ beforeAll(async () => {
   await pg.exec(fs.readFileSync(path.join(root, "db/007_carga.sql"), "utf8"))
   await pg.exec(fs.readFileSync(path.join(root, "db/008_imagenes.sql"), "utf8"))
   await pg.exec(fs.readFileSync(path.join(root, "db/009_detalles.sql"), "utf8"))
+  await pg.exec(fs.readFileSync(path.join(root, "db/010_fuentes.sql"), "utf8"))
 
   // El admin crea a "cliente" con Premium mediante la propia función SQL.
   admin = (await login("admin", "admin-pass-123")).body.token
@@ -1349,7 +1350,7 @@ describe("carga automática (Apify)", () => {
     vi.stubGlobal("fetch", f)
     const r = await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })
     expect(r.body.ok).toBe(true)
-    expect(r.body.lanzadas.map((l: any) => l.fuente).sort()).toEqual(["adondevivir", "urbania"])
+    expect(r.body.lanzadas.map((l: any) => l.fuente).sort()).toEqual(["adondevivir", "infocasas", "properati", "urbania"])
     const actores = lanzamientos(f).map(c => String(c[0]))
     expect(actores.some(u => u.includes("/acts/sian.agency~urbania-property-scraper/"))).toBe(true)
     expect(actores.some(u => /\/acts\/(gio21|scrapers_lat)~adondevivir/.test(u))).toBe(true)
@@ -1358,9 +1359,17 @@ describe("carga automática (Apify)", () => {
   it("si una fuente está en curso o sin cupo, las demás igual cargan", async () => {
     await pg.exec("update carga_corridas set estado = 'completada', avisos_recibidos = 0 where estado = 'iniciada'")
     await call("PUT", "/api/admin/carga", { token: admin, body: { tope_urbania: 0 } })
-    vi.stubGlobal("fetch", apifyOk("run-T2", "ds-T2"))
+    let n = 0
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string) =>
+        String(url).includes("/users/me/limits")
+          ? new Response(JSON.stringify(limitesApify()), { status: 200 })
+          : new Response(JSON.stringify({ data: { id: `run-T2-${++n}`, defaultDatasetId: `ds-T2-${n}` } }), { status: 201 })
+      )
+    )
     const r = await callApify("POST", "/api/admin/carga/ejecutar", { token: admin })
-    expect(r.body.lanzadas.map((l: any) => l.fuente)).toEqual(["adondevivir"])
+    expect(r.body.lanzadas.map((l: any) => l.fuente)).toEqual(["adondevivir", "infocasas", "properati"])
     expect(r.body.omitidas).toEqual([expect.objectContaining({ fuente: "urbania", motivo: "tope" })])
     await call("PUT", "/api/admin/carga", { token: admin, body: { tope_urbania: 200 } })
   })

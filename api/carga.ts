@@ -13,10 +13,14 @@ import { guardarAvisos, type Aviso } from "./ingest"
 
 export const FUENTE = "adondevivir"
 /** Fuentes de avisos que se pueden cargar; cada una tiene su actor, sus búsquedas y su tope. */
-export type FuenteId = "adondevivir" | "urbania"
-export const FUENTES_IDS: FuenteId[] = ["adondevivir", "urbania"]
+export type FuenteId = "adondevivir" | "urbania" | "infocasas" | "properati"
+export const FUENTES_IDS: FuenteId[] = ["adondevivir", "urbania", "infocasas", "properati"]
 export const ACTOR_URBANIA_POR_DEFECTO = "sian.agency~urbania-property-scraper"
 export const TOPE_URBANIA_POR_DEFECTO = 200
+export const ACTOR_INFOCASAS_POR_DEFECTO = "sian.agency~infocasas-property-scraper"
+export const TOPE_INFOCASAS_POR_DEFECTO = 100
+export const ACTOR_PROPERATI_POR_DEFECTO = "scrapers_lat~properati-scraper"
+export const TOPE_PROPERATI_POR_DEFECTO = 50
 export const ACTOR_POR_DEFECTO = "gio21~adondevivir-scraper"
 export const ACTOR_RESPALDO_POR_DEFECTO = "scrapers_lat~adondevivir-scraper"
 /** Costo por 1 000 avisos del actor (US$); se usa solo para calcular el tope en dólares. */
@@ -107,6 +111,29 @@ export const URLS_URBANIA_POR_DEFECTO = [
   "https://urbania.pe/buscar/alquiler-de-casas",
 ]
 
+/**
+ * Búsquedas de InfoCasas Perú. No son direcciones sino «operación|tipo|lugar»: el actor recibe
+ * esos tres datos por separado (lugares con el formato `pe:lima`).
+ */
+export const BUSQUEDAS_INFOCASAS_POR_DEFECTO = [
+  "venta|departamentos|pe:lima",
+  "alquiler|departamentos|pe:lima",
+  "venta|casas|pe:lima",
+  "alquiler|casas|pe:lima",
+  "venta|departamentos|pe:arequipa",
+  "venta|departamentos|pe:trujillo",
+  "alquiler|departamentos|pe:arequipa",
+  "venta|departamentos|pe:piura",
+]
+
+/** Búsquedas de Properati Perú (por enlace, filtradas a Lima). */
+export const URLS_PROPERATI_POR_DEFECTO = [
+  "https://www.properati.com.pe/s/lima/departamento/venta",
+  "https://www.properati.com.pe/s/lima/departamento/alquiler",
+  "https://www.properati.com.pe/s/lima/casa/venta",
+  "https://www.properati.com.pe/s/lima/casa/alquiler",
+]
+
 /** Todo lo que hace falta saber de una fuente para cargarla. */
 export interface FuenteCarga {
   id: FuenteId
@@ -123,6 +150,20 @@ export interface FuenteCarga {
 const COSTO_URBANIA_POR_MIL = 6
 const COSTO_URBANIA_POR_CORRIDA = 0.015
 const MAX_URBANIA_PLAN_FREE = 25
+
+/** InfoCasas (sian.agency): US$ 0.008 por aviso en el plan Free; 25 por corrida. */
+const COSTO_INFOCASAS_POR_MIL = 8
+const MAX_INFOCASAS_PLAN_FREE = 25
+
+/** Properati (scrapers_lat): US$ 0.008 por aviso en el plan Free (sin detalles); 10 por corrida. */
+const COSTO_PROPERATI_POR_MIL = 8
+const MAX_PROPERATI_PLAN_FREE = 10
+
+const propias = (valor: string | undefined, valida: RegExp) =>
+  (valor ?? "")
+    .split(",")
+    .map(u => u.trim())
+    .filter(u => valida.test(u))
 
 export function fuentesDeCarga(env: ApiEnv): Record<FuenteId, FuenteCarga> {
   const urbaniaPropias = (env.CARGA_URLS_URBANIA ?? "")
@@ -155,6 +196,48 @@ export function fuentesDeCarga(env: ApiEnv): Record<FuenteId, FuenteCarga> {
       },
       mapear: mapearAvisoUrbania,
     },
+    infocasas: {
+      id: "infocasas",
+      nombre: "InfoCasas",
+      busquedas: (() => {
+        const p = propias(env.CARGA_URLS_INFOCASAS, /^(venta|alquiler)\|[a-z-]+\|pe:[a-z-]+$/)
+        return p.length > 0 ? p : BUSQUEDAS_INFOCASAS_POR_DEFECTO
+      })(),
+      actores: {
+        principal: {
+          id: env.APIFY_ACTOR_INFOCASAS || ACTOR_INFOCASAS_POR_DEFECTO,
+          nombre: "sian.agency",
+          costoPorMil: COSTO_INFOCASAS_POR_MIL,
+          maxPorCorrida: MAX_INFOCASAS_PLAN_FREE,
+          entrada: (busqueda, items) => {
+            const [operationType, propertyType, place] = busqueda.split("|")
+            return { operation: "search", market: "pe", place, operationType, propertyType, maxResults: items }
+          },
+        },
+        respaldo: null,
+      },
+      mapear: mapearAvisoInfocasas,
+    },
+    properati: {
+      id: "properati",
+      nombre: "Properati",
+      busquedas: (() => {
+        const p = propias(env.CARGA_URLS_PROPERATI, /^https:\/\/www\.properati\.com\.pe\/s\/[\w\-/]+$/)
+        return p.length > 0 ? p : URLS_PROPERATI_POR_DEFECTO
+      })(),
+      actores: {
+        principal: {
+          id: env.APIFY_ACTOR_PROPERATI || ACTOR_PROPERATI_POR_DEFECTO,
+          nombre: "scrapers_lat",
+          costoPorMil: COSTO_PROPERATI_POR_MIL,
+          maxPorCorrida: MAX_PROPERATI_PLAN_FREE,
+          // Sin detalles: son de pago y en el plan gratuito no traen más datos.
+          entrada: (url, items) => ({ startUrls: [url], maxListings: items, withDetails: false }),
+        },
+        respaldo: null,
+      },
+      mapear: mapearAvisoProperati,
+    },
   }
 }
 
@@ -164,8 +247,10 @@ export interface CargaConfig {
   maximo_por_corrida: number
   /** Día del mes (1 a 28) en que se reinicia el crédito de Apify. */
   dia_reinicio: number
-  /** Tope propio de Urbania (avisos por ciclo). */
+  /** Topes propios de las demás fuentes (avisos por ciclo). */
   tope_urbania: number
+  tope_infocasas: number
+  tope_properati: number
 }
 
 export type MotivoNoEjecutar = "pausada" | "tope" | "credito" | "en_curso" | "sin_configurar"
@@ -455,6 +540,106 @@ export function mapearAvisoUrbania(item: Record<string, unknown>): Aviso | null 
   }
 }
 
+/** Años desde un año de construcción plausible; `undefined` si no lo es. */
+const aniosDesde = (anio: unknown): string | undefined => {
+  if (typeof anio !== "number" || !Number.isFinite(anio)) return undefined
+  const dif = new Date().getFullYear() - anio
+  return dif >= 0 && dif <= 200 ? `${dif} años` : undefined
+}
+
+/** Las coordenadas deben caer dentro del Perú: algunas fuentes traen la ubicación de otro país. */
+const coordenadasDePeru = (lat: unknown, lng: unknown): { latitud?: number; longitud?: number } => {
+  const la = coordenada(lat)
+  const lo = coordenada(lng)
+  return la !== undefined && lo !== undefined && la >= -19 && la <= 0.5 && lo >= -82 && lo <= -68 ? { latitud: la, longitud: lo } : {}
+}
+
+const monedaDeTexto = (v: unknown): "USD" | "PEN" => {
+  const t = (str(v) ?? "").toUpperCase()
+  return t.includes("US") || t.includes("$") ? "USD" : "PEN"
+}
+
+/** Convierte un registro del actor de InfoCasas (`sian.agency`) en un aviso del sistema. */
+export function mapearAvisoInfocasas(item: Record<string, unknown>): Aviso | null {
+  const codigo = typeof item.listingId === "number" ? String(item.listingId) : str(item.listingId)
+  const operacionRaw = str(item.operationType)?.toLowerCase()
+  const operacion = operacionRaw?.startsWith("venta") ? "VENTA" : operacionRaw?.startsWith("alquiler") ? "ALQUILER" : null // anticrético y otros no encajan
+  const titulo = str(item.propertyTitle)
+  if (!codigo || !operacion || !titulo) return null
+
+  const tipo = str(item.propertyType)
+  const area = num(item.areaBuilt) ?? num(item.areaTerrain)
+  const garages = num(item.garages)
+  const fotos = fotosDe({ photos: item.photos })
+  const oculto = item.priceHidden === true
+  return {
+    portal: "infocasas",
+    codigo,
+    operacion,
+    inmueble: item.isProject === true ? "Proyecto" : tipo ? (TIPOS[tipo.toLowerCase()] ?? tipo) : "Otro",
+    titulo,
+    precio: oculto ? undefined : num(item.priceAmount),
+    moneda: monedaDeTexto(item.priceCurrency),
+    precioUsd: oculto ? undefined : num(item.priceUsd),
+    distrito: str(item.neighbourhood) ?? str(item.city) ?? str(item.state),
+    dormitorios: num(item.bedrooms) !== undefined ? String(item.bedrooms) : undefined,
+    banios: num(item.bathrooms) !== undefined ? String(item.bathrooms) : undefined,
+    area: area ? `${area} m2` : undefined,
+    imagen: str(item.thumbnail) ?? fotos[0],
+    imagenes: fotos,
+    url: str(item.listingUrl),
+    descripcion: str(item.propertyDescription),
+    direccion: str(item.address),
+    estacionamientos: garages !== undefined ? String(garages) : undefined,
+    antiguedad: aniosDesde(item.constructionYear) ?? texto(item.antiquity),
+    publicador: str(item.advertiserName),
+    ...coordenadasDePeru(item.latitude, item.longitude),
+    mantenimiento: num(item.commonExpenses),
+  }
+}
+
+/** Convierte un registro del actor de Properati (`scrapers_lat`) en un aviso del sistema. */
+export function mapearAvisoProperati(item: Record<string, unknown>): Aviso | null {
+  const codigo = str(item.listingId)
+  const operacionRaw = str(item.operationType)?.toLowerCase()
+  const operacion = operacionRaw?.startsWith("venta") ? "VENTA" : operacionRaw?.startsWith("alquil") ? "ALQUILER" : null
+  const titulo = str(item.title)
+  if (!codigo || !operacion || !titulo) return null
+
+  const tipo = str(item.propertyType)
+  const area = num(item.totalAreaM2)
+  const coords = item.coordinates as Record<string, unknown> | null | undefined
+  return {
+    portal: "properati",
+    codigo,
+    operacion,
+    inmueble: tipo ? (TIPOS[tipo.toLowerCase()] ?? tipo) : "Otro",
+    titulo,
+    precio: num(item.price),
+    moneda: monedaDeTexto(item.currency),
+    precioUsd: num(item.priceUsd),
+    // «Higuereta, Santiago de Surco, Lima, Lima»: el distrito es el segundo tramo si el primero es una urbanización.
+    distrito: distritoProperati(str(item.location)),
+    dormitorios: num(item.bedrooms) !== undefined ? String(item.bedrooms) : undefined,
+    banios: num(item.bathrooms) !== undefined ? String(item.bathrooms) : undefined,
+    // Algunos avisos publican «1 m²» por error: no se muestra un área irreal.
+    area: area && area >= 8 ? `${area} m2` : undefined,
+    imagen: str(item.imageUrl),
+    url: str(item.url),
+    publicador: str(item.publisherName),
+    ...coordenadasDePeru(coords?.lat, coords?.lng),
+  }
+}
+
+/** «Higuereta, Santiago de Surco, Lima, Lima» -> «Santiago de Surco»; «Miraflores, Lima Centro, Lima, Lima» -> «Miraflores». */
+function distritoProperati(location: string | undefined): string | undefined {
+  const partes = (location ?? "").split(",").map(p => p.trim()).filter(Boolean)
+  if (partes.length === 0) return undefined
+  // Con 4 tramos (barrio, distrito, provincia, región) el distrito es el segundo salvo que el segundo sea una zona de Lima.
+  if (partes.length >= 4 && !/^lima (centro|norte|sur|este|oeste|moderna|top)/i.test(partes[1])) return partes[1]
+  return partes[0]
+}
+
 // ── Cliente de Apify ─────────────────────────────────────────────────────────
 
 const API = "https://api.apify.com/v2"
@@ -582,11 +767,22 @@ export async function leerConfig(db: Db): Promise<CargaConfig> {
     maximo_por_corrida: entero(r.maximo_por_corrida, 200),
     dia_reinicio: entero(r.dia_reinicio, DIA_REINICIO_POR_DEFECTO),
     tope_urbania: entero(r.tope_urbania, TOPE_URBANIA_POR_DEFECTO),
+    tope_infocasas: entero(r.tope_infocasas, TOPE_INFOCASAS_POR_DEFECTO),
+    tope_properati: entero(r.tope_properati, TOPE_PROPERATI_POR_DEFECTO),
   }
 }
 
 /** Tope de avisos por ciclo de una fuente. */
-export const topeDeFuente = (config: CargaConfig, fuente: FuenteId) => (fuente === "urbania" ? config.tope_urbania : config.tope_mensual)
+export const topeDeFuente = (config: CargaConfig, fuente: FuenteId): number =>
+  fuente === "urbania" ? config.tope_urbania : fuente === "infocasas" ? config.tope_infocasas : fuente === "properati" ? config.tope_properati : config.tope_mensual
+
+/** Columna de `carga_config` con el tope de cada fuente (Adondevivir usa el tope mensual). */
+export const COLUMNA_TOPE: Record<FuenteId, "tope_mensual" | "tope_urbania" | "tope_infocasas" | "tope_properati"> = {
+  adondevivir: "tope_mensual",
+  urbania: "tope_urbania",
+  infocasas: "tope_infocasas",
+  properati: "tope_properati",
+}
 
 /** Avisos que cuentan contra el tope de una fuente desde el último reinicio del crédito de Apify. */
 export async function usoDelCiclo(db: Db, desde: string, fuente: string = FUENTE): Promise<number> {
@@ -601,8 +797,8 @@ export async function usoDelCiclo(db: Db, desde: string, fuente: string = FUENTE
 
 /** Uso del ciclo de todas las fuentes. */
 export async function usosPorFuente(db: Db, desde: string): Promise<Record<FuenteId, number>> {
-  const [a, u] = await Promise.all(FUENTES_IDS.map(f => usoDelCiclo(db, desde, f)))
-  return { adondevivir: a, urbania: u }
+  const usos = await Promise.all(FUENTES_IDS.map(f => usoDelCiclo(db, desde, f)))
+  return Object.fromEntries(FUENTES_IDS.map((f, i) => [f, usos[i]])) as Record<FuenteId, number>
 }
 
 /**
@@ -704,7 +900,7 @@ export async function iniciarCarga(
   const configFuente: CargaConfig = {
     ...config,
     tope_mensual: topeDeFuente(config, idFuente),
-    maximo_por_corrida: idFuente === "urbania" ? (actor.maxPorCorrida ?? config.maximo_por_corrida) : config.maximo_por_corrida,
+    maximo_por_corrida: actor.maxPorCorrida ? Math.min(actor.maxPorCorrida, config.maximo_por_corrida) : config.maximo_por_corrida,
   }
   const plan = planificar(configFuente, usos[idFuente], activa.length > 0, limites, apify?.gastoUsd)
   if (!plan.ok) return plan
@@ -809,7 +1005,7 @@ export async function procesarResultado(db: Db, env: ApiEnv, evento: EventoApify
     // Aunque la corrida falle, lo que alcanzó a entregar ya se cobró: se guarda y se cuenta.
     const crudos = (await leerDataset(env.APIFY_TOKEN, datasetId, corrida.avisos_pedidos)).slice(0, corrida.avisos_pedidos)
     const { validos, errores } = separarResultados(crudos)
-    const fuente = fuentesDeCarga(env)[corrida.fuente === "urbania" ? "urbania" : "adondevivir"]
+    const fuente = fuentesDeCarga(env)[FUENTES_IDS.includes(corrida.fuente as FuenteId) ? (corrida.fuente as FuenteId) : "adondevivir"]
     const avisos = validos.map(fuente.mapear).filter((a): a is Aviso => a !== null)
     const { guardados } = avisos.length > 0 ? await guardarAvisos(db, avisos, usdToPenRate(env)) : { guardados: 0 }
 

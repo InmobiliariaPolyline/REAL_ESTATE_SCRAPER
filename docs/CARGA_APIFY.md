@@ -84,7 +84,7 @@ Apify termina ──► aviso (webhook) ──► /api/internal/apify-webhook �
 - Cambiar o quitar actores: variables opcionales `APIFY_ACTOR`, `APIFY_ACTOR_RESPALDO` (`ninguno` lo
   desactiva). Otro actor distinto necesita adaptar la lectura de sus datos (`mapearAviso`).
 
-## Fuentes: Adondevivir y Urbania
+## Fuentes: Adondevivir, Urbania, InfoCasas y Properati
 
 Cada fuente tiene su actor, sus búsquedas y su **propio tope** por ciclo. Sin elegir fuente, el sistema lanza una corrida por
 fuente (si una está en curso o sin cupo, las demás igual cargan); en **Cargar ahora** puedes elegir una sola.
@@ -94,7 +94,18 @@ fuente (si una está en curso o sin cupo, las demás igual cargan); en **Cargar 
 | Adondevivir | `gio21~adondevivir-scraper` (respaldo `scrapers_lat`) | US$ 3 por 1 000 avisos | hasta 200 | 1 000 |
 | Urbania | `sian.agency~urbania-property-scraper` | US$ 0.015 por corrida + US$ 6 por 1 000 avisos | 25 (plan gratuito) | 200 |
 
-Los dos topes caben dentro del 90 % del crédito (≈ US$ 3.00 + US$ 1.32). El gasto real de la cuenta de Apify se
+| InfoCasas | `sian.agency~infocasas-property-scraper` (mercado Perú) | US$ 8 por 1 000 avisos | 25 (plan gratuito) | 100 |
+| Properati | `scrapers_lat~properati-scraper` (sin detalles) | US$ 8 por 1 000 avisos | 10 (plan gratuito) | 50 |
+
+InfoCasas trae galería completa (hasta 20 fotos guardadas), descripción, coordenadas y anunciante; sus búsquedas son
+«operación|tipo|lugar» (p. ej. `venta|casas|pe:lima`, variable opcional `CARGA_URLS_INFOCASAS`). Properati trae datos más
+irregulares (muchos avisos sin precio): variables `CARGA_URLS_PROPERATI` y `APIFY_ACTOR_PROPERATI`. Los topes propios de InfoCasas y
+Properati requieren `db/010_fuentes.sql`; sin ella usan los valores por defecto.
+
+**Ojo con el crédito:** la suma de los topes puede pasar del 90 % del crédito gratuito. Mientras ocurra, el gasto real de Apify
+frena a las últimas fuentes; si quieres repartirlo mejor, baja el tope de Adondevivir (US$ 3 por 1 000 avisos).
+
+Los topes de arriba caben dentro del 90 % del crédito (≈ US$ 3.00 + US$ 1.32). El gasto real de la cuenta de Apify se
 comparte, así que si se agota el crédito ninguna fuente carga. Variables opcionales: `APIFY_ACTOR_URBANIA` y
 `CARGA_URLS_URBANIA` (direcciones `https://urbania.pe/buscar/...`, separadas por comas). Los avisos de Urbania se guardan
 como portal `urbania` (`urbania:<código>`), sin duplicarse entre corridas.

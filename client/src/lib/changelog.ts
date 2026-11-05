@@ -23,6 +23,17 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "2.2.0",
+    fecha: "2026-11-04",
+    titulo: "InfoCasas y Properati se suman a la carga",
+    cambios: [
+      { tipo: "implementacion", texto: "La carga automática ahora también recibe avisos de InfoCasas Perú (con galería completa de fotos, descripción, coordenadas y anunciante) y de Properati Perú, cada una con su actor, sus búsquedas y su propio tope." },
+      { tipo: "mejora", texto: "Cargar ahora y la carga programada lanzan una corrida por cada una de las cuatro fuentes; Sistema → Carga de datos muestra el uso y el tope de cada una." },
+      { tipo: "correccion", texto: "Los actores que se ejecutaban a mano en la consola de Apify no llegaban al sistema porque no avisan de su resultado: ahora se lanzan desde el sistema y sus avisos se guardan solos." },
+      { tipo: "mejora", texto: "Properati: se descartan coordenadas de otros países y áreas irreales (p. ej. «1 m²») que algunos avisos traen por error." },
+    ],
+  },
+  {
     version: "2.1.0",
     fecha: "2026-10-22",
     titulo: "Filtros por secciones y vista previa con más de 60 detalles",

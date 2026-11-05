@@ -11,6 +11,10 @@ import {
   cupoRestante,
   elegirActor,
   elegirFuente,
+  mapearAvisoInfocasas,
+  mapearAvisoProperati,
+  FUENTES_IDS,
+  topeDeFuente,
   conPagina,
   elegirBusquedaPaginada,
   PAGINAS_POR_BUSQUEDA,
@@ -600,5 +604,84 @@ describe("datos extra en los mapeos", () => {
   it("Adondevivir entrega descripción y mantenimiento cuando los trae", () => {
     const a = mapearAviso({ id: "1", title: "Casa", operationType: "Venta", description: "Casa amplia", maintenanceFee: 90 })!
     expect(a).toMatchObject({ descripcion: "Casa amplia", mantenimiento: 90 })
+  })
+})
+
+describe("InfoCasas y Properati como fuentes", () => {
+  it("hay cuatro fuentes y cada una tiene su tope", () => {
+    expect(FUENTES_IDS).toEqual(["adondevivir", "urbania", "infocasas", "properati"])
+    const c: CargaConfig = { pausada: false, tope_mensual: 600, maximo_por_corrida: 200, dia_reinicio: 23, tope_urbania: 200, tope_infocasas: 100, tope_properati: 50 }
+    expect(FUENTES_IDS.map(f => topeDeFuente(c, f))).toEqual([600, 200, 100, 50])
+  })
+
+  it("InfoCasas: actor de sian.agency con mercado Perú, operación, tipo y lugar", () => {
+    const i = fuentesDeCarga({}).infocasas
+    expect(i.actores.principal).toMatchObject({ id: "sian.agency~infocasas-property-scraper", costoPorMil: 8, maxPorCorrida: 25 })
+    expect(i.actores.principal.entrada("alquiler|casas|pe:lima", 20)).toEqual({ operation: "search", market: "pe", place: "pe:lima", operationType: "alquiler", propertyType: "casas", maxResults: 20 })
+    expect(i.busquedas.every(b => /^(venta|alquiler)\|[a-z-]+\|pe:[a-z-]+$/.test(b))).toBe(true)
+  })
+
+  it("Properati: actor de scrapers_lat sin detalles, 10 por corrida, búsquedas de Lima", () => {
+    const p = fuentesDeCarga({}).properati
+    expect(p.actores.principal).toMatchObject({ id: "scrapers_lat~properati-scraper", costoPorMil: 8, maxPorCorrida: 10 })
+    expect(p.actores.principal.entrada(p.busquedas[0], 10)).toEqual({ startUrls: [p.busquedas[0]], maxListings: 10, withDetails: false })
+    expect(p.busquedas.every(b => b.startsWith("https://www.properati.com.pe/s/lima/"))).toBe(true)
+  })
+
+  it("las búsquedas propias solo se aceptan con el formato esperado", () => {
+    const e = fuentesDeCarga({ CARGA_URLS_INFOCASAS: "venta|terrenos|pe:cuzco, malo, venta|x|bo:la-paz", CARGA_URLS_PROPERATI: "https://www.properati.com.pe/s/arequipa/casa/venta, https://otro.com/s/x" })
+    expect(e.infocasas.busquedas).toEqual(["venta|terrenos|pe:cuzco"])
+    expect(e.properati.busquedas).toEqual(["https://www.properati.com.pe/s/arequipa/casa/venta"])
+  })
+
+  // Registro con la forma real del actor (recortado).
+  const info = {
+    listingId: 194500435, listingUrl: "https://www.infocasas.com.pe/casa-en-la-molina/194500435", propertyTitle: "Casa en La Molina",
+    thumbnail: "https://cdn1.infocasas.com.uy/web/a.jpg", priceAmount: 1250000, priceCurrency: "U$S", priceUsd: 1250000, priceHidden: false,
+    operationType: "Venta", propertyType: "Casa", isProject: false, bedrooms: 5, bathrooms: 3, garages: 2, areaBuilt: 490, areaTerrain: 1269,
+    constructionYear: new Date().getFullYear() - 40, address: "A 3 minutos del Country Club", neighbourhood: "La Molina", state: "Lima",
+    latitude: -12.0765, longitude: -76.8944, propertyDescription: "Exclusiva residencia", photos: ["https://cdn1.infocasas.com.uy/web/a.jpg", "https://cdn1.infocasas.com.uy/web/b.jpg"],
+    advertiserName: "MASTERHOUSE", commonExpenses: 300,
+  }
+
+  it("mapea un aviso de InfoCasas con galería, coordenadas, antigüedad y anunciante", () => {
+    expect(mapearAvisoInfocasas(info)).toMatchObject({
+      portal: "infocasas", codigo: "194500435", operacion: "VENTA", inmueble: "Casa", precio: 1250000, moneda: "USD", precioUsd: 1250000,
+      distrito: "La Molina", dormitorios: "5", banios: "3", area: "490 m2", estacionamientos: "2", antiguedad: "40 años", publicador: "MASTERHOUSE",
+      latitud: -12.0765, longitud: -76.8944, mantenimiento: 300, imagenes: ["https://cdn1.infocasas.com.uy/web/a.jpg", "https://cdn1.infocasas.com.uy/web/b.jpg"],
+    })
+  })
+
+  it("InfoCasas: soles, proyecto, precio oculto, anticrético y datos que faltan", () => {
+    expect(mapearAvisoInfocasas({ ...info, priceCurrency: "S/", operationType: "Alquiler" })).toMatchObject({ operacion: "ALQUILER", moneda: "PEN" })
+    expect(mapearAvisoInfocasas({ ...info, isProject: true })!.inmueble).toBe("Proyecto")
+    expect(mapearAvisoInfocasas({ ...info, priceHidden: true })).toMatchObject({ precio: undefined, precioUsd: undefined })
+    expect(mapearAvisoInfocasas({ ...info, operationType: "Anticrético" })).toBeNull()
+    expect(mapearAvisoInfocasas({ ...info, listingId: undefined })).toBeNull()
+    expect(mapearAvisoInfocasas({ ...info, garages: 0, constructionYear: 1200 })).toMatchObject({ estacionamientos: undefined, antiguedad: undefined })
+  })
+
+  const prop = {
+    listingId: "eac12f12-c2f0", title: "Departamento en Surco", price: 461000, currency: "PEN", priceUsd: null, operationType: "Venta", propertyType: "Departamento",
+    bedrooms: 3, bathrooms: 2, totalAreaM2: 85, location: "Higuereta, Santiago de Surco, Lima, Lima", imageUrl: "https://img.properati.com/x.jpg",
+    url: "https://www.properati.com.pe/detalle/x", publisherName: "Regus", coordinates: { lat: -12.1, lng: -77.0 },
+  }
+
+  it("mapea un aviso de Properati: distrito, área y coordenadas válidas", () => {
+    expect(mapearAvisoProperati(prop)).toMatchObject({
+      portal: "properati", codigo: "eac12f12-c2f0", operacion: "VENTA", inmueble: "Departamento", precio: 461000, moneda: "PEN",
+      distrito: "Santiago de Surco", dormitorios: "3", banios: "2", area: "85 m2", publicador: "Regus", latitud: -12.1, longitud: -77,
+    })
+  })
+
+  it("Properati: descarta coordenadas de otro país, áreas irreales y distingue las zonas de Lima", () => {
+    const raro = mapearAvisoProperati({ ...prop, coordinates: { lat: 24.78, lng: 46.79 }, totalAreaM2: 1 })!
+    expect(raro.latitud).toBeUndefined()
+    expect(raro.longitud).toBeUndefined()
+    expect(raro.area).toBeUndefined()
+    expect(mapearAvisoProperati({ ...prop, location: "Miraflores, Lima Centro, Lima, Lima" })!.distrito).toBe("Miraflores")
+    expect(mapearAvisoProperati({ ...prop, location: "Punta Hermosa" })!.distrito).toBe("Punta Hermosa")
+    expect(mapearAvisoProperati({ ...prop, price: null })).toMatchObject({ precio: undefined })
+    expect(mapearAvisoProperati({ ...prop, operationType: "Traspaso" })).toBeNull()
   })
 })

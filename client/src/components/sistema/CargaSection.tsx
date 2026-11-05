@@ -55,6 +55,8 @@ function Etiqueta({ tipo }: { tipo: "Automático" | "Editable" | "Manual" }) {
   return <span className={cn("badge !px-2 !py-0.5 !text-[0.6875rem]", estilo)}>{tipo}</span>
 }
 
+const NOMBRES_FUENTE: Record<FuenteId, string> = { adondevivir: "Adondevivir", urbania: "Urbania", infocasas: "InfoCasas", properati: "Properati" }
+
 const usd = (n: number) => `US$ ${n.toLocaleString("es-PE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 export default function CargaSection() {
@@ -62,7 +64,7 @@ export default function CargaSection() {
   const [loading, setLoading] = useState(true)
   const [tope, setTope] = useState("")
   const [maximo, setMaximo] = useState("")
-  const [topeUrb, setTopeUrb] = useState("")
+  const [topesF, setTopesF] = useState<Record<string, string>>({})
   const [fuenteElegida, setFuenteElegida] = useState<"auto" | FuenteId>("auto")
   const [guardando, setGuardando] = useState(false)
   const [cambiando, setCambiando] = useState(false)
@@ -76,7 +78,7 @@ export default function CargaSection() {
       setEstado(e)
       setTope(String(e.config.tope_mensual))
       setMaximo(String(e.config.maximo_por_corrida))
-      setTopeUrb(String(e.config.tope_urbania ?? 200))
+      setTopesF(Object.fromEntries((e.fuentes ?? []).filter(f => f.id !== "adondevivir").map(f => [f.id, String(f.tope)])))
     } catch (err) {
       console.error(err)
       addToast("No se pudo cargar el estado de la carga de datos", "error")
@@ -92,18 +94,21 @@ export default function CargaSection() {
   const topeNum = Number(tope)
   const maxNum = Number(maximo)
   const lim = estado?.limites
-  const urbania = estado?.fuentes?.find(f => f.id === "urbania")
-  const topeUrbNum = Number(topeUrb)
-  const validoUrb = !urbania || (Number.isInteger(topeUrbNum) && topeUrbNum >= 0 && topeUrbNum <= urbania.tope_maximo)
+  // Las fuentes que no son Adondevivir tienen su propio tope (Adondevivir usa el «mensual»).
+  const extras = (estado?.fuentes ?? []).filter(f => f.id !== "adondevivir")
+  const validoExtras = extras.every(f => {
+    const n = Number(topesF[f.id])
+    return topesF[f.id] !== undefined && Number.isInteger(n) && n >= 0 && n <= f.tope_maximo
+  })
   const valido =
     !!lim &&
-    validoUrb &&
+    validoExtras &&
     Number.isInteger(topeNum) && topeNum >= 0 && topeNum <= lim.tope_mensual &&
     Number.isInteger(maxNum) && maxNum >= 1 && maxNum <= lim.maximo_por_corrida
   const sinCambios = estado
     ? topeNum === estado.config.tope_mensual &&
       maxNum === estado.config.maximo_por_corrida &&
-      (!urbania || topeUrbNum === (estado.config.tope_urbania ?? 200))
+      extras.every(f => Number(topesF[f.id]) === f.tope)
     : true
 
   const tapa = estado ? Math.min(estado.config.tope_mensual, estado.limites.tope_mensual) : 0
@@ -127,7 +132,7 @@ export default function CargaSection() {
     if (!valido) return
     setGuardando(true)
     try {
-      await saveCarga({ tope_mensual: topeNum, maximo_por_corrida: maxNum, ...(urbania ? { tope_urbania: topeUrbNum } : {}) })
+      await saveCarga({ tope_mensual: topeNum, maximo_por_corrida: maxNum, ...Object.fromEntries(extras.map(f => [`tope_${f.id}`, Number(topesF[f.id])])) })
       addToast("Topes guardados", "success")
       await cargar()
     } catch (err) {
@@ -172,7 +177,7 @@ export default function CargaSection() {
   }
 
   const activa = !estado.config.pausada
-  const nombreFuente = (id?: FuenteId) => (id === "urbania" ? "Urbania" : "Adondevivir")
+  const nombreFuente = (id?: FuenteId) => estado.fuentes?.find(f => f.id === id)?.nombre ?? NOMBRES_FUENTE[id ?? "adondevivir"] ?? "Adondevivir"
   const enCurso = objetivo ? objetivo.length === 0 : estado.corridas.some(c => c.estado === "iniciada")
   const puedeLanzar = estado.configurada && aPedir > 0 && !enCurso
 
@@ -341,22 +346,22 @@ export default function CargaSection() {
               </p>
             </div>
 
-            {urbania && (
-              <div className="mt-4 max-w-md">
-                <label htmlFor="carga-tope-urbania" className="field-label">Tope de Urbania (avisos)</label>
+            {extras.map(f => (
+              <div key={f.id} className="mt-4 max-w-md">
+                <label htmlFor={`carga-tope-${f.id}`} className="field-label">Tope de {f.nombre} (avisos)</label>
                 <input
-                  id="carga-tope-urbania"
+                  id={`carga-tope-${f.id}`}
                   inputMode="numeric"
-                  value={topeUrb}
-                  onChange={e => setTopeUrb(e.target.value.replace(/\D/g, ""))}
+                  value={topesF[f.id] ?? ""}
+                  onChange={e => setTopesF(prev => ({ ...prev, [f.id]: e.target.value.replace(/\D/g, "") }))}
                   className="field mono"
-                  aria-invalid={topeUrb !== "" && !validoUrb}
+                  aria-invalid={(topesF[f.id] ?? "") !== "" && !(Number(topesF[f.id]) >= 0 && Number(topesF[f.id]) <= f.tope_maximo)}
                 />
                 <p className="field-hint">
-                  Máximo {urbania.tope_maximo.toLocaleString("es-PE")}; hasta {urbania.maximo_por_corrida} por corrida. Urbania cobra US$ 0.015 por corrida y ≈ US$ 6 por 1 000 avisos.
+                  Máximo {f.tope_maximo.toLocaleString("es-PE")}; hasta {f.maximo_por_corrida} por corrida (límite del plan gratuito del actor).
                 </p>
               </div>
-            )}
+            ))}
 
             <details className="mt-4 rounded-2xl border border-line bg-surface-1 p-4">
               <summary className="cursor-pointer text-sm font-medium text-text-muted">Opciones avanzadas</summary>
