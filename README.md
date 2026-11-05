@@ -1,16 +1,52 @@
-# REAL ESTATE SCRAPER
+<div align="center">
 
-SaaS por suscripción de inteligencia inmobiliaria para Perú. Un scraper recolecta avisos de
-varios portales (Properati, Infocasas, Babilonia, Urbania, Adondevivir) y los guarda en
-PostgreSQL; los suscriptores los consultan en un portal con filtros, y el administrador gestiona
-usuarios, suscripciones, propiedades y enlaces desde un panel.
+<img src="docs/assets/hero.svg" alt="REAL ESTATE SCRAPER: inteligencia inmobiliaria para Perú" width="100%" />
+
+<br />
+
+[![Sitio en producción](https://img.shields.io/badge/sitio-en%20producci%C3%B3n-dfbf88?style=for-the-badge&logo=netlify&logoColor=white&labelColor=171b22)](https://realestatescrapeer.netlify.app/)
+[![CI](https://img.shields.io/github/actions/workflow/status/InmobiliariaPolyline/REAL_ESTATE_SCRAPER/ci.yml?branch=main&style=for-the-badge&label=CI&labelColor=171b22)](https://github.com/InmobiliariaPolyline/REAL_ESTATE_SCRAPER/actions/workflows/ci.yml)
+[![Estado de la API](https://img.shields.io/badge/API-health-4ade80?style=for-the-badge&labelColor=171b22)](https://realestatescrapeer.netlify.app/api/health)
+
+![React](https://img.shields.io/badge/React-19-61dafb?style=flat-square&logo=react&logoColor=white&labelColor=171b22)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?style=flat-square&logo=typescript&logoColor=white&labelColor=171b22)
+![Vite](https://img.shields.io/badge/Vite-7-a78bfa?style=flat-square&logo=vite&logoColor=white&labelColor=171b22)
+![Tailwind](https://img.shields.io/badge/Tailwind-4-38bdf8?style=flat-square&logo=tailwindcss&logoColor=white&labelColor=171b22)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-4fd1b5?style=flat-square&logo=postgresql&logoColor=white&labelColor=171b22)
+![Netlify](https://img.shields.io/badge/Netlify-Functions-00c7b7?style=flat-square&logo=netlify&logoColor=white&labelColor=171b22)
+![Apify](https://img.shields.io/badge/Apify-carga%20autom%C3%A1tica-f5b454?style=flat-square&labelColor=171b22)
+
+</div>
+
+## ¿Qué es?
+
+SaaS por suscripción de **inteligencia inmobiliaria para Perú**. Una carga automática (Apify) recolecta avisos de
+**Adondevivir, Urbania, InfoCasas y Properati** con topes de gasto, los guarda en PostgreSQL y los suscriptores los consultan
+en un portal con filtros, comparación de precios y vista previa con fotos. El administrador gestiona usuarios,
+suscripciones, propiedades, enlaces y la carga desde un panel.
+
+**Estética:** grafito profundo con acento dorado (cambiable), superficies de cristal, iconos con volumen y animados,
+tema oscuro y claro, y todo respeta «Reducir movimiento».
+
+<table>
+  <tr>
+    <td width="33%"><img src="docs/assets/card-portales.svg" alt="Cuatro portales, un catálogo" width="100%" /></td>
+    <td width="33%"><img src="docs/assets/card-filtros.svg" alt="Filtros por secciones" width="100%" /></td>
+    <td width="33%"><img src="docs/assets/card-detalle.svg" alt="Vista previa con más de 60 datos" width="100%" /></td>
+  </tr>
+  <tr>
+    <td width="33%"><img src="docs/assets/card-carga.svg" alt="Carga automática con topes" width="100%" /></td>
+    <td width="33%"><img src="docs/assets/card-seguridad.svg" alt="Seguridad de primera" width="100%" /></td>
+    <td width="33%"><img src="docs/assets/card-diseno.svg" alt="Diseño de cristal y luz" width="100%" /></td>
+  </tr>
+</table>
 
 **Sitio en producción:** https://realestatescrapeer.netlify.app/ · Estado de la API: https://realestatescrapeer.netlify.app/api/health
 
 ## Arquitectura
 
 ```
-Portales ─► Scraper (Python, GitHub Actions) ─► PostgreSQL (Neon) ◄─ API (api/) ◄─ Portal web (React)
+Portales ─► Carga automática (Apify + webhook) ─► PostgreSQL (Neon) ◄─ API (api/) ◄─ Portal web (React)
                  │ conexión directa (DATABASE_URL)       ▲              ▲
                  └─ SUNAT: tipo de cambio                │              └── Netlify Function  ó  Express
                                                          └── Inmodata (ETL / BI): solo lectura
@@ -32,7 +68,7 @@ Portales ─► Scraper (Python, GitHub Actions) ─► PostgreSQL (Neon) ◄─
 api/                  API (handler, router, auth, consultas y rutas) + pruebas de integración
   routes/             auth · portal (propiedades y enlaces) · admin
 client/src            React: pages/, components/{admin,portal,properties,common,ui}, lib/, types/
-db/                   001..007: esquema, auth, cuenta, historial de precios, sesiones/auditoría, inactividad y carga
+db/                   001..010: esquema, auth, cuenta, historial de precios, sesiones/auditoría, inactividad, carga, fotos, detalles y fuentes
 netlify/functions/    Función que publica la API en Netlify
 server/index.ts       Servidor Express opcional (API + estáticos + CSP)
 shared/               Código compartido cliente/API (constantes, filtros, validación)
@@ -46,7 +82,7 @@ netlify.toml          Build, rutas, función y cabeceras de seguridad
 1. Crea el proyecto en Neon (región AWS US East 2, solo el servicio Postgres).
 2. Aplica el esquema (`db/001` a `db/005`), con `pnpm db:migrate` (lee `DATABASE_URL` del entorno o de `.env`;
    `pnpm db:migrate --check` solo lista tablas) o pegando en el **SQL Editor**, en orden,
-   los archivos `db/001_*.sql` a `db/007_*.sql`.
+   los archivos `db/001_*.sql` a `db/010_*.sql`.
 3. Crea el primer administrador con el `insert` comentado al final de `001_schema.sql`, con tu
    propia contraseña. No lo subas al repositorio.
 4. Copia la connection string (Dashboard → *Connect*). Es el valor de `DATABASE_URL`.
