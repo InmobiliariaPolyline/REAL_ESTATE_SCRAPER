@@ -24,6 +24,19 @@ function antiguedadDe(valor) {
   return t
 }
 
+/** El menor número positivo de una lista como ["1","2","3"]; `undefined` si no hay (p. ej. ["0"], monoambiente). */
+const menorPositivo = lista => {
+  const n = (Array.isArray(lista) ? lista : []).map(v => Number(v)).filter(v => Number.isFinite(v) && v > 0)
+  return n.length > 0 ? Math.min(...n) : undefined
+}
+
+/** Estado de construcción de un proyecto («A estrenar», «En construcción») como antigüedad. */
+function antiguedadDeEstado(valor) {
+  const t = texto(valor)
+  if (!t) return undefined
+  return /estrenar|estreno/i.test(t) ? "Estreno" : t
+}
+
 /** «S/ 300», «U$S 120», «USD 120» -> { monto, moneda }. */
 function montoConMoneda(valor) {
   const t = texto(valor)
@@ -52,37 +65,48 @@ export function avisoDeInfocasas(it, base = "https://www.infocasas.com.pe") {
   if (!it?.id || !operacion || !titulo) return null
 
   const ficha = Object.fromEntries((it.technicalSheet ?? []).map(t => [t.field, t.value]))
-  const precio = it.price ?? {}
+  // Un aviso con `project` es un proyecto inmobiliario (en el portal se muestra «Desde …»): el listado trae los
+  // datos de una de sus tipologías, pero la ficha del portal (y lo que ve quien abre el enlace) usa los mínimos
+  // del proyecto, así que se guardan esos y el aviso se marca como «Proyecto».
+  // Los avisos normales traen `project: []`; uno real es un objeto con id.
+  const proyecto = it.project && typeof it.project === "object" && !Array.isArray(it.project) && it.project.id ? it.project : null
+  const desde = proyecto?.minPrice?.amount > 0 ? proyecto.minPrice : null
+  const precio = desde ?? it.price ?? {}
   const moneda = /u\$s|usd/i.test(precio.currency?.name ?? "") ? "USD" : "PEN"
-  const oculto = precio.hidePrice === true
+  const oculto = it.price?.hidePrice === true
   const loc = it.locations ?? {}
   const nombre = k => (Array.isArray(loc[k]) ? loc[k][0]?.name : loc[k]?.name)
   const punto = /POINT\s*\(\s*(-?[\d.]+)\s+(-?[\d.]+)\s*\)/.exec(loc.location_point ?? "")
   const gastos = montoConMoneda(ficha.commonExpenses)
-  const imagenes = (it.images ?? []).map(i => i?.image).filter(Boolean)
+  const limpiaFoto = u => (typeof u === "string" ? u.replace(/#.*$/, "") : u)
+  const imagenes = (it.images ?? []).map(i => limpiaFoto(i?.image)).filter(Boolean)
+  const dormitorios = (proyecto ? menorPositivo(proyecto.bedrooms) : undefined) ?? entero(ficha.bedrooms)
+  const banios = (proyecto ? menorPositivo(proyecto.bathrooms) : undefined) ?? entero(ficha.bathrooms)
+  const areaMin = proyecto ? positivo(proyecto.minM2) : undefined
 
   return {
     portal: "infocasas",
     codigo: String(it.id),
     operacion,
-    inmueble: texto(it.property_type?.name) ?? "Otro",
+    inmueble: proyecto ? "Proyecto" : texto(it.property_type?.name) ?? "Otro",
     titulo,
     precio: oculto ? undefined : positivo(precio.amount),
     moneda,
-    precioUsd: oculto ? undefined : positivo(it.price_amount_usd),
+    // En un proyecto el dólar lo calcula el sistema a partir del precio «desde».
+    precioUsd: oculto || desde ? undefined : positivo(it.price_amount_usd),
     distrito: nombre("neighbourhood") ?? nombre("commune") ?? nombre("zone") ?? nombre("locality") ?? nombre("city") ?? nombre("state"),
     departamento: nombre("state"),
     provincia: nombre("city"),
-    dormitorios: entero(ficha.bedrooms)?.toString(),
-    banios: entero(ficha.bathrooms)?.toString(),
-    area: positivo(it.m2) ? `${it.m2} m2` : texto(ficha.m2Built),
-    imagen: texto(it.img) ?? imagenes[0],
+    dormitorios: dormitorios?.toString(),
+    banios: banios?.toString(),
+    area: areaMin ? `${areaMin} m2` : positivo(it.m2) ? `${it.m2} m2` : texto(ficha.m2Built),
+    imagen: texto(limpiaFoto(it.img)) ?? imagenes[0],
     imagenes,
     url: it.link ? base + it.link : undefined,
-    descripcion: texto(it.description),
+    descripcion: (proyecto ? texto(proyecto.description) : undefined) ?? texto(it.description),
     direccion: it.showAddress === false ? undefined : texto(it.address),
     estacionamientos: ficha.garage !== undefined && ficha.garage !== "" ? String(entero(ficha.garage) ?? 0) : undefined,
-    antiguedad: antiguedadDe(ficha.constructionYear),
+    antiguedad: antiguedadDe(ficha.constructionYear) ?? (proyecto ? antiguedadDeEstado(ficha.construction_state_name) : undefined),
     publicador: texto(it.owner?.name),
     latitud: punto ? Number(punto[2]) : undefined,
     longitud: punto ? Number(punto[1]) : undefined,

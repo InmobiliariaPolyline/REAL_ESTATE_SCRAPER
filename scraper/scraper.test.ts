@@ -89,6 +89,28 @@ describe("InfoCasas: lectura de la página", () => {
     expect(avisoDeInfocasas(ficha({})).estacionamientos).toBeUndefined()
   })
 
+  it("un proyecto se guarda como «Proyecto» con los datos «desde» que muestra el portal", () => {
+    const base = fixture.searchFast.data[0]
+    // Forma real de B34 (Surquillo): el listado trae la tipología de 3 dormitorios, la ficha del portal el mínimo del proyecto.
+    const b34 = {
+      ...base, id: 187068547, title: "B34", img: "https://cdn1.infocasas.com.uy/repo/img/a.jpg#HASTH", link: "/b34/187068547",
+      price: { amount: 130600, hidePrice: false, currency: { name: "U$S" } }, price_amount_usd: 130600, m2: 66,
+      technicalSheet: [{ field: "bedrooms", value: "3" }, { field: "bathrooms", value: "2" }, { field: "construction_state_name", value: "En construcción" }],
+      project: { id: 5349, title: "B34", description: "<p>Proyecto B34</p>", minM2: 54, minPrice: { amount: 108700, currency: { name: "U$S" } }, bedrooms: ["1", "2", "3"], bathrooms: ["1", "2"] },
+    }
+    expect(avisoDeInfocasas(b34)).toMatchObject({
+      inmueble: "Proyecto", precio: 108700, moneda: "USD", precioUsd: undefined, dormitorios: "1", banios: "1", area: "54 m2",
+      antiguedad: "En construcción", descripcion: "<p>Proyecto B34</p>", imagen: "https://cdn1.infocasas.com.uy/repo/img/a.jpg",
+    })
+    // Sin precio «desde», cae al de la tipología; un proyecto en soles conserva su moneda.
+    expect(avisoDeInfocasas({ ...b34, project: { ...b34.project, minPrice: null } })).toMatchObject({ inmueble: "Proyecto", precio: 130600, moneda: "USD" })
+    expect(avisoDeInfocasas({ ...b34, project: { ...b34.project, minPrice: { amount: 243810, currency: { name: "S/" } } } })).toMatchObject({ precio: 243810, moneda: "PEN" })
+    // Monoambiente: no hay mínimo positivo de dormitorios, se usa el de la tipología.
+    expect(avisoDeInfocasas({ ...b34, project: { ...b34.project, bedrooms: ["0"] } }).dormitorios).toBe("3")
+    expect(avisoDeInfocasas({ ...b34, project: [] })).toMatchObject({ inmueble: "Departamento" })
+    expect(avisoDeInfocasas({ ...b34, project: undefined })).toMatchObject({ inmueble: "Departamento", precio: 130600, dormitorios: "3" })
+  })
+
   it("arma la dirección de cada página (la primera sin sufijo)", () => {
     expect(infocasas.urlPagina("venta/casas/lima", 1)).toBe("https://www.infocasas.com.pe/venta/casas/lima")
     expect(infocasas.urlPagina("venta/casas/lima", 3)).toBe("https://www.infocasas.com.pe/venta/casas/lima/pagina3")

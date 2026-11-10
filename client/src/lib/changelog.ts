@@ -23,6 +23,15 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "2.10.2",
+    fecha: "2026-11-10",
+    titulo: "Proyectos de InfoCasas bien clasificados",
+    cambios: [
+      { tipo: "correccion", texto: "Los proyectos inmobiliarios de InfoCasas se guardaban como «Departamento» con los datos de una sola tipología (p. ej. 3 dormitorios y S/ 489 750). Ahora se guardan como «Proyecto» con lo que muestra el portal: precio «desde», dormitorios, baños y área mínimos, estado de construcción y la descripción del proyecto." },
+      { tipo: "correccion", texto: "Las direcciones de fotos de InfoCasas ya no llevan el sufijo «#HASTH»." },
+    ],
+  },
+  {
     version: "2.10.1",
     fecha: "2026-11-10",
     titulo: "Diagnóstico de la copia de portadas",
