@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import { useId, type ReactNode } from 'react'
 import { Icono3D, type Tono } from '@/components/portal/detail/Piezas'
 import { cn } from '@/lib/utils'
@@ -195,6 +196,58 @@ export function Bloque({ icon, tono, title, children, className }: { icon: Lucid
         {title}
       </h3>
       {children}
+    </section>
+  )
+}
+
+/**
+ * Bloque desglosable de la ventana de filtros: la cabecera siempre se ve (icono, título y, si hay algo elegido, un
+ * resumen) y el contenido se muestra u oculta. Así la ventana no se alarga aunque tenga muchas opciones.
+ */
+export function BloqueDesplegable({
+  icon,
+  tono,
+  title,
+  resumen,
+  abierto,
+  onToggle,
+  children,
+  className,
+}: {
+  icon: LucideIcon
+  tono: Tono
+  title: string
+  /** Lo elegido en este bloque, en una línea; vacío si no hay filtro activo. */
+  resumen?: string
+  abierto: boolean
+  onToggle: () => void
+  children: ReactNode
+  className?: string
+}) {
+  const id = useId()
+  const activo = !!resumen
+  return (
+    <section className={cn('min-w-0 overflow-hidden rounded-2xl border bg-surface-2/60 transition-colors', activo ? 'border-gold/35' : 'border-line', className)}>
+      <h3>
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-expanded={abierto}
+          aria-controls={id}
+          className="flex w-full items-center gap-2.5 px-4 py-3 text-left transition hover:bg-surface-3/50"
+        >
+          <Icono3D icon={icon} tono={tono} size="sm" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-text">{title}</span>
+            {!abierto && activo && <span className="mt-0.5 block truncate text-xs font-medium text-gold">{resumen}</span>}
+          </span>
+          {activo && abierto && <span className="size-1.5 shrink-0 rounded-full bg-gold" aria-label="Con filtro activo" />}
+          <ChevronDown className={cn('size-4 shrink-0 text-text-muted transition-transform duration-200', abierto && 'rotate-180')} aria-hidden="true" />
+        </button>
+      </h3>
+      <div id={id} hidden={!abierto} className="space-y-4 border-t border-line px-4 pb-4 pt-4">
+        {children}
+      </div>
     </section>
   )
 }

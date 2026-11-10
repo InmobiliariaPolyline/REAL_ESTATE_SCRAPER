@@ -257,3 +257,17 @@ describe("tipo de inmueble", () => {
     expect(normalizarAviso({ ...base, inmueble: "Casa", titulo: "Terreno - La Molina" })!.inmueble).toBe("Terreno")
   })
 })
+
+describe("ubicación coherente", () => {
+  it("el Callao publicado como «Lima» se guarda en el departamento del Callao", () => {
+    const f = normalizarAviso({ ...base, distrito: "Callao", departamento: "Lima", provincia: "Callao" })!
+    expect(f).toMatchObject({ distrito: "Callao", departamento: "Callao", provincia: "Callao" })
+    expect(normalizarAviso({ ...base, distrito: "Ventanilla", departamento: "Lima", provincia: "Lima" })).toMatchObject({ departamento: "Callao", provincia: "Callao" })
+  })
+
+  it("una provincia única fija el departamento, y un distrito homónimo de otro departamento se respeta", () => {
+    expect(normalizarAviso({ ...base, distrito: "Camaná", departamento: "Lima", provincia: "Camaná" })).toMatchObject({ departamento: "Arequipa" })
+    expect(normalizarAviso({ ...base, distrito: "La Victoria", departamento: "Lambayeque", provincia: "Chiclayo" })).toMatchObject({ departamento: "Lambayeque", provincia: "Chiclayo" })
+  })
+})
+

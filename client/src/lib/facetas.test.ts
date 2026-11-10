@@ -34,7 +34,7 @@ describe('combinarFacetas', () => {
     expect(f.departamentos[2].valor).toBe('Amazonas') // el resto, por orden alfabético
     expect(f.provincias[0]).toMatchObject({ valor: 'Camaná', n: 1, padre: 'Arequipa' })
     // Distintas formas de escribir un tipo se suman en uno solo.
-    expect(f.inmuebles.filter(t => /local comercial/i.test(t.valor))).toEqual([{ valor: 'Local comercial', n: 5, padre: null }])
+    expect(f.inmuebles.filter(t => /local comercial/i.test(t.valor))).toEqual([{ valor: 'Local comercial', n: 5, padre: null, provincia: null }])
     expect(f.inmuebles[0]).toMatchObject({ valor: 'Casa', n: 10 })
     // Un distrito sin departamento se une al del mismo nombre de la lista completa.
     expect(f.distritos.find(d => d.valor === 'Miraflores' && d.padre === 'Lima')!.n).toBe(12)
@@ -46,5 +46,27 @@ describe('combinarFacetas', () => {
     const f = combinarFacetas({ distritos: [{ valor: 'Lugar Nuevo', padre: 'Cusco', n: 2 }], inmuebles: [{ valor: 'Bóveda', n: 1 }] })
     expect(f.distritos.find(d => d.valor === 'Lugar Nuevo')).toMatchObject({ n: 2, padre: 'Cusco' })
     expect(f.inmuebles.find(t => t.valor === 'Bóveda')!.n).toBe(1)
+  })
+
+  it('el Callao no aparece dos veces aunque un portal lo publique dentro de «Lima»', () => {
+    const f = combinarFacetas({
+      departamentos: [{ valor: 'Lima', n: 50 }],
+      provincias: [{ valor: 'Callao', padre: 'Lima', n: 3 }, { valor: 'Callao', padre: 'Callao', n: 2 }],
+      distritos: [{ valor: 'Callao', padre: 'Lima', provincia: 'Callao', n: 3 }, { valor: 'Callao', padre: 'Callao', provincia: 'Callao', n: 2 }, { valor: 'Ventanilla', padre: 'Lima', provincia: 'Lima', n: 1 }],
+    })
+    expect(f.provincias.filter(p => p.valor === 'Callao')).toEqual([{ valor: 'Callao', n: 5, padre: 'Callao', provincia: null }])
+    expect(f.distritos.filter(d => d.valor === 'Callao')).toHaveLength(1)
+    expect(f.distritos.find(d => d.valor === 'Callao')).toMatchObject({ n: 5, padre: 'Callao', provincia: 'Callao' })
+    // Ventanilla es del Callao aunque el portal diga «Lima».
+    expect(f.distritos.find(d => d.valor === 'Ventanilla')).toMatchObject({ n: 1, padre: 'Callao', provincia: 'Callao' })
+  })
+
+  it('ningún valor se repite con el mismo nombre, departamento y provincia', () => {
+    const f = combinarFacetas({ provincias: [{ valor: 'Lima', padre: 'Lima', n: 9 }], distritos: [{ valor: 'Miraflores', padre: 'Lima', provincia: 'Lima', n: 4 }, { valor: 'miraflores', padre: 'Lima', provincia: 'Lima', n: 1 }] })
+    for (const lista of [f.departamentos, f.provincias, f.distritos]) {
+      const claves = lista.map(x => `${x.valor.toLowerCase()}|${x.padre}|${x.provincia}`)
+      expect(new Set(claves).size).toBe(claves.length)
+    }
+    expect(f.distritos.find(d => d.valor === 'Miraflores' && d.padre === 'Lima')!.n).toBe(5)
   })
 })

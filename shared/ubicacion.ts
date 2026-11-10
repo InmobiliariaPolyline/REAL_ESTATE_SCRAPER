@@ -200,3 +200,68 @@ export function tipoCanonico(tipo: string): string {
   if (ALIAS_TIPO[clave]) return ALIAS_TIPO[clave]
   return tipo.trim().charAt(0).toUpperCase() + tipo.trim().slice(1)
 }
+
+// ── Jerarquía geográfica coherente: departamento → provincia → distrito ────────────────────────
+
+/** Distritos principales que NO están en la provincia capital de su departamento (el resto sí lo está). */
+const PROVINCIA_DE_PRINCIPAL: Record<string, string> = {
+  "Áncash|Chimbote": "Santa", "Áncash|Nuevo Chimbote": "Santa", "Áncash|Casma": "Casma", "Áncash|Huarmey": "Huarmey",
+  "Arequipa|Camaná": "Camaná", "Arequipa|Mollendo": "Islay",
+  "Cajamarca|Jaén": "Jaén", "Cajamarca|Chota": "Chota",
+  "Cusco|Urubamba": "Urubamba", "Cusco|Ollantaytambo": "Urubamba", "Cusco|Calca": "Calca",
+  "Huánuco|Tingo María": "Leoncio Prado",
+  "Ica|Chincha Alta": "Chincha", "Ica|Pisco": "Pisco", "Ica|Nasca": "Nasca",
+  "Junín|Tarma": "Tarma", "Junín|Jauja": "Jauja", "Junín|La Merced": "Chanchamayo", "Junín|Satipo": "Satipo",
+  "La Libertad|Chepén": "Chepén", "La Libertad|Pacasmayo": "Pacasmayo",
+  "Lambayeque|Lambayeque": "Lambayeque", "Lambayeque|Ferreñafe": "Ferreñafe",
+  "Lima|Huacho": "Huaura", "Lima|Huaura": "Huaura", "Lima|Huaral": "Huaral", "Lima|Barranca": "Barranca", "Lima|Supe": "Barranca",
+  "Lima|San Vicente de Cañete": "Cañete", "Lima|Mala": "Cañete", "Lima|Asia": "Cañete", "Lima|Chilca": "Cañete", "Lima|Oyón": "Oyón",
+  "Loreto|Yurimaguas": "Alto Amazonas",
+  "Madre de Dios|Iñapari": "Tahuamanu",
+  "Moquegua|Ilo": "Ilo",
+  "Pasco|Oxapampa": "Oxapampa", "Pasco|Villa Rica": "Oxapampa",
+  "Piura|Sullana": "Sullana", "Piura|Paita": "Paita", "Piura|Talara": "Talara", "Piura|Máncora": "Talara", "Piura|Sechura": "Sechura",
+  "Puno|Juliaca": "San Román", "Puno|Ilave": "El Collao", "Puno|Azángaro": "Azángaro",
+  "San Martín|Moyobamba": "Moyobamba", "San Martín|Rioja": "Rioja", "San Martín|Tocache": "Tocache", "San Martín|Tarapoto": "San Martín", "San Martín|Morales": "San Martín", "San Martín|La Banda de Shilcayo": "San Martín",
+  "Tumbes|Zarumilla": "Zarumilla", "Tumbes|Zorritos": "Contralmirante Villar",
+}
+
+/** Provincia de uno de los distritos principales de un departamento (la capital salvo excepciones); `null` si no se conoce. */
+export function provinciaDeDistritoPrincipal(departamento: string, distrito: string): string | null {
+  const dep = Object.keys(DISTRITOS_PRINCIPALES).find(d => claveNombre(d) === claveNombre(departamento))
+  if (!dep) return null
+  const d = DISTRITOS_PRINCIPALES[dep].find(x => claveNombre(x) === claveNombre(distrito))
+  if (!d) return null
+  const excepcion = Object.entries(PROVINCIA_DE_PRINCIPAL).find(([k]) => claveNombre(k) === claveNombre(`${dep}|${d}`))
+  return excepcion?.[1] ?? PROVINCIAS[dep]?.[0] ?? null
+}
+
+/** Departamento de una provincia cuando el nombre es de una sola provincia del país; `null` si es ambiguo o desconocido. */
+export function departamentoDeProvincia(provincia: string | null | undefined): string | null {
+  const k = claveNombre(provincia ?? "")
+  if (!k) return null
+  const dueños = Object.entries(PROVINCIAS).filter(([, lista]) => lista.some(p => claveNombre(p) === k)).map(([dep]) => dep)
+  return dueños.length === 1 ? dueños[0] : null
+}
+
+export interface Lugar {
+  departamento: string | null
+  provincia: string | null
+  distrito: string | null
+}
+
+/**
+ * Ubicación coherente. Un distrito de Lima Metropolitana o del Callao manda sobre lo que diga el portal (Lima y Callao
+ * son departamentos distintos, pero varios portales publican el Callao como «Lima»); si no, una provincia que solo
+ * existe en un departamento fija ese departamento. Lo demás se conserva tal como llegó.
+ */
+export function ubicacionCanonica(l: Lugar): Lugar {
+  const distrito = distritoCanonico(l.distrito)
+  const deDistrito = ubicacionDeDistrito(distrito)
+  // Solo se corrige la confusión Lima/Callao (o la falta de departamento): un «La Victoria» de Lambayeque sigue en Lambayeque.
+  const claveDep = claveNombre(l.departamento ?? "")
+  if (deDistrito && (!claveDep || claveDep === "lima" || claveDep === "callao")) return { ...deDistrito, distrito }
+  const provincia = nombreDeLugar(l.provincia)
+  const deProvincia = departamentoDeProvincia(provincia)
+  return { departamento: deProvincia ?? nombreDeLugar(l.departamento), provincia, distrito }
+}

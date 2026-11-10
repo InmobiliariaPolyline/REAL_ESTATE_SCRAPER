@@ -162,4 +162,27 @@ describe("E2E con avisos reales de InfoCasas", () => {
     expect(basico.data.length).toBeGreaterThan(0)
     expect(basico.data[0]).not.toHaveProperty("fotos")
   })
+
+  it("db/013_geografia.sql corrige el Callao guardado dentro de «Lima» sin tocar un homónimo de otro departamento", async () => {
+    await pg.exec(`insert into public.propiedades (id, portal, operacion, inmueble, titulo, distrito, departamento, provincia) values
+      ('geo:1','infocasas','VENTA','Casa','Callao mal ubicado','Callao','Lima','Callao'),
+      ('geo:2','infocasas','VENTA','Casa','Ventanilla mal ubicada','Ventanilla','Lima','Lima'),
+      ('geo:3','infocasas','VENTA','Casa','La Victoria de Lambayeque','La Victoria','Lambayeque','Chiclayo'),
+      ('geo:4','infocasas','VENTA','Casa','Provincia con otro departamento','Camaná','Lima','Camaná')`)
+    const sql = fs.readFileSync(path.join(root, "db/013_geografia.sql"), "utf8")
+    await pg.exec(sql)
+    await pg.exec(sql) // idempotente
+    const f = (await pg.query<any>("select id, departamento, provincia from public.propiedades where id like 'geo:%' order by id")).rows
+    expect(f).toEqual([
+      { id: "geo:1", departamento: "Callao", provincia: "Callao" },
+      { id: "geo:2", departamento: "Callao", provincia: "Callao" },
+      { id: "geo:3", departamento: "Lambayeque", provincia: "Chiclayo" },
+      { id: "geo:4", departamento: "Arequipa", provincia: "Camaná" },
+    ])
+    // El catálogo ya no tiene dos «Callao».
+    const fac = (await call("GET", "/api/propiedades/facetas", { token: member })).body
+    expect(fac.provincias.filter((p: any) => p.valor === "Callao")).toHaveLength(1)
+    expect(fac.distritos.filter((d: any) => d.valor === "Callao" && d.padre === "Callao")).toHaveLength(1)
+  })
 })
+

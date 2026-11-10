@@ -23,6 +23,17 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "3.3.0",
+    fecha: "2026-11-10",
+    titulo: "Filtros desglosables y ubicación jerárquica",
+    cambios: [
+      { tipo: "mejora", texto: "La ventana de filtros ahora es desglosable: cada bloque se despliega o se recoge desde su cabecera, que muestra un resumen de lo elegido («USD 100,000 – 200,000», «3 dorm. · 2+ coch.»). Por defecto se ve lo esencial (operación, tipo y ubicación) y el resto queda recogido, así la ventana ya no alarga la pantalla. Hay un botón para desplegar o recoger todo y se recuerda lo que dejaste abierto." },
+      { tipo: "correccion", texto: "Ubicación con lógica jerárquica: departamento → provincia → distrito. Al elegir un departamento solo se ofrecen sus provincias; al elegir una provincia se completa su departamento; al elegir un distrito se completan su provincia y su departamento; y las sugerencias de distrito son solo las del lugar elegido. Un miniindicador muestra la ruta elegida («Arequipa › Arequipa › Cayma»). Lo mismo en los filtros del panel de administración." },
+      { tipo: "correccion", texto: "El Callao ya no aparece dos veces: varios portales lo publican dentro de «Lima», y el sistema guardaba esa contradicción. Ahora un distrito del Callao o de Lima Metropolitana fija su departamento y provincia, y una provincia que existe en un solo departamento fija ese departamento (un «La Victoria» de Lambayeque se respeta). La migración db/013_geografia.sql corrige los avisos ya guardados." },
+      { tipo: "mejora", texto: "Cada distrito de la lista lleva ahora su provincia, incluidos los principales fuera de Lima (por ejemplo Mollendo en Islay, Huacho en Huaura, La Merced en Chanchamayo)." },
+    ],
+  },
+  {
     version: "3.2.0",
     fecha: "2026-11-10",
     titulo: "Insignias partidas para precios y etiquetas",

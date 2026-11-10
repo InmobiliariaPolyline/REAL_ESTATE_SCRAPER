@@ -3,6 +3,7 @@ import { useMemo } from "react"
 import { Bloque, Fichas, Selector, type OpcionFicha } from "@/components/filters/Campos"
 import { Icono3D } from "@/components/portal/detail/Piezas"
 import { useFacetas } from "@/hooks/useFacetas"
+import { elegirDepartamento, elegirProvincia, opcionesGeograficas } from "@/lib/geografia"
 import { PORTALS } from "@/lib/portals"
 import { contarDetalle, type AdminSearchFilters } from "@/lib/propertiesApi"
 import { claveNombre } from "@shared/ubicacion"
@@ -35,10 +36,8 @@ export default function PropiedadesFilters({ filters, onChange, onSearch, onClea
   const facetas = useFacetas()
   const nDetalle = contarDetalle(filters)
 
-  const provincias = useMemo(
-    () => facetas.provincias.filter(p => !filters.departamento || !p.padre || claveNombre(p.padre) === claveNombre(filters.departamento)),
-    [facetas, filters.departamento]
-  )
+  const geo = { departamento: filters.departamento, provincia: filters.provincia, distrito: filters.distrito }
+  const { provincias } = useMemo(() => opcionesGeograficas(facetas, geo), [facetas, filters.departamento, filters.provincia]) // eslint-disable-line react-hooks/exhaustive-deps
   const tipos: OpcionFicha<string>[] = useMemo(
     () => [{ value: "todos", label: "Todos", icon: Layers }, ...facetas.inmuebles.map(t => ({ value: t.valor, label: t.valor, icon: ICONO_TIPO[t.valor.toLowerCase()] ?? Building2, n: t.n }))],
     [facetas]
@@ -103,8 +102,8 @@ export default function PropiedadesFilters({ filters, onChange, onSearch, onClea
 
         <Bloque icon={MapPin} tono="blue" title="Ubicación">
           <div className="grid gap-4">
-            <Selector id="adm-departamento" label="Departamento" value={filters.departamento} onChange={v => set({ departamento: v, provincia: "" })} opciones={facetas.departamentos} vacio="Sin datos aún" />
-            <Selector id="adm-provincia" label="Ciudad o provincia" value={filters.provincia} onChange={v => set({ provincia: v })} opciones={provincias} vacio="Sin datos aún" />
+            <Selector id="adm-departamento" label="Departamento" value={filters.departamento} onChange={v => set(elegirDepartamento(facetas, geo, v))} opciones={facetas.departamentos} vacio="Sin datos aún" />
+            <Selector id="adm-provincia" label="Ciudad o provincia" value={filters.provincia} onChange={v => set(elegirProvincia(facetas, geo, v))} opciones={provincias} vacio="Sin datos aún" />
           </div>
         </Bloque>
 

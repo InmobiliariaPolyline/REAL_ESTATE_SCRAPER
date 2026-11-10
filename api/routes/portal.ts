@@ -121,7 +121,7 @@ export const portalRoutes: Route[] = [
     handler: async ({ db }) => {
       const lista = async (sql: string) => {
         try {
-          return await db.query<{ valor: string; n: number; padre?: string | null }>(sql)
+          return await db.query<{ valor: string; n: number; padre?: string | null; provincia?: string | null }>(sql)
         } catch (err) {
           // Sin las migraciones 009/011 faltan algunas columnas: esa lista queda vacía.
           if (!/column .*does not exist|no existe la columna/i.test(String((err as { message?: string })?.message ?? ""))) throw err
@@ -131,7 +131,7 @@ export const portalRoutes: Route[] = [
       const [departamentos, provincias, distritos, inmuebles, anunciantes] = await Promise.all([
         lista("select departamento as valor, count(*)::int as n from public.propiedades where departamento is not null group by 1 order by n desc, 1"),
         lista("select provincia as valor, departamento as padre, count(*)::int as n from public.propiedades where provincia is not null group by 1, 2 order by n desc, 1"),
-        lista("select distrito as valor, departamento as padre, count(*)::int as n from public.propiedades where distrito is not null and distrito <> '' group by 1, 2 order by n desc, 1 limit 150"),
+        lista("select distrito as valor, departamento as padre, provincia, count(*)::int as n from public.propiedades where distrito is not null and distrito <> '' group by 1, 2, 3 order by n desc, 1 limit 300"),
         lista("select inmueble as valor, count(*)::int as n from public.propiedades where inmueble is not null and inmueble <> '' group by 1 order by n desc, 1"),
         lista("select publicador as valor, count(*)::int as n from public.propiedades where publicador is not null and publicador <> '' group by 1 order by n desc, 1 limit 40"),
       ])

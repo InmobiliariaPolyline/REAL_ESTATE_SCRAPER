@@ -1,12 +1,13 @@
 import {
   Bath, BedDouble, Briefcase, Building2, CalendarClock, Car, CircleDollarSign, Construction, Hammer, Home, KeyRound, Layers, Loader2, MapPin, Ruler,
-  Search, SlidersHorizontal, Store, Tag, TextCursorInput, Trees, UserRound, Warehouse, X, BedSingle, type LucideIcon,
+  Search, SlidersHorizontal, Store, Tag, TextCursorInput, Trees, UserRound, Warehouse, X, BedSingle, ChevronsDownUp, ChevronsUpDown, ChevronRight, type LucideIcon,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Bloque, Etiquetas, Fichas, Selector, type OpcionFicha } from '@/components/filters/Campos'
+import { BloqueDesplegable, Etiquetas, Fichas, Selector, type OpcionFicha } from '@/components/filters/Campos'
 import { Icono3D } from '@/components/portal/detail/Piezas'
 import { useFacetas } from '@/hooks/useFacetas'
 import { atajosDePrecio, filtrosActivos } from '@/lib/filterChips'
+import { elegirDepartamento, elegirDistrito, elegirProvincia, opcionesGeograficas, rutaGeografica, sugerirDistritos } from '@/lib/geografia'
 import { PORTALS } from '@/lib/portals'
 import { claveNombre } from '@shared/ubicacion'
 import { cn } from '@/lib/utils'
@@ -52,6 +53,28 @@ const AREAS_RAPIDAS: { label: string; min: number | ''; max: number | '' }[] = [
   { label: 'Más de 200 m²', min: 200, max: '' },
 ]
 
+const CLAVES_BLOQUES = ['texto', 'operacion', 'tipo', 'ubicacion', 'precio', 'ambientes', 'area', 'antiguedad', 'portales', 'anunciante', 'publicacion']
+/** Qué bloques se ven abiertos la primera vez: lo esencial para empezar a buscar. */
+const BLOQUES_ABIERTOS: Record<string, boolean> = { operacion: true, tipo: true, ubicacion: true }
+const CLAVE_ALMACEN = 'filtros-abiertos'
+
+function cargarAbiertos(): Record<string, boolean> {
+  try {
+    const crudo = JSON.parse(localStorage.getItem(CLAVE_ALMACEN) ?? '{}') as Record<string, unknown>
+    return Object.fromEntries(Object.entries(crudo).filter(([k, v]) => CLAVES_BLOQUES.includes(k) && typeof v === 'boolean')) as Record<string, boolean>
+  } catch {
+    return {}
+  }
+}
+function guardarAbiertos(estado: Record<string, boolean>): Record<string, boolean> {
+  try {
+    localStorage.setItem(CLAVE_ALMACEN, JSON.stringify(estado))
+  } catch {
+    /* sin almacenamiento: vale solo para esta visita */
+  }
+  return estado
+}
+
 export default function PortalFilters({
   filters,
   onFiltersChange,
@@ -63,6 +86,13 @@ export default function PortalFilters({
 }: PortalFiltersProps) {
   const [showSuggestions, setShowSuggestions] = useState(false)
   const facetas = useFacetas()
+
+  // Bloques desglosables: por defecto se ve lo esencial y el resto queda recogido (con un resumen de lo elegido).
+  const [abiertos, setAbiertos] = useState<Record<string, boolean>>(cargarAbiertos)
+  const alternar = (clave: string) => setAbiertos(a => guardarAbiertos({ ...a, [clave]: !(a[clave] ?? BLOQUES_ABIERTOS[clave] ?? false) }))
+  const estaAbierto = (clave: string) => abiertos[clave] ?? BLOQUES_ABIERTOS[clave] ?? false
+  const todosAbiertos = CLAVES_BLOQUES.every(estaAbierto)
+  const cambiarTodos = (abierto: boolean) => setAbiertos(guardarAbiertos(Object.fromEntries(CLAVES_BLOQUES.map(c => [c, abierto]))))
 
   const update = (patch: Partial<FilterState>) => onFiltersChange({ ...filters, ...patch })
   const aplicar = (patch: Partial<FilterState>) => {
@@ -93,16 +123,11 @@ export default function PortalFilters({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [claveFiltros])
 
-  // Listas del catálogo: las provincias se limitan al departamento elegido y los distritos a ambos.
+  // Geografía jerárquica: las provincias son las del departamento elegido y los distritos las de la provincia (o del departamento).
   const departamentos = facetas.departamentos
-  const provincias = useMemo(
-    () => facetas.provincias.filter(p => !filters.departamento || !p.padre || claveNombre(p.padre) === claveNombre(filters.departamento)),
-    [facetas, filters.departamento]
-  )
-  const distritosCatalogo = useMemo(
-    () => facetas.distritos.filter(d => !filters.departamento || !d.padre || claveNombre(d.padre) === claveNombre(filters.departamento)),
-    [facetas, filters.departamento]
-  )
+  const geo = { departamento: filters.departamento, provincia: filters.provincia, distrito: filters.distrito }
+  const { provincias, distritos: distritosCatalogo } = useMemo(() => opcionesGeograficas(facetas, geo), [facetas, filters.departamento, filters.provincia]) // eslint-disable-line react-hooks/exhaustive-deps
+  const aplicarGeo = (g: { departamento: string; provincia: string; distrito: string }) => update(g)
 
   // Tipos de inmueble: todos los que existen (primero los que tienen avisos), con su cantidad.
   const tipos: OpcionFicha<string>[] = useMemo(
@@ -115,12 +140,8 @@ export default function PortalFilters({
   // Si el tipo elegido no está entre los más frecuentes (búsqueda guardada), se muestra igual.
   const tiposConActual = filters.inmueble !== 'todos' && !tipos.some(t => t.value === filters.inmueble) ? [...tipos, { value: filters.inmueble, label: filters.inmueble, icon: Building2 }] : tipos
 
-  // Sugerencias de distrito mientras se escribe.
-  const suggestions = useMemo(() => {
-    const q = removeAccents(filters.distrito.trim().toLowerCase())
-    if (!q) return []
-    return distritosCatalogo.filter(d => removeAccents(d.valor.toLowerCase()).includes(q)).slice(0, 12)
-  }, [filters.distrito, distritosCatalogo])
+  // Sugerencias de distrito mientras se escribe (solo los del lugar elegido arriba).
+  const suggestions = useMemo(() => sugerirDistritos(distritosCatalogo, filters.distrito), [filters.distrito, distritosCatalogo])
   const populares = distritosCatalogo.filter(d => d.n > 0).slice(0, 8)
 
   const handlePortalToggle = (portal: string) =>
@@ -138,6 +159,29 @@ export default function PortalFilters({
     (cant === 4
       ? [['todos', 'Todos'], ['1', '1'], ['2', '2'], ['3', '3'], ['4+', '4+']]
       : [['todos', 'Todos'], ['1', '1'], ['2', '2'], ['3+', '3+']]) as [string, string][]
+
+  const rango = (min: number | '', max: number | '', prefijo = '', sufijo = '') =>
+    min === '' && max === ''
+      ? ''
+      : `${prefijo ? prefijo + ' ' : ''}${min === '' ? '0' : min.toLocaleString('es-PE')} – ${max === '' ? 'sin límite' : max.toLocaleString('es-PE')}${sufijo ? ' ' + sufijo : ''}`
+  const resumenes: Record<string, string> = {
+    texto: filters.texto.trim(),
+    operacion: filters.operacion === 'todos' ? '' : filters.operacion === 'ALQUILER' ? 'Alquiler' : 'Venta',
+    tipo: filters.inmueble === 'todos' ? '' : filters.inmueble,
+    ubicacion: rutaGeografica(geo),
+    precio: [rango(filters.precioMin, filters.precioMax, currency), filters.soloConPrecio ? 'con precio' : ''].filter(Boolean).join(' · '),
+    ambientes: [
+      filters.dormitorios !== 'todos' ? `${filters.dormitorios} dorm.` : '',
+      filters.banios !== 'todos' ? `${filters.banios} baños` : '',
+      filters.cocheras !== 'todos' ? `${filters.cocheras} coch.` : '',
+    ].filter(Boolean).join(' · '),
+    area: rango(filters.areaMin, filters.areaMax, '', 'm²'),
+    antiguedad: filters.antiguedadMax === '' ? '' : filters.antiguedadMax === 0 ? 'Estreno' : `Hasta ${filters.antiguedadMax} años`,
+    portales: filters.portales.join(', '),
+    anunciante: filters.anunciante.trim(),
+    publicacion: filters.publicado === 'todos' ? '' : (({ hoy: 'Hoy', semana: 'Últimos 7 días', mes: 'Últimos 30 días' } as Record<string, string>)[filters.publicado] ?? ''),
+  }
+  const desp = (clave: string) => ({ abierto: estaAbierto(clave), onToggle: () => alternar(clave), resumen: resumenes[clave] })
 
   return (
     <form
@@ -187,8 +231,20 @@ export default function PortalFilters({
 
       {/* Ventana de filtros: todo a la vista, en bloques */}
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-        <div className={cn('grid gap-4', !isMobileDrawer && 'md:grid-cols-2 xl:grid-cols-1')}>
-          <Bloque icon={TextCursorInput} tono="rose" title="Buscar por palabra">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <p className="label-mono">Opciones de búsqueda</p>
+          <button
+            type="button"
+            onClick={() => cambiarTodos(!todosAbiertos)}
+            className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-text-muted transition hover:bg-surface-3 hover:text-text"
+            title={todosAbiertos ? 'Recoger todos los bloques' : 'Desplegar todos los bloques'}
+          >
+            {todosAbiertos ? <ChevronsDownUp className="size-3.5" aria-hidden="true" /> : <ChevronsUpDown className="size-3.5" aria-hidden="true" />}
+            {todosAbiertos ? 'Recoger todo' : 'Desplegar todo'}
+          </button>
+        </div>
+        <div className="grid gap-3">
+          <BloqueDesplegable icon={TextCursorInput} tono="rose" title="Buscar por palabra" {...desp("texto")}>
             <div>
               <label className="field-label" htmlFor="flt-texto">Palabra clave</label>
               <div className="field-icon">
@@ -205,9 +261,9 @@ export default function PortalFilters({
                 />
               </div>
             </div>
-          </Bloque>
+          </BloqueDesplegable>
 
-          <Bloque icon={KeyRound} tono="gold" title="Operación">
+          <BloqueDesplegable icon={KeyRound} tono="gold" title="Operación" {...desp("operacion")}>
             <Fichas
               label="Qué buscas"
               columnas={3}
@@ -219,16 +275,26 @@ export default function PortalFilters({
                 { value: 'VENTA', label: 'Venta', icon: Tag },
               ]}
             />
-          </Bloque>
+          </BloqueDesplegable>
 
-          <Bloque icon={Building2} tono="violet" title="Tipo de inmueble" className="md:col-span-2 xl:col-span-1">
+          <BloqueDesplegable icon={Building2} tono="violet" title="Tipo de inmueble" {...desp("tipo")}>
             <Fichas label="Tipo" columnas={3} value={filters.inmueble} onChange={inmueble => update({ inmueble })} options={tiposConActual} />
-          </Bloque>
+          </BloqueDesplegable>
 
-          <Bloque icon={MapPin} tono="blue" title="Ubicación">
+          <BloqueDesplegable icon={MapPin} tono="blue" title="Ubicación" {...desp("ubicacion")}>
             <div className="grid gap-4">
-              <Selector id="flt-departamento" label="Departamento" value={filters.departamento} onChange={v => update({ departamento: v, provincia: '' })} opciones={departamentos} vacio="Sin datos aún" />
-              <Selector id="flt-provincia" label="Ciudad o provincia" value={filters.provincia} onChange={v => update({ provincia: v })} opciones={provincias} vacio="Sin datos aún" />
+              {rutaGeografica(geo) && (
+                <p className="flex flex-wrap items-center gap-1 rounded-xl bg-surface-3/60 px-3 py-2 text-xs font-medium text-text" aria-label="Lugar elegido">
+                  {[geo.departamento, geo.provincia, geo.distrito].filter(Boolean).map((n, i, a) => (
+                    <span key={n + i} className="inline-flex items-center gap-1">
+                      {n}
+                      {i < a.length - 1 && <ChevronRight className="size-3 text-text-faint" aria-hidden="true" />}
+                    </span>
+                  ))}
+                </p>
+              )}
+              <Selector id="flt-departamento" label="Departamento" value={filters.departamento} onChange={v => aplicarGeo(elegirDepartamento(facetas, geo, v))} opciones={departamentos} vacio="Sin datos aún" />
+              <Selector id="flt-provincia" label="Ciudad o provincia" value={filters.provincia} onChange={v => aplicarGeo(elegirProvincia(facetas, geo, v))} opciones={provincias} vacio="Sin datos aún" />
 
               <div className="relative">
                 <label className="field-label" htmlFor="flt-distrito">Distrito</label>
@@ -244,7 +310,7 @@ export default function PortalFilters({
                     }}
                     onFocus={() => setShowSuggestions(true)}
                     onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-                    placeholder="Buscar distrito..."
+                    placeholder={filters.provincia || filters.departamento ? `Distritos de ${filters.provincia || filters.departamento}…` : 'Buscar distrito...'}
                     className="field"
                     autoComplete="off"
                   />
@@ -252,17 +318,20 @@ export default function PortalFilters({
                 {showSuggestions && suggestions.length > 0 && (
                   <ul className="animate-popIn absolute left-0 right-0 top-full z-30 mt-2 max-h-60 overflow-y-auto rounded-2xl border border-line-strong bg-surface-2 p-1.5 shadow-2xl">
                     {suggestions.map(d => (
-                      <li key={d.valor}>
+                      <li key={`${d.valor}|${d.padre}|${d.provincia}`}>
                         <button
                           type="button"
                           onMouseDown={e => e.preventDefault()}
                           onClick={() => {
-                            update({ distrito: d.valor })
+                            aplicarGeo(elegirDistrito(facetas, geo, d.valor))
                             setShowSuggestions(false)
                           }}
                           className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm text-text transition hover:bg-surface-3"
                         >
-                          <span className="truncate">{d.valor}</span>
+                          <span className="min-w-0">
+                            <span className="block truncate">{d.valor}</span>
+                            {(d.provincia || d.padre) && <span className="block truncate text-[0.6875rem] text-text-faint">{[d.provincia, d.padre].filter((x, i, a) => x && a.indexOf(x) === i).join(' · ')}</span>}
+                          </span>
                           {d.n !== undefined && <span className="mono shrink-0 text-xs text-text-muted">{d.n.toLocaleString('es-PE')}</span>}
                         </button>
                       </li>
@@ -273,16 +342,16 @@ export default function PortalFilters({
 
               {populares.length > 0 && (
                 <Etiquetas
-                  label="Distritos con más avisos"
+                  label={filters.provincia || filters.departamento ? `Distritos con más avisos en ${filters.provincia || filters.departamento}` : 'Distritos con más avisos'}
                   options={populares.map(d => ({ value: d.valor, label: d.valor, n: d.n }))}
                   seleccion={filters.distrito ? [populares.find(d => claveNombre(d.valor) === claveNombre(filters.distrito))?.valor ?? ''] : []}
-                  onToggle={v => aplicar({ distrito: claveNombre(filters.distrito) === claveNombre(v) ? '' : v })}
+                  onToggle={v => aplicar(claveNombre(filters.distrito) === claveNombre(v) ? { ...geo, distrito: '' } : elegirDistrito(facetas, geo, v))}
                 />
               )}
             </div>
-          </Bloque>
+          </BloqueDesplegable>
 
-          <Bloque icon={CircleDollarSign} tono="green" title="Precio">
+          <BloqueDesplegable icon={CircleDollarSign} tono="green" title="Precio" {...desp("precio")}>
             <div className="grid gap-4">
               <Fichas
                 label="Moneda"
@@ -322,9 +391,9 @@ export default function PortalFilters({
                 Solo avisos con precio publicado
               </label>
             </div>
-          </Bloque>
+          </BloqueDesplegable>
 
-          <Bloque icon={BedDouble} tono="violet" title="Ambientes y cocheras">
+          <BloqueDesplegable icon={BedDouble} tono="violet" title="Ambientes y cocheras" {...desp("ambientes")}>
             <div className="grid gap-4">
               <Fichas label="Dormitorios" columnas={5} value={filters.dormitorios} onChange={dormitorios => update({ dormitorios })} options={numeros(4).map(([value, label]) => ({ value: value as FilterState['dormitorios'], label, icon: value === 'todos' ? Layers : BedDouble }))} />
               <Fichas label="Baños" columnas={4} value={filters.banios} onChange={banios => update({ banios })} options={numeros(3).map(([value, label]) => ({ value: value as FilterState['banios'], label, icon: value === 'todos' ? Layers : Bath }))} />
@@ -341,9 +410,9 @@ export default function PortalFilters({
                 ]}
               />
             </div>
-          </Bloque>
+          </BloqueDesplegable>
 
-          <Bloque icon={Ruler} tono="blue" title="Área construida">
+          <BloqueDesplegable icon={Ruler} tono="blue" title="Área construida" {...desp("area")}>
             <div className="grid gap-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -369,9 +438,9 @@ export default function PortalFilters({
                 ))}
               </div>
             </div>
-          </Bloque>
+          </BloqueDesplegable>
 
-          <Bloque icon={Hammer} tono="rose" title="Antigüedad">
+          <BloqueDesplegable icon={Hammer} tono="rose" title="Antigüedad" {...desp("antiguedad")}>
             <Fichas
               label="Años máximos"
               columnas={5}
@@ -385,18 +454,18 @@ export default function PortalFilters({
                 { value: '20', label: '20', icon: Hammer },
               ]}
             />
-          </Bloque>
+          </BloqueDesplegable>
 
-          <Bloque icon={Building2} tono="teal" title="Portales">
+          <BloqueDesplegable icon={Building2} tono="teal" title="Portales" {...desp("portales")}>
             <Etiquetas
               label="Dónde se publicó"
               options={PORTALS.map(p => ({ value: p.label, label: p.label, color: p.color }))}
               seleccion={filters.portales}
               onToggle={handlePortalToggle}
             />
-          </Bloque>
+          </BloqueDesplegable>
 
-          <Bloque icon={UserRound} tono="amber" title="Anunciante">
+          <BloqueDesplegable icon={UserRound} tono="amber" title="Anunciante" {...desp("anunciante")}>
             <div>
               <label className="field-label" htmlFor="flt-anunciante">Inmobiliaria o persona</label>
               <input id="flt-anunciante" type="text" list="flt-anunciantes" value={filters.anunciante} onChange={e => update({ anunciante: e.target.value })} placeholder="Ej.: Prisma" className="field" maxLength={80} autoComplete="off" />
@@ -404,9 +473,9 @@ export default function PortalFilters({
                 {facetas.anunciantes.map(a => <option key={a.valor} value={a.valor} />)}
               </datalist>
             </div>
-          </Bloque>
+          </BloqueDesplegable>
 
-          <Bloque icon={CalendarClock} tono="green" title="Publicación">
+          <BloqueDesplegable icon={CalendarClock} tono="green" title="Publicación" {...desp("publicacion")}>
             <Fichas
               label="Publicado en el sistema"
               columnas={4}
@@ -419,7 +488,7 @@ export default function PortalFilters({
                 { value: 'mes', label: '30 días', icon: CalendarClock },
               ]}
             />
-          </Bloque>
+          </BloqueDesplegable>
         </div>
       </div>
 

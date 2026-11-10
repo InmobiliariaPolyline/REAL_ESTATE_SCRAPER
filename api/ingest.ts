@@ -1,7 +1,7 @@
 import { DEFAULT_USD_TO_PEN_RATE } from "../shared/constants"
 import { safeHttpUrl } from "../shared/url"
 import { razonarTipo } from "../shared/tipoInmueble"
-import { distritoCanonico, nombreDeLugar, ubicacionDeDistrito } from "../shared/ubicacion"
+import { ubicacionCanonica } from "../shared/ubicacion"
 
 export const PORTALES = ["properati", "infocasas", "babilonia", "urbania", "adondevivir"] as const
 export type Portal = (typeof PORTALES)[number]
@@ -188,9 +188,10 @@ export function normalizarAviso(
   }
 
   const imagenes = normalizarFotos(aviso.imagen, aviso.imagenes)
-  // Un distrito de Lima o del Callao escrito de otra forma pasa a su nombre oficial y da su departamento y provincia.
-  const distrito = distritoCanonico(clean(aviso.distrito))
-  const deducida = ubicacionDeDistrito(distrito)
+  // Ubicación coherente: un distrito de Lima o del Callao manda sobre lo que diga el portal (varios publican el Callao
+  // como «Lima»), y una provincia que solo existe en un departamento fija ese departamento.
+  const lugar = ubicacionCanonica({ departamento: aviso.departamento ?? null, provincia: aviso.provincia ?? null, distrito: clean(aviso.distrito) ?? null })
+  const distrito = lugar.distrito
   return {
     id: `${aviso.portal}:${codigo}`,
     portal: aviso.portal,
@@ -201,8 +202,8 @@ export function normalizarAviso(
     precio_usd: Math.round(precioUsd * 100) / 100,
     moneda,
     distrito,
-    departamento: nombreDeLugar(aviso.departamento) ?? deducida?.departamento ?? null,
-    provincia: nombreDeLugar(aviso.provincia) ?? deducida?.provincia ?? null,
+    departamento: lugar.departamento,
+    provincia: lugar.provincia,
     dormitorios: clean(aviso.dormitorios),
     banios: clean(aviso.banios),
     area: clean(aviso.area),

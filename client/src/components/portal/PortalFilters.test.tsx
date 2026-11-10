@@ -32,6 +32,15 @@ function Harness({ inicial = DEFAULT_FILTERS, onApply = vi.fn(), onSearch = vi.f
 }
 
 const grupo = (nombre: string) => screen.getByRole('group', { name: nombre })
+/** El botón de la lista de sugerencias de distrito (no el de las etiquetas «con más avisos»). */
+const sugerencia = async (nombre: RegExp) => {
+  const todos = await screen.findAllByRole('button', { name: nombre })
+  const dellista = todos.filter(b => !b.closest('[role=group]'))
+  expect(dellista.length).toBeGreaterThan(0)
+  return dellista[0]
+}
+const abrirTodo = () => userEvent.click(screen.getByRole('button', { name: /Desplegar todo/ }))
+const TITULOS = ['Buscar por palabra', 'Operación', 'Tipo de inmueble', 'Ubicación', 'Precio', 'Ambientes y cocheras', 'Área construida', 'Antigüedad', 'Portales', 'Anunciante', 'Publicación']
 
 beforeEach(() => {
   reiniciarFacetas()
@@ -39,18 +48,34 @@ beforeEach(() => {
 })
 
 describe('PortalFilters (ventana de filtros)', () => {
-  it('muestra todos los bloques a la vista, sin desglose que abrir', () => {
+  it('los bloques son desglosables: lo esencial abierto, el resto recogido, y se puede desplegar todo', async () => {
     render(<Harness />)
-    for (const titulo of ['Buscar por palabra', 'Operación', 'Tipo de inmueble', 'Ubicación', 'Precio', 'Ambientes y cocheras', 'Área construida', 'Antigüedad', 'Portales', 'Anunciante', 'Publicación']) {
-      expect(screen.getByRole('heading', { name: titulo })).toBeInTheDocument()
-    }
-    expect(screen.queryByRole('button', { name: /Más filtros/ })).toBeNull()
-    expect(screen.getByLabelText('Mín. (m²)')).toBeInTheDocument()
+    for (const t of TITULOS) expect(screen.getByRole('button', { name: new RegExp('^' + t) })).toBeInTheDocument()
+    const abierto = (t: string) => screen.getByRole('button', { name: new RegExp('^' + t) }).getAttribute('aria-expanded')
+    for (const t of ['Operación', 'Tipo de inmueble', 'Ubicación']) expect(abierto(t)).toBe('true')
+    for (const t of ['Precio', 'Ambientes y cocheras', 'Área construida', 'Portales']) expect(abierto(t)).toBe('false')
+    expect(screen.queryByLabelText('Mín. (m²)')).not.toBeVisible()
+
+    await abrirTodo()
+    for (const t of TITULOS) expect(abierto(t)).toBe('true')
+    expect(screen.getByLabelText('Mín. (m²)')).toBeVisible()
+    await userEvent.click(screen.getByRole('button', { name: /Recoger todo/ }))
+    for (const t of TITULOS) expect(abierto(t)).toBe('false')
     expect(screen.getByText('Sin filtros')).toBeInTheDocument()
+  })
+
+  it('un bloque recogido con filtro activo muestra un resumen de lo elegido', async () => {
+    render(<Harness inicial={{ ...DEFAULT_FILTERS, moneda: 'USD', precioMin: 100000, precioMax: 200000, dormitorios: '3', cocheras: '2+' }} />)
+    expect(screen.getByRole('button', { name: /^Precio.*USD/ })).toHaveTextContent('USD 100,000 – 200,000')
+    expect(screen.getByRole('button', { name: /^Ambientes y cocheras/ })).toHaveTextContent('3 dorm. · 2+ coch.')
+    await userEvent.click(screen.getByRole('button', { name: /^Precio/ }))
+    expect(screen.getByLabelText('Mín. (USD)')).toBeVisible()
+    expect(screen.getByRole('button', { name: /^Precio/ })).not.toHaveTextContent('100,000') // abierto: ya no hace falta el resumen
   })
 
   it('operación, dormitorios, baños, cocheras, antigüedad y publicación se eligen con fichas', async () => {
     render(<Harness />)
+    await abrirTodo()
     await userEvent.click(within(grupo('Qué buscas')).getByRole('button', { name: 'Venta' }))
     await userEvent.click(within(grupo('Dormitorios')).getByRole('button', { name: '3' }))
     await userEvent.click(within(grupo('Baños')).getByRole('button', { name: '2' }))
@@ -93,6 +118,7 @@ describe('PortalFilters (ventana de filtros)', () => {
 
   it('los portales se activan como etiquetas, varios a la vez', async () => {
     render(<Harness />)
+    await abrirTodo()
     const portales = grupo('Dónde se publicó')
     await userEvent.click(within(portales).getByRole('button', { name: 'Urbania' }))
     await userEvent.click(within(portales).getByRole('button', { name: 'Infocasas' }))
@@ -105,6 +131,7 @@ describe('PortalFilters (ventana de filtros)', () => {
   it('los atajos de precio y de área aplican al instante', async () => {
     const onApply = vi.fn()
     render(<Harness inicial={{ ...DEFAULT_FILTERS, moneda: 'USD', operacion: 'ALQUILER', precioMin: 100 }} onApply={onApply} />)
+    await abrirTodo()
     await userEvent.click(screen.getByRole('button', { name: 'Hasta USD 700' }))
     expect(onApply).toHaveBeenLastCalledWith(expect.objectContaining({ precioMax: 700, precioMin: '' }))
     await userEvent.click(screen.getByRole('button', { name: '50 a 100 m²' }))
@@ -115,6 +142,7 @@ describe('PortalFilters (ventana de filtros)', () => {
   it('quitar un chip lo aplica al instante y «solo con precio» es una casilla', async () => {
     const onApply = vi.fn()
     render(<Harness inicial={{ ...DEFAULT_FILTERS, operacion: 'VENTA', banios: '2' }} onApply={onApply} />)
+    await abrirTodo()
     await userEvent.click(screen.getByLabelText('Solo avisos con precio publicado'))
     const chips = screen.getByLabelText('Filtros aplicados')
     expect(within(chips).getByText('Con precio')).toBeInTheDocument()
@@ -127,6 +155,7 @@ describe('PortalFilters (ventana de filtros)', () => {
     const onSearch = vi.fn()
     const onClear = vi.fn()
     render(<Harness inicial={{ ...DEFAULT_FILTERS, texto: 'terraza' }} onSearch={onSearch} onClear={onClear} />)
+    await abrirTodo()
     await userEvent.click(screen.getByRole('button', { name: 'Buscar' }))
     expect(onSearch).toHaveBeenCalledTimes(1)
     await userEvent.click(screen.getByRole('button', { name: /Limpiar todo/ }))
@@ -164,6 +193,61 @@ describe('PortalFilters (ventana de filtros)', () => {
   })
 })
 
+describe('PortalFilters: jerarquía geográfica', () => {
+  const opciones = (etiqueta: string) => within(screen.getByLabelText(etiqueta)).getAllByRole('option').map(o => o.textContent)
+
+  it('al elegir un departamento, las provincias son solo las suyas y se limpia lo que ya no corresponde', async () => {
+    render(<Harness inicial={{ ...DEFAULT_FILTERS, departamento: 'Lima', provincia: 'Lima', distrito: 'Miraflores' }} />)
+    await userEvent.selectOptions(screen.getByLabelText('Departamento'), 'Arequipa')
+    expect(screen.getByLabelText('Ciudad o provincia')).toHaveValue('')
+    expect(screen.getByLabelText('Distrito')).toHaveValue('')
+    expect(opciones('Ciudad o provincia').some(o => /^Camaná/.test(o ?? ''))).toBe(true)
+    expect(opciones('Ciudad o provincia').some(o => /^Huaral/.test(o ?? ''))).toBe(false) // es de Lima
+  })
+
+  it('al elegir una provincia se completa su departamento', async () => {
+    render(<Harness />)
+    await userEvent.selectOptions(screen.getByLabelText('Ciudad o provincia'), within(screen.getByLabelText('Ciudad o provincia')).getByRole('option', { name: /^Camaná/ }))
+    expect(screen.getByLabelText('Departamento')).toHaveValue('Arequipa')
+    expect(screen.getByLabelText('Lugar elegido')).toHaveTextContent('Arequipa')
+    expect(screen.getByLabelText('Lugar elegido')).toHaveTextContent('Camaná')
+  })
+
+  it('al elegir un distrito de la lista se completan su provincia y su departamento', async () => {
+    render(<Harness />)
+    await userEvent.type(screen.getByLabelText('Distrito'), 'cayma')
+    await userEvent.click(await sugerencia(/Cayma/))
+    expect(screen.getByLabelText('Distrito')).toHaveValue('Cayma')
+    expect(screen.getByLabelText('Departamento')).toHaveValue('Arequipa')
+    expect(screen.getByLabelText('Ciudad o provincia')).toHaveValue('Arequipa')
+    expect(screen.getByLabelText('Lugar elegido')).toHaveTextContent('Arequipa')
+  })
+
+  it('el Callao es un solo departamento, con una sola provincia y sus distritos, sin repetirse', async () => {
+    fetchFacetas.mockResolvedValue({
+      departamentos: [{ valor: 'Lima', n: 10 }, { valor: 'Callao', n: 2 }],
+      provincias: [{ valor: 'Callao', padre: 'Lima', n: 3 }, { valor: 'Callao', padre: 'Callao', n: 2 }],
+      distritos: [{ valor: 'Callao', padre: 'Lima', provincia: 'Callao', n: 3 }, { valor: 'Callao', padre: 'Callao', provincia: 'Callao', n: 2 }],
+    })
+    render(<Harness inicial={{ ...DEFAULT_FILTERS, departamento: 'Callao' }} />)
+    await within(screen.getByLabelText('Departamento')).findByRole('option', { name: 'Callao (2)' })
+    expect(opciones('Departamento').filter(o => /^Callao/.test(o ?? ''))).toHaveLength(1)
+    expect(opciones('Ciudad o provincia').filter(o => /^Callao/.test(o ?? ''))).toEqual(['Callao (5)'])
+    await userEvent.type(screen.getByLabelText('Distrito'), 'call')
+    await sugerencia(/^Callao/)
+    expect((await screen.findAllByRole('button', { name: /^Callao/ })).filter(b => !b.closest('[role=group]'))).toHaveLength(1)
+  })
+
+  it('con un departamento elegido, los distritos sugeridos son solo los de ese lugar', async () => {
+    render(<Harness inicial={{ ...DEFAULT_FILTERS, departamento: 'Arequipa' }} />)
+    await userEvent.type(screen.getByLabelText('Distrito'), 'mira')
+    // Miraflores existe en Lima y en Arequipa: solo se ofrece el de Arequipa.
+    const botones = [await sugerencia(/Miraflores/)]
+    expect((await screen.findAllByRole('button', { name: /Miraflores/ })).filter(b => !b.closest('[role=group]'))).toHaveLength(1)
+    expect(botones[0]).toHaveTextContent('Arequipa')
+  })
+})
+
 describe('PortalFilters: total en vivo', () => {
   beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }))
   afterEach(() => vi.useRealTimers())
@@ -171,6 +255,7 @@ describe('PortalFilters: total en vivo', () => {
   it('cuenta los avisos un instante después del último cambio y muestra el total', async () => {
     const contar = vi.fn().mockResolvedValue(1234)
     render(<Harness contar={contar} />)
+    await abrirTodo()
     await act(async () => {
       await vi.advanceTimersByTimeAsync(500)
     })
