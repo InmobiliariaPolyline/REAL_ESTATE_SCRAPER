@@ -23,6 +23,16 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "3.2.0",
+    fecha: "2026-11-10",
+    titulo: "Insignias partidas para precios y etiquetas",
+    cambios: [
+      { tipo: "mejora", texto: "Nuevo estilo de insignia partida para mostrar dinero y etiquetas: una parte oscura y cuadrada con la etiqueta o la moneda y, a su lado, el valor en color con la esquina derecha suavemente redondeada. Se usa en precios, tipo de inmueble, operación, estado de la obra, fichas (dormitorios, baños, área, cocheras), novedad y cantidad de fotos." },
+      { tipo: "mejora", texto: "El precio principal es una insignia grande («USD | 340,000»): violeta en ventas, cian en alquileres con «/ mes», «Desde» en proyectos y gris con «Sin precio» cuando no hay monto. Debajo, el precio por m² y la conversión aproximada a la otra moneda en insignias secundarias." },
+      { tipo: "mejora", texto: "Aplicado en tarjetas del catálogo, tabla, vista previa y avisos del inicio. El tipo de inmueble usa un color por tipo y el proyecto va en cian." },
+    ],
+  },
+  {
     version: "3.1.1",
     fecha: "2026-11-10",
     titulo: "Precios tal como los publica el aviso",

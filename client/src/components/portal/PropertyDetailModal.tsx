@@ -9,18 +9,18 @@ import { createPortal } from 'react-dom'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import ImageGallery from '@/components/common/ImageGallery'
 import EnlacesPropiedad from '@/components/properties/EnlacesPropiedad'
-import { Etiqueta } from '@/components/properties/Etiquetas'
+import Insignia from '@/components/common/Insignia'
 import { useToast } from '@/contexts/ToastContext'
 import { USD_TO_PEN_RATE } from '@/lib/config'
 import { formatDate } from '@/lib/dates'
 import { fetchPropertyDetail, type PropertyDetail } from '@/lib/propertiesApi'
 import { getOperacionColor, getPortalColor } from '@/lib/portals'
-import { currencyLabel, formatDisplayPrice, getDisplayPrice, getPublishedPrice, type Currency } from '@/lib/prices'
+import { currencyLabel, formatDisplayPrice, getDisplayPrice, getPublishedPrice, partesDePrecio, type Currency } from '@/lib/prices'
 import {
   HIPOTECA, MESES_GARANTIA, antiguedadTexto, baniosN, categoriaTamano, diasDesde, dormitoriosN, financiamiento, mapaUrl,
   posicionEnRango, posicionEnZona, precioPorM2, preciosDelAviso, resumenDelAviso, variacionDePrecio, whatsappUrl,
 } from '@/lib/propertyInsights'
-import { esAlquiler, esNuevo, estadoDeAntiguedad, formatoArea, operacionVisual, precioPorM2Texto, tipoVisual, ubicacionTexto } from '@/lib/propertyTags'
+import { esAlquiler, esNuevo, estadoDeAntiguedad, formatoArea, operacionVisual, precioPorM2Partes, tipoVisual, tonoInsignia, ubicacionTexto } from '@/lib/propertyTags'
 import { safeHttpUrl } from '@/lib/url'
 import { cn } from '@/lib/utils'
 import { trapFocus } from '@/lib/focusTrap'
@@ -127,7 +127,8 @@ export default function PropertyDetailModal({
   const estado = estadoDeAntiguedad(p?.antiguedad)
   const alquiler = esAlquiler(p?.operacion)
   const esProyecto = tipo.label === 'Proyecto'
-  const porM2Texto = price ? precioPorM2Texto(price, p?.area) : null
+  const porM2 = price ? precioPorM2Partes(price, p?.area) : null
+  const partesPrecio = price ? partesDePrecio(price) : null
   // Las viviendas muestran dormitorios y baños aunque falten; un terreno u oficina no los necesita.
   const esVivienda = ['Departamento', 'Casa', 'Proyecto', 'Habitación'].includes(tipo.label)
   const m2 = useMemo(() => (p ? precioPorM2(p) : null), [p])
@@ -237,16 +238,16 @@ export default function PropertyDetailModal({
 
                 <div className="flex min-w-0 flex-col gap-5 p-5 sm:p-6">
                   <div className="space-y-2">
-                    <div className="flex flex-wrap gap-2">
-                      <Etiqueta visual={tipo} />
-                      <Etiqueta visual={operacionTag} />
-                      {estado && <Etiqueta visual={estado} />}
-                      {esNuevo(p.creado_en) && <Etiqueta visual={{ label: 'Nuevo', icono: Sparkles, tono: 'gold' }} />}
+                    <div className="flex flex-wrap gap-1.5">
+                      <Insignia etiqueta="Tipo" tono={tonoInsignia(tipo.tono)}>{tipo.label}</Insignia>
+                      <Insignia etiqueta="Op." tono={alquiler ? 'green' : 'rose'}>{operacionTag.label}</Insignia>
+                      {estado && <Insignia etiqueta="Estado" tono={tonoInsignia(estado.tono)}>{estado.label}</Insignia>}
+                      {esNuevo(p.creado_en) && <Insignia tono="amber">Nuevo</Insignia>}
                     </div>
-                    <div className="flex flex-wrap gap-2">
-                      <span className="badge badge-muted"><Hash className="size-3.5" />{p.id.split(':').slice(1).join(':') || p.id}</span>
-                      <span className="badge badge-muted"><Clock className="size-3.5" />Publicado {antiguedadTexto(diasCreado)}</span>
-                      {nFotos > 1 && <span className="badge badge-muted"><Layers className="size-3.5" />{nFotos} fotos</span>}
+                    <div className="flex flex-wrap gap-1.5">
+                      <Insignia etiqueta="Cód" mono>{p.id.split(':').slice(1).join(':') || p.id}</Insignia>
+                      <Insignia etiqueta="Publicado">{antiguedadTexto(diasCreado)}</Insignia>
+                      {nFotos > 1 && <Insignia etiqueta="Fotos" mono>{nFotos}</Insignia>}
                     </div>
                   </div>
 
@@ -260,30 +261,32 @@ export default function PropertyDetailModal({
                     )}
                   </div>
 
-                  <div className="rounded-3xl border border-line bg-surface-3/50 p-4">
-                    {sinPrecio ? (
-                      <>
-                        <p className="text-2xl font-semibold leading-none tracking-tight text-text-muted">{formatDisplayPrice(price)}</p>
-                        <p className="mt-2 text-sm text-text-muted">El anunciante no publicó un precio. Consulta en el aviso original.</p>
-                      </>
+                  <div className="rounded-2xl border border-line bg-surface-3/50 p-4">
+                    {sinPrecio || !partesPrecio ? (
+                      <div className="flex flex-col items-start gap-2">
+                        <Insignia tamano="lg" etiqueta="Precio" atenuada>Sin precio</Insignia>
+                        <p className="text-sm text-text-muted">El anunciante no publicó un precio. Consulta en el aviso original.</p>
+                      </div>
                     ) : (
-                      <>
-                        {esProyecto && <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-text-muted">Desde</p>}
-                        <p className="flex flex-wrap items-baseline gap-2">
-                          <span className="mono text-gradient-gold text-[2.1rem] font-semibold leading-none tracking-tight">{formatDisplayPrice(price)}</span>
-                          {alquiler && <span className="text-sm font-medium text-text-muted">al mes</span>}
-                        </p>
-                        <p className="mt-2 text-sm text-text-muted">
-                          {otra > 0 && `≈ ${currencyLabel(monedaPublicada === 'USD' ? 'PEN' : 'USD')} ${fmt(otra)}`}
-                          {otra > 0 ? ' · conversión aproximada' : ''}{price.approximate && `${otra > 0 ? ' · ' : ''}precio convertido`}
-                        </p>
-                        {porM2Texto && !alquiler && (
-                          <p className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">
-                            <Ruler className="size-3.5 text-gold" strokeWidth={1.75} aria-hidden="true" />
-                            {porM2Texto}
-                          </p>
-                        )}
-                      </>
+                      <div className="flex flex-col items-start gap-2.5">
+                        <Insignia tamano="lg" etiqueta={`${esProyecto ? 'Desde' : alquiler ? 'Alquiler' : 'Venta'} · ${partesPrecio.moneda}`} tono={alquiler ? 'cyan' : 'violet'}>
+                          {partesPrecio.monto}
+                          {alquiler && <span className="sb-suffix">{" "}/ mes</span>}
+                        </Insignia>
+                        <div className="flex flex-wrap gap-1.5">
+                          {otra > 0 && (
+                            <Insignia tamano="md" etiqueta={`≈ ${currencyLabel(monedaPublicada === 'USD' ? 'PEN' : 'USD')} · aproximado`} mono>
+                              {fmt(otra)}
+                            </Insignia>
+                          )}
+                          {porM2 && !alquiler && (
+                            <Insignia tamano="md" etiqueta="Por m²" mono>
+                              {porM2.moneda} {porM2.monto}
+                            </Insignia>
+                          )}
+                        </div>
+                        {price.approximate && <p className="text-xs text-text-muted">Precio convertido desde la otra moneda.</p>}
+                      </div>
                     )}
                     {posicion && (
                       <p

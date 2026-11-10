@@ -52,6 +52,11 @@ export function tipoVisual(inmueble: string | null | undefined): EtiquetaVisual 
   return conocido ?? { label: t || "Inmueble", icono: Home, tono: "muted" }
 }
 
+/** Color de la insignia partida para un tono de etiqueta (el proyecto va en cian para distinguirlo del resto). */
+export function tonoInsignia(tono: TonoEtiqueta): "violet" | "green" | "rose" | "amber" | "cyan" | "blue" | "neutral" {
+  return tono === "gold" ? "cyan" : tono === "muted" ? "neutral" : tono
+}
+
 /** Venta o alquiler, con su icono y color. */
 export function operacionVisual(operacion: string | null | undefined): EtiquetaVisual {
   return String(operacion).toUpperCase() === "ALQUILER"
@@ -94,6 +99,13 @@ export function precioPorM2Texto(price: DisplayPrice, area: string | null | unde
   const m2 = areaNumero(area)
   if (price.amount <= 0 || !m2 || m2 < 8) return null
   return `${price.label} ${Math.round(price.amount / m2).toLocaleString("es-PE")} por m²`
+}
+
+/** Precio por m² partido en moneda y monto; `null` si falta el precio o el área no es creíble. */
+export function precioPorM2Partes(price: DisplayPrice, area: string | null | undefined): { moneda: string; monto: string } | null {
+  const m2 = areaNumero(area)
+  if (price.amount <= 0 || !m2 || m2 < 8) return null
+  return { moneda: price.label, monto: Math.round(price.amount / m2).toLocaleString("es-PE") }
 }
 
 /** Distrito, y el departamento cuando no es Lima: «Cayma, Arequipa». */

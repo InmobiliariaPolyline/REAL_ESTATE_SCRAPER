@@ -75,7 +75,9 @@ describe('PropertyDetailModal', () => {
 
   it('con precio muestra el monto con su moneda', async () => {
     abrir()
-    expect(await screen.findByText('USD 100,000')).toBeInTheDocument()
+    await screen.findByRole('dialog')
+    expect(await screen.findByText('100,000')).toBeInTheDocument() // el monto, con su moneda en la etiqueta oscura
+    expect(screen.getByText(/Venta · USD/)).toBeInTheDocument()
     expect(screen.queryByText('Sin precio')).toBeNull()
   })
 
@@ -112,7 +114,8 @@ describe('PropertyDetailModal', () => {
           isCompared={false} compareDisabled={false} onClose={() => {}} />
       </ToastProvider>
     )
-    expect(await screen.findByText('USD 340,000')).toBeInTheDocument()
-    expect(screen.getByText(/≈ S\/ [\d,]+ · conversión aproximada/)).toBeInTheDocument()
+    expect(await screen.findByText('340,000')).toBeInTheDocument()
+    expect(screen.getByText(/Venta · USD/)).toBeInTheDocument()
+    expect(screen.getByText(/≈ S\/ · aproximado/)).toBeInTheDocument()
   })
 })

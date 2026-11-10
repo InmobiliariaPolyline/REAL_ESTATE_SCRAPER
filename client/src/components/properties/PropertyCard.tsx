@@ -1,21 +1,22 @@
-import { Bath, BedDouble, Car, ExternalLink, Heart, Info, Link2, MapPin, Ruler, Scale, Trash2, type LucideIcon } from 'lucide-react'
+import { ExternalLink, Heart, Info, Link2, MapPin, Scale, Trash2 } from 'lucide-react'
 import { useState } from 'react'
-import { getOperacionColor, getPortalColor } from '@/lib/portals'
-import { formatDisplayPrice, getPublishedPrice, type Currency } from '@/lib/prices'
+import Insignia from '@/components/common/Insignia'
+import { getPortalColor } from '@/lib/portals'
+import { getDisplayPrice, getPublishedPrice, partesDePrecio, type Currency } from '@/lib/prices'
 import {
   esAlquiler,
   esNuevo,
   estadoDeAntiguedad,
   formatoArea,
   operacionVisual,
-  precioPorM2Texto,
+  precioPorM2Partes,
   tipoVisual,
+  tonoInsignia,
   ubicacionTexto,
 } from '@/lib/propertyTags'
 import { safeHttpUrl } from '@/lib/url'
 import { cn } from '@/lib/utils'
 import EnlacesPropiedad from './EnlacesPropiedad'
-import { ChipFotos, ChipFoto, ChipNuevo, Etiqueta } from './Etiquetas'
 
 interface PropertyCardProps {
   id: string
@@ -52,20 +53,6 @@ interface PropertyCardProps {
   isCompared?: boolean
   compareDisabled?: boolean
   onToggleCompare?: (id: string) => void
-}
-
-/** Dato de ficha (dormitorios, baños, área, cocheras) con icono y su unidad; se oculta si no hay valor. */
-function Dato({ icon: Icon, value, unidad, label }: { icon: LucideIcon; value: string | null | undefined; unidad?: string; label: string }) {
-  const v = (value ?? '').trim()
-  if (!v) return null
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-lg bg-surface-3 px-2.5 py-1.5 text-xs text-text" title={label}>
-      <Icon className="size-3.5 shrink-0 text-text-muted" strokeWidth={1.75} aria-hidden="true" />
-      <span className="sr-only">{label}: </span>
-      <span className="font-semibold">{v}</span>
-      {unidad && <span className="text-text-muted">{unidad}</span>}
-    </span>
-  )
 }
 
 /** Valor de la ficha sin espacios sobrantes. */
@@ -106,21 +93,23 @@ export default function PropertyCard({
 
   // El precio de la tarjeta es el que publicó el aviso (moneda de origen), no una conversión.
   const price = getPublishedPrice(precio, precioUsd, monedaOriginal, moneda)
-  const hasPrice = price.amount > 0
+  const partes = partesDePrecio(price)
   const safeUrl = safeHttpUrl(url)
   const safeImage = safeHttpUrl(imagen)
 
   const tipo = tipoVisual(inmueble)
   const TipoIcono = tipo.icono
-  const op = operacionVisual(operacion)
-  const OpIcono = op.icono
   const alquiler = esAlquiler(operacion)
+  const op = operacionVisual(operacion)
   const esProyecto = tipo.label === 'Proyecto'
   const estado = estadoDeAntiguedad(antiguedad)
-  const porM2 = precioPorM2Texto(price, area)
+  const porM2 = precioPorM2Partes(price, area)
   const nuevo = esNuevo(creadoEn)
   const lugar = ubicacionTexto(distrito, departamento)
   const cocheras = cantidad(estacionamientos)
+  // Equivalente en la otra moneda (aproximado), solo si el aviso publicó su precio.
+  const otraMoneda: Currency = price.label === 'USD' ? 'PEN' : 'USD'
+  const equivalente = partes ? partesDePrecio(getDisplayPrice(precio, precioUsd, otraMoneda, monedaOriginal)) : null
 
   return (
     <>
@@ -163,14 +152,9 @@ export default function PropertyCard({
           </span>
 
           <div className="absolute right-3 top-3 z-[2] flex items-center gap-2">
-            <span
-              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[0.6875rem] font-semibold uppercase tracking-wide text-[#10131a]"
-              style={{ backgroundColor: getOperacionColor(operacion) }}
-              title={alquiler ? 'Se alquila' : 'Se vende'}
-            >
-              <OpIcono className="size-3.5" strokeWidth={2} aria-hidden="true" />
+            <Insignia etiqueta="Op." tono={alquiler ? 'green' : 'rose'} titulo={alquiler ? 'Se alquila' : 'Se vende'}>
               {op.label}
-            </span>
+            </Insignia>
             {onToggleFavorite && (
               <button
                 type="button"
@@ -180,7 +164,7 @@ export default function PropertyCard({
                   onToggleFavorite(id)
                 }}
                 aria-pressed={!!isFavorite}
-                className="inline-flex size-8 items-center justify-center rounded-full bg-black/60 backdrop-blur-md transition hover:bg-black/80"
+                className="inline-flex size-8 items-center justify-center rounded-lg bg-black/60 backdrop-blur-md transition hover:bg-black/80"
                 title={isFavorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}
               >
                 <Heart className={cn('size-4', isFavorite ? 'fill-rose text-rose' : 'text-white')} />
@@ -191,34 +175,56 @@ export default function PropertyCard({
 
           {/* Abajo de la foto: tipo de inmueble a la izquierda; novedad y cantidad de fotos a la derecha */}
           <div className="pointer-events-none absolute inset-x-3 bottom-3 z-[2] flex items-end justify-between gap-2">
-            <ChipFoto icono={tipo.icono} className="min-w-0">{tipo.label}</ChipFoto>
+            <Insignia etiqueta="Tipo" tono={tonoInsignia(tipo.tono)} className="min-w-0">
+              {tipo.label}
+            </Insignia>
             <div className="flex shrink-0 items-center gap-1.5">
-              {nuevo && <ChipNuevo />}
-              {(fotos ?? 0) > 1 && <ChipFotos cantidad={fotos as number} />}
+              {nuevo && (
+                <Insignia tono="amber" titulo="Entró al sistema en los últimos 3 días">
+                  Nuevo
+                </Insignia>
+              )}
+              {(fotos ?? 0) > 1 && (
+                <Insignia tono="neutral" titulo={`${fotos} fotos`}>
+                  {fotos} fotos
+                </Insignia>
+              )}
             </div>
           </div>
         </div>
 
         {/* Contenido */}
         <div className="flex flex-1 flex-col gap-3 p-5">
-          <div>
-            <p className="flex items-baseline gap-1.5">
-              {esProyecto && hasPrice && <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">Desde</span>}
-              <span className={cn('mono text-2xl font-semibold tracking-tight', hasPrice ? 'text-gold' : 'text-lg text-text-faint')}>
-                {formatDisplayPrice(price)}
-              </span>
-              {hasPrice && alquiler && <span className="text-xs font-medium text-text-muted">al mes</span>}
-            </p>
-            {hasPrice && porM2 && !alquiler && <p className="mt-0.5 text-xs text-text-muted">{porM2}</p>}
+          <div className="flex flex-col items-start gap-2">
+            {partes ? (
+              <Insignia tamano="lg" etiqueta={esProyecto ? `Desde · ${partes.moneda}` : partes.moneda} tono={alquiler ? 'cyan' : 'violet'}>
+                {partes.monto}
+                {alquiler && <span className="sb-suffix">{" "}/ mes</span>}
+              </Insignia>
+            ) : (
+              <Insignia tamano="lg" etiqueta="Precio" atenuada>
+                Sin precio
+              </Insignia>
+            )}
+            {(porM2 && !alquiler) || equivalente ? (
+              <div className="flex flex-wrap gap-1.5">
+                {porM2 && !alquiler && (
+                  <Insignia etiqueta="Por m²" mono>
+                    {porM2.moneda} {porM2.monto}
+                  </Insignia>
+                )}
+                {equivalente && (
+                  <Insignia etiqueta={`≈ ${equivalente.moneda}`} mono titulo="Conversión aproximada con el tipo de cambio del sistema">
+                    {equivalente.monto.replace('~', '')}
+                  </Insignia>
+                )}
+              </div>
+            ) : null}
           </div>
 
           <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-medium leading-snug text-text">
             {onOpenDetail ? (
-              <button
-                type="button"
-                onClick={() => onOpenDetail(id)}
-                className="text-left transition hover:text-gold"
-              >
+              <button type="button" onClick={() => onOpenDetail(id)} className="text-left transition hover:text-gold">
                 {titulo}
               </button>
             ) : (
@@ -226,18 +232,13 @@ export default function PropertyCard({
             )}
           </h3>
 
-          <div className="flex flex-wrap gap-2">
-            <Dato icon={BedDouble} value={cantidad(dormitorios)} unidad="dorm." label="Dormitorios" />
-            <Dato icon={Bath} value={cantidad(banios)} unidad={cantidad(banios) === '1' ? 'baño' : 'baños'} label="Baños" />
-            <Dato icon={Ruler} value={formatoArea(area)} label="Área" />
-            <Dato icon={Car} value={cocheras} unidad={cocheras === '1' ? 'cochera' : 'cocheras'} label="Cocheras" />
+          <div className="flex flex-wrap gap-1.5">
+            {cantidad(dormitorios) && <Insignia etiqueta="Dorm" mono>{cantidad(dormitorios)}</Insignia>}
+            {cantidad(banios) && <Insignia etiqueta="Baños" mono>{cantidad(banios)}</Insignia>}
+            {cantidad(area) && <Insignia etiqueta="Área" mono>{formatoArea(area)}</Insignia>}
+            {cocheras && <Insignia etiqueta="Coch" mono>{cocheras}</Insignia>}
+            {estado && <Insignia etiqueta="Estado" tono={tonoInsignia(estado.tono)}>{estado.label}</Insignia>}
           </div>
-
-          {estado && (
-            <div className="flex flex-wrap gap-1.5">
-              <Etiqueta visual={estado} />
-            </div>
-          )}
 
           {lugar && (
             <p className="flex items-center gap-1.5 text-xs text-text-muted">
@@ -310,4 +311,3 @@ export default function PropertyCard({
     </>
   )
 }
-

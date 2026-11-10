@@ -2,10 +2,12 @@ import { Building2, ExternalLink } from 'lucide-react'
 import { getOperacionColor, getPortalColor } from '@/lib/portals'
 import {
   currencyLabel,
-  formatDisplayPrice,
   getPublishedPrice,
+  partesDePrecio,
   type Currency,
 } from '@/lib/prices'
+import Insignia from '@/components/common/Insignia'
+import { esAlquiler } from '@/lib/propertyTags'
 import { cn } from '@/lib/utils'
 import { safeHttpUrl } from '@/lib/url'
 import type { Propiedad } from '@/types'
@@ -77,8 +79,14 @@ export default function PropertyTable({ properties, moneda }: PropertyTableProps
                       {prop.operacion}
                     </span>
                   </td>
-                  <td className={cn('mono whitespace-nowrap font-semibold', price.amount > 0 ? 'text-gold' : 'text-text-faint')}>
-                    {formatDisplayPrice(price)}
+                  <td className="whitespace-nowrap">
+                    {partesDePrecio(price) ? (
+                      <Insignia etiqueta={partesDePrecio(price)!.moneda} tono={esAlquiler(prop.operacion) ? 'cyan' : 'violet'} mono>
+                        {partesDePrecio(price)!.monto}
+                      </Insignia>
+                    ) : (
+                      <Insignia atenuada>Sin precio</Insignia>
+                    )}
                   </td>
                   <td className="text-text-muted">{prop.distrito}</td>
                   <td className="text-text">{prop.dormitorios}</td>

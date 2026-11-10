@@ -6,7 +6,8 @@ import StatCard from "@/components/common/StatCard"
 import { useToast } from "@/contexts/ToastContext"
 import { timeAgo } from "@/lib/account"
 import { fetchInicio, type Inicio } from "@/lib/insights"
-import { getPublishedPrice, formatDisplayPrice } from "@/lib/prices"
+import Insignia from "@/components/common/Insignia"
+import { getPublishedPrice, partesDePrecio } from "@/lib/prices"
 import { esAlquiler, tipoVisual } from "@/lib/propertyTags"
 import { safeHttpUrl } from "@/lib/url"
 import type { FilterState, Propiedad } from "@/types"
@@ -19,7 +20,7 @@ interface PortalInicioProps {
 
 function MiniAviso({ p, onOpen, extra }: { p: Propiedad; onOpen: () => void; extra?: React.ReactNode }) {
   const img = safeHttpUrl(p.imagen)
-  const price = formatDisplayPrice(getPublishedPrice(p.precio, p.precio_usd, p.moneda))
+  const partes = partesDePrecio(getPublishedPrice(p.precio, p.precio_usd, p.moneda))
   const tipo = tipoVisual(p.inmueble)
   const TipoIcono = tipo.icono
   const alquiler = esAlquiler(p.operacion)
@@ -41,10 +42,14 @@ function MiniAviso({ p, onOpen, extra }: { p: Propiedad; onOpen: () => void; ext
           </span>
         </span>
         <span className="flex shrink-0 flex-col items-end gap-1">
-          <span className="mono text-sm font-semibold text-text">
-            {price}
-            {alquiler && price !== "Sin precio" && <span className="ml-1 text-[0.6875rem] font-normal text-text-muted">/mes</span>}
-          </span>
+          {partes ? (
+            <Insignia etiqueta={partes.moneda} tono={alquiler ? 'cyan' : 'violet'} mono>
+              {partes.monto}
+              {alquiler && <span className="sb-suffix !ml-1">{" "}/ mes</span>}
+            </Insignia>
+          ) : (
+            <Insignia atenuada>Sin precio</Insignia>
+          )}
           {extra}
         </span>
       </button>

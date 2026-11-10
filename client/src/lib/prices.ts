@@ -74,6 +74,12 @@ export function getPublishedPrice(
   return getDisplayPrice(precio, precioUsd, respaldo, original)
 }
 
+/** Un precio partido en moneda y monto (para las insignias); `null` si no hay precio. */
+export function partesDePrecio(price: DisplayPrice): { moneda: string; monto: string } | null {
+  if (price.amount <= 0) return null
+  return { moneda: price.label, monto: `${price.approximate ? "~" : ""}${price.amount.toLocaleString("es-PE")}` }
+}
+
 /** Texto cuando el aviso no publicó precio: sin símbolo de moneda ni «0», porque no hay ningún monto. */
 export const SIN_PRECIO = "Sin precio"
 

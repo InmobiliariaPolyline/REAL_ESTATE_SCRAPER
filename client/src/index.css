@@ -1838,3 +1838,71 @@
 @layer utilities {
   .text-gradient-gold { background: linear-gradient(135deg, var(--gold-strong), var(--gold) 70%); -webkit-background-clip: text; background-clip: text; color: transparent; }
 }
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   INSIGNIA PARTIDA — etiqueta oscura y cuadrada a la izquierda, valor en color con
+   esquina derecha suavemente redondeada (inspirada en las insignias for-the-badge).
+   Se usa para precios, tipo, operación, estado y fichas (components/common/Insignia.tsx).
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@layer components {
+  .sb {
+    --sb-h: 1.5rem;
+    display: inline-flex;
+    align-items: stretch;
+    height: var(--sb-h);
+    max-width: 100%;
+    font-size: 0.6875rem;
+    line-height: 1;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+  .sb-l {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0 0.625rem 0 0.6875rem;
+    background: #171b22;
+    color: #cfd2dc;
+    font-weight: 400;
+    border-radius: 2px 0 0 2px;
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.07);
+  }
+  .sb-v {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    padding: 0 0.75rem 0 0.6875rem;
+    font-weight: 700;
+    border-radius: 0 0.5rem 0.5rem 0;
+    background: var(--sb-bg, #2d2c40);
+    color: var(--sb-fg, #fff);
+  }
+  .sb-v > span { overflow: hidden; text-overflow: ellipsis; }
+  /* Sin etiqueta: píldora de un solo segmento con la misma curva */
+  .sb-solo .sb-v { border-radius: 0.5rem; padding: 0 0.75rem; }
+
+  /* Tamaños: md para cifras secundarias, lg para el precio principal */
+  .sb-md { --sb-h: 1.875rem; }
+  .sb-md .sb-v { font-family: var(--font-mono); font-size: 0.875rem; letter-spacing: 0; text-transform: none; padding: 0 0.875rem 0 0.75rem; border-radius: 0 0.625rem 0.625rem 0; }
+  .sb-lg { --sb-h: 2.75rem; font-size: 0.75rem; }
+  .sb-lg .sb-l { padding: 0 1rem 0 1.0625rem; }
+  .sb-lg .sb-v { font-family: var(--font-mono); font-size: 1.5rem; letter-spacing: -0.01em; text-transform: none; padding: 0 1.125rem 0 1rem; border-radius: 0 0.75rem 0.75rem 0; }
+  .sb-mono .sb-v { font-family: var(--font-mono); letter-spacing: 0; text-transform: none; }
+
+  /* Colores del valor: texto oscuro sobre los tonos claros para que se lea */
+  .sb-violet { --sb-bg: var(--gold); --sb-fg: var(--on-gold); }
+  .sb-green { --sb-bg: #4ade80; --sb-fg: #052e16; }
+  .sb-rose { --sb-bg: #f2706b; --sb-fg: #2a0807; }
+  .sb-amber { --sb-bg: #f5b454; --sb-fg: #2b1700; }
+  .sb-cyan { --sb-bg: #22d3ee; --sb-fg: #04222a; }
+  .sb-blue { --sb-bg: #6ea8fe; --sb-fg: #06142b; }
+  .sb-neutral { --sb-bg: var(--surface-4); --sb-fg: var(--text); }
+  :root.light .sb-neutral { --sb-bg: #e2dff0; --sb-fg: #1b1a26; }
+  .sb-faint .sb-v { --sb-fg: var(--text-muted); font-weight: 600; }
+  /* Texto tras el monto («/ mes») dentro del mismo segmento */
+  .sb-suffix { margin-left: 0.5rem; font-family: var(--font-sans); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+}
