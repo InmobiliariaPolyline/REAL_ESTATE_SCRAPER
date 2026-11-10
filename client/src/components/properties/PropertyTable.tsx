@@ -35,7 +35,7 @@ export default function PropertyTable({ properties, moneda }: PropertyTableProps
             {properties.map(prop => {
               const image = safeHttpUrl(prop.imagen)
               const url = safeHttpUrl(prop.url)
-              const price = getDisplayPrice(prop.precio, prop.precio_usd, moneda)
+              const price = getDisplayPrice(prop.precio, prop.precio_usd, moneda, prop.moneda)
               return (
                 <tr key={prop.id}>
                   <td className="max-w-[22rem]">

@@ -18,7 +18,7 @@ interface PortalInicioProps {
 
 function MiniAviso({ p, onOpen, extra }: { p: Propiedad; onOpen: () => void; extra?: React.ReactNode }) {
   const img = safeHttpUrl(p.imagen)
-  const price = formatDisplayPrice(getDisplayPrice(p.precio, p.precio_usd, p.moneda === "USD" ? "USD" : "PEN"))
+  const price = formatDisplayPrice(getDisplayPrice(p.precio, p.precio_usd, "PEN", p.moneda))
   return (
     <li>
       <button

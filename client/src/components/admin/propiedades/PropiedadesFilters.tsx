@@ -113,9 +113,9 @@ export default function PropiedadesFilters({ filters, onChange, onSearch, onClea
             <Fichas
               label="Moneda del rango"
               columnas={2}
-              value={filters.moneda ?? "USD"}
+              value={filters.moneda ?? "PEN"}
               onChange={m => handleCambioMoneda(m as "USD" | "PEN")}
-              options={[{ value: "USD", label: "Dólares (USD)", icon: CircleDollarSign }, { value: "PEN", label: "Soles (S/)", icon: CircleDollarSign }]}
+              options={[{ value: "PEN", label: "Soles (S/)", icon: CircleDollarSign }, { value: "USD", label: "Dólares (USD)", icon: CircleDollarSign }]}
             />
             <div className="grid grid-cols-2 gap-3">
               <div>

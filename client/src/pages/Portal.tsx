@@ -540,6 +540,7 @@ export default function Portal({
                 precio={prop.precio}
                 precioUsd={prop.precio_usd}
                 moneda={applied.moneda}
+                monedaOriginal={prop.moneda}
                 distrito={prop.distrito}
                 dormitorios={prop.dormitorios}
                 banios={prop.banios}

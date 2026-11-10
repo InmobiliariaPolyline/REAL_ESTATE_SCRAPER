@@ -23,6 +23,17 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "2.4.1",
+    fecha: "2026-11-10",
+    titulo: "Los precios se muestran en soles por defecto",
+    cambios: [
+      { tipo: "correccion", texto: "Las tarjetas de Propiedades (administración) mostraban el precio en la moneda en que se publicó cada aviso, casi siempre dólares. Ahora muestran soles; el equivalente en dólares se ve al hacer clic en la tarjeta (con un selector Soles/Dólares)." },
+      { tipo: "correccion", texto: "Un aviso publicado en dólares se leía como si fuera en soles (US$ 400 000 aparecía como S/ 400 000). Ahora se convierte al tipo de cambio y se marca con «~»; lo mismo en la comparación, la tabla, el Inicio y el historial de precios." },
+      { tipo: "correccion", texto: "El rango de precio y el orden por precio en soles también confundían los avisos publicados en dólares con los publicados en soles; ahora comparan en la misma moneda." },
+      { tipo: "mejora", texto: "El rango de precio del panel de administración y la calculadora parten de soles." },
+    ],
+  },
+  {
     version: "2.4.0",
     fecha: "2026-11-10",
     titulo: "Nueva ventana de filtros: todo a la vista",

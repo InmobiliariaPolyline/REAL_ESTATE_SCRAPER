@@ -69,13 +69,14 @@ describe('PropiedadesFilters (administración)', () => {
     expect(await within(screen.getByRole('group', { name: 'Tipo' })).findByRole('button', { name: /Terreno/ })).toHaveTextContent('3')
   })
 
-  it('cambiar la moneda limpia los precios escritos', async () => {
+  it('el rango de precio se escribe en soles por defecto, y cambiar a dólares limpia lo escrito', async () => {
     const spy = vi.fn()
     render(<Harness onChangeSpy={spy} />)
-    await userEvent.type(screen.getByLabelText('Mín. (USD)'), '100000')
-    await userEvent.click(within(screen.getByRole('group', { name: 'Moneda del rango' })).getByRole('button', { name: /Soles/ }))
-    expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ moneda: 'PEN', precioMin: '', precioMax: '' }))
-    expect(screen.getByLabelText('Mín. (S/)')).toHaveValue(null)
+    expect(within(screen.getByRole('group', { name: 'Moneda del rango' })).getByRole('button', { name: /Soles/ })).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.type(screen.getByLabelText('Mín. (S/)'), '350000')
+    await userEvent.click(within(screen.getByRole('group', { name: 'Moneda del rango' })).getByRole('button', { name: /Dólares/ }))
+    expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ moneda: 'USD', precioMin: '', precioMax: '' }))
+    expect(screen.getByLabelText('Mín. (USD)')).toHaveValue(null)
   })
 
   it('buscar y limpiar siguen funcionando y no dependen de las facetas', async () => {

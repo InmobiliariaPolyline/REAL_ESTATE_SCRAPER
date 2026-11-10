@@ -212,25 +212,27 @@ function applyPortalWhere(w: Where, f: PortalFilters, usdToPen: number) {
 
   applyDetalleWhere(w, f)
 
-  // Rango de precio: el aviso entra si su precio nativo cae en el rango o, cuando solo tiene
-  // el precio en la otra moneda, si esa cifra convertida cae en el rango.
+  // Rango de precio, en la moneda elegida. `precio` está en la moneda del aviso (`moneda`), así que un
+  // aviso publicado en dólares no cuenta como soles: se usa su precio normalizado y se convierte.
   const min = f.precioMin ?? 0
   const max = f.precioMax
   if (min > 0 || max !== null) {
-    const native = f.moneda === "USD" ? "precio_usd" : "precio"
-    const other = f.moneda === "USD" ? "precio" : "precio_usd"
-    const factor = f.moneda === "USD" ? usdToPen : 1 / usdToPen
-    const bounds = (col: string, scale: number) => {
-      const parts: string[] = []
-      if (min > 0) parts.push(`${col} >= ${w.p(min * scale)}`)
-      if (max !== null) parts.push(`${col} <= ${w.p(max * scale)}`)
-      return parts.join(" and ")
-    }
-    w.add(
-      `((${native} > 0 and ${bounds(native, 1)}) or ` +
-        `(coalesce(${native}, 0) = 0 and ${other} > 0 and ${bounds(other, factor)}))`
-    )
+    const efectivo = precioEfectivo(w, f.moneda, usdToPen)
+    if (min > 0) w.add(`${efectivo} >= ${w.p(min)}`)
+    if (max !== null) w.add(`${efectivo} <= ${w.p(max)}`)
   }
+}
+
+/**
+ * Precio de un aviso en la moneda pedida, listo para comparar u ordenar. En soles: el precio publicado
+ * si el aviso está en soles y, si no, el precio en dólares por el tipo de cambio. En dólares: el
+ * normalizado (`precio_usd`) y, si falta, el publicado convertido. Sin precio da `null`.
+ */
+function precioEfectivo(w: Where, moneda: "PEN" | "USD", usdToPen: number): string {
+  const rate = `${w.p(usdToPen)}::numeric`
+  return moneda === "USD"
+    ? `(case when precio_usd > 0 then precio_usd when precio > 0 and moneda = 'USD' then precio when precio > 0 then precio / ${rate} end)`
+    : `(case when precio > 0 and moneda = 'PEN' then precio when precio_usd > 0 then precio_usd * ${rate} when precio > 0 then precio end)`
 }
 
 /**
@@ -244,11 +246,7 @@ function orderClause(w: Where, f: PortalFilters, usdToPen: number): string {
   if (f.orden === "recientes") return `order by ${tail}`
   if (f.orden === "relevancia") return `order by ${priced}, ${tail}`
 
-  const rate = w.p(usdToPen)
-  const effective =
-    f.moneda === "USD"
-      ? `(case when precio_usd > 0 then precio_usd when precio > 0 then precio / ${rate}::numeric end)`
-      : `(case when precio > 0 then precio when precio_usd > 0 then precio_usd * ${rate}::numeric end)`
+  const effective = precioEfectivo(w, f.moneda, usdToPen)
   const dir = f.orden === "precio_asc" ? "asc" : "desc"
   return `order by ${priced}, ${effective} ${dir} nulls last, ${tail}`
 }

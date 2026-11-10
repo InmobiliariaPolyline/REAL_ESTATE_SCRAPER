@@ -164,7 +164,7 @@ export const EMPTY_ADMIN_SEARCH: AdminSearchFilters = {
   portal: "todos",
   precioMin: "",
   precioMax: "",
-  moneda: "USD",
+  moneda: "PEN",
   ...DETALLE_VACIO,
 }
 

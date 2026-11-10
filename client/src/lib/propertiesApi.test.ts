@@ -26,3 +26,9 @@ describe("fetchAdminPage", () => {
     expect(enviado.minUsd).toBeLessThan(375000) // soles convertidos a dólares
   })
 })
+
+describe('moneda por defecto', () => {
+  it('el rango de precios del panel de administración se interpreta en soles', () => {
+    expect(EMPTY_ADMIN_SEARCH.moneda).toBe('PEN')
+  })
+})

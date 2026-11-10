@@ -17,7 +17,10 @@ interface PropertyCardProps {
   titulo: string
   precio: number
   precioUsd: number
+  /** Moneda en que se muestra el precio. */
   moneda: Currency
+  /** Moneda en que se publicó el aviso (`precio` está en ella). */
+  monedaOriginal?: string
   distrito: string
   dormitorios: string
   banios: string
@@ -60,6 +63,7 @@ export default function PropertyCard({
   precio,
   precioUsd,
   moneda,
+  monedaOriginal,
   distrito,
   dormitorios,
   banios,
@@ -78,7 +82,7 @@ export default function PropertyCard({
 }: PropertyCardProps) {
   const [mostrarEnlaces, setMostrarEnlaces] = useState(false)
 
-  const price = getDisplayPrice(precio, precioUsd, moneda)
+  const price = getDisplayPrice(precio, precioUsd, moneda, monedaOriginal)
   const hasPrice = price.amount > 0
   const safeUrl = safeHttpUrl(url)
   const safeImage = safeHttpUrl(imagen)

@@ -54,13 +54,13 @@ const num = (s: string) => {
 
 /** Calculadora de hipoteca y rentabilidad por alquiler. */
 export default function PortalCalculadora() {
-  const [moneda, setMoneda] = useState<Moneda>("USD")
-  const [precio, setPrecio] = useState("150000")
+  const [moneda, setMoneda] = useState<Moneda>("PEN")
+  const [precio, setPrecio] = useState("560000")
   const [inicial, setInicial] = useState("20")
   const [tasa, setTasa] = useState("9")
   const [anios, setAnios] = useState("20")
-  const [alquiler, setAlquiler] = useState("800")
-  const [gastos, setGastos] = useState("100")
+  const [alquiler, setAlquiler] = useState("3000")
+  const [gastos, setGastos] = useState("350")
 
   const r = useMemo(
     () =>
@@ -88,7 +88,7 @@ export default function PortalCalculadora() {
             Datos de la compra
           </h2>
           <div className="segmented" role="group" aria-label="Moneda">
-            {(["USD", "PEN"] as const).map(m => (
+            {(["PEN", "USD"] as const).map(m => (
               <button
                 key={m}
                 className="segmented-option !px-4"

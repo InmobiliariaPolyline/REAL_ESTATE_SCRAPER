@@ -1438,6 +1438,34 @@ describe("carga automática (Apify)", () => {
     await pg.exec("delete from propiedades where id like 'mk%'")
   })
 
+  it("el rango de precio y el orden en soles no confunden un aviso publicado en dólares con uno en soles", async () => {
+    // Tipo de cambio de la prueba: 4. pm1 vale 1 500 000 soles; pm2 vale 375 000 dólares (= 1 500 000 soles); pm3 vale 3 000 soles.
+    await pg.exec(`
+      insert into propiedades (id, portal, operacion, inmueble, titulo, precio, precio_usd, moneda, distrito) values
+        ('pm1','urbania','VENTA','Departamento','En soles',1500000,375000,'PEN','Lince'),
+        ('pm2','properati','VENTA','Departamento','En dolares',375000,375000,'USD','Lince'),
+        ('pm3','urbania','ALQUILER','Departamento','Alquiler barato',3000,750,'PEN','Lince')
+    `)
+    const ids = async (q: string) =>
+      (await call("GET", `/api/propiedades?pageSize=50&${q}`, { token: member })).body.data
+        .map((p: any) => p.id)
+        .filter((id: string) => id.startsWith("pm"))
+
+    // En soles: pm2 (USD 375 000) vale 1 500 000 soles, no 375 000.
+    expect((await ids("moneda=PEN&precioMin=1400000&precioMax=1600000")).sort()).toEqual(["pm1", "pm2"])
+    expect(await ids("moneda=PEN&precioMin=300000&precioMax=400000")).toEqual([])
+    expect(await ids("moneda=PEN&precioMax=5000")).toEqual(["pm3"])
+    // En dólares: los dos de 375 000.
+    expect((await ids("moneda=USD&precioMin=370000&precioMax=380000")).sort()).toEqual(["pm1", "pm2"])
+    expect(await ids("moneda=USD&precioMax=1000")).toEqual(["pm3"])
+    // Orden por precio en soles: primero el barato y los dos caros (empatan) después.
+    const asc = await ids("moneda=PEN&orden=precio_asc")
+    expect(asc[0]).toBe("pm3")
+    const desc = await ids("moneda=PEN&orden=precio_desc")
+    expect(desc[desc.length - 1]).toBe("pm3")
+    await pg.exec("delete from propiedades where id like 'pm%'")
+  })
+
   it("filtros de ubicación y detalle: departamento, provincia, cocheras, antigüedad, anunciante y solo con precio", async () => {
     await pg.exec(`
       insert into propiedades (id, portal, operacion, inmueble, titulo, precio, precio_usd, moneda, distrito, departamento, provincia, estacionamientos, antiguedad, publicador) values

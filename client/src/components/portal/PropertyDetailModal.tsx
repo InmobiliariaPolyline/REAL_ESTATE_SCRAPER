@@ -113,7 +113,7 @@ export default function PropertyDetailModal({
   const sym = currencyLabel(mon)
   const money = useCallback((n: number | null | undefined) => (n && n > 0 ? `${sym} ${fmt(n)}` : NA), [sym])
 
-  const price = p ? getDisplayPrice(p.precio, p.precio_usd, mon) : null
+  const price = p ? getDisplayPrice(p.precio, p.precio_usd, mon, p.moneda) : null
   const precios = useMemo(() => (p ? preciosDelAviso(p) : null), [p])
   const enMoneda = mon === 'USD' ? precios?.usd ?? 0 : precios?.pen ?? 0
   const otra = mon === 'USD' ? precios?.pen ?? 0 : precios?.usd ?? 0
@@ -137,7 +137,7 @@ export default function PropertyDetailModal({
 
   // Serie de precios en la moneda elegida (con conversión si el aviso solo tiene la otra).
   const series = useMemo(
-    () => (detail?.historial ?? []).map(h => ({ fecha: h.registrado_en, precio: getDisplayPrice(h.precio, h.precio_usd, mon).amount })),
+    () => (detail?.historial ?? []).map(h => ({ fecha: h.registrado_en, precio: getDisplayPrice(h.precio, h.precio_usd, mon, h.moneda).amount })),
     [detail, mon]
   )
   const variacion = useMemo(() => variacionDePrecio(series.map(s => s.precio)), [series])
@@ -498,7 +498,7 @@ export default function PropertyDetailModal({
                   <Seccion icon={Sparkles} tono="violet" title="Parecidos en la zona" subtitle="Misma operación y distrito, con un precio cercano">
                     <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                       {detail!.similares!.map(s => {
-                        const sp = getDisplayPrice(s.precio, s.precio_usd, mon)
+                        const sp = getDisplayPrice(s.precio, s.precio_usd, mon, s.moneda)
                         const foto = safeHttpUrl(s.imagen)
                         return (
                           <li key={s.id}>

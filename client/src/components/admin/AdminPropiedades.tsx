@@ -159,7 +159,8 @@ export default function AdminPropiedades() {
                   titulo={prop.titulo}
                   precio={prop.precio}
                   precioUsd={prop.precio_usd}
-                  moneda={prop.moneda === 'PEN' ? 'PEN' : 'USD'}
+                  moneda="PEN"
+                  monedaOriginal={prop.moneda}
                   distrito={prop.distrito}
                   dormitorios={prop.dormitorios}
                   banios={prop.banios}
@@ -193,7 +194,7 @@ export default function AdminPropiedades() {
         <Suspense fallback={null}>
           <PropertyDetailModal
             propertyId={detalleId}
-            moneda="USD"
+            moneda="PEN"
             isFavorite={p.favoritos.has(detalleId)}
             onToggleFavorite={p.toggleFavorite}
             isCompared={false}

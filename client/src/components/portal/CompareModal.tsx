@@ -33,7 +33,7 @@ export default function CompareModal({ items, moneda, onRemove, onClose }: Compa
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const priceOf = (p: Propiedad) => getDisplayPrice(p.precio, p.precio_usd, moneda)
+  const priceOf = (p: Propiedad) => getDisplayPrice(p.precio, p.precio_usd, moneda, p.moneda)
   const label = currencyLabel(moneda)
 
   const rows: Row[] = [
