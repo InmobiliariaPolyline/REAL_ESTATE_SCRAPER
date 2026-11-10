@@ -245,6 +245,9 @@ export default function Portal({
   const compareItems = Array.from(compare.values())
   const canCompareMore = compare.size < MAX_COMPARE
 
+  /** Total de avisos para unos filtros (la ventana de filtros lo muestra en vivo). */
+  const contarAvisos = (f: FilterState) => fetchPortalPage(f, 0, 1, ordenRef.current).then(r => r.count)
+
   const filtersPanel = (isMobileDrawer: boolean) => (
     <PortalFilters
       filters={filters}
@@ -263,6 +266,7 @@ export default function Portal({
         if (isMobileDrawer) setIsFilterDrawerOpen(false)
         handleClear(cleared)
       }}
+      contar={contarAvisos}
       isMobileDrawer={isMobileDrawer}
     />
   )
@@ -376,9 +380,12 @@ export default function Portal({
           description="Explora los avisos de todos los portales con precios normalizados en soles y dólares."
         />
 
+        {/* En pantallas anchas la ventana de filtros va a la izquierda y se queda visible al desplazarse */}
+        <div className="xl:grid xl:grid-cols-[24rem_minmax(0,1fr)] xl:items-start xl:gap-8">
         {/* Filtros (escritorio) */}
-        <div className="relative z-20 hidden md:block">{filtersPanel(false)}</div>
+        <div className="relative z-20 hidden md:block xl:sticky xl:top-20">{filtersPanel(false)}</div>
 
+        <div className="min-w-0">
         {/* Filtros (móvil) */}
         <Sheet open={isFilterDrawerOpen} onOpenChange={setIsFilterDrawerOpen}>
           <SheetContent
@@ -564,6 +571,8 @@ export default function Portal({
             itemsPerPage={ITEMS_PER_PAGE}
           />
         )}
+        </div>
+        </div>
         </div>
       </main>
 

@@ -18,9 +18,19 @@ const FACETAS = {
   anunciantes: [{ valor: 'Inmobiliaria Prisma', n: 5 }],
 }
 
-function Harness({ onSearch = vi.fn(), onClear = vi.fn() }: { onSearch?: () => void; onClear?: () => void }) {
+function Harness({ onSearch = vi.fn(), onClear = vi.fn(), onChangeSpy }: { onSearch?: () => void; onClear?: () => void; onChangeSpy?: (f: AdminSearchFilters) => void }) {
   const [filters, setFilters] = useState<AdminSearchFilters>(EMPTY_ADMIN_SEARCH)
-  return <PropiedadesFilters filters={filters} onChange={setFilters} onSearch={onSearch} onClear={onClear} />
+  return (
+    <PropiedadesFilters
+      filters={filters}
+      onChange={f => {
+        setFilters(f)
+        onChangeSpy?.(f)
+      }}
+      onSearch={onSearch}
+      onClear={onClear}
+    />
+  )
 }
 
 beforeEach(() => {
@@ -29,30 +39,43 @@ beforeEach(() => {
 })
 
 describe('PropiedadesFilters (administración)', () => {
-  it('«Más filtros» está cerrado al inicio, se abre y cuenta lo que se elige', async () => {
+  it('muestra todos los bloques a la vista, sin desglose', () => {
     render(<Harness />)
-    const boton = screen.getByRole('button', { name: /Más filtros/ })
-    expect(boton).toHaveAttribute('aria-expanded', 'false')
-    expect(document.getElementById(boton.getAttribute('aria-controls')!)).toHaveAttribute('inert')
+    for (const t of ['Buscar', 'Operación y portal', 'Tipo de inmueble', 'Ubicación', 'Precio', 'Ambientes y cocheras', 'Área construida', 'Antigüedad', 'Anunciante', 'Publicación']) {
+      expect(screen.getByRole('heading', { name: t })).toBeInTheDocument()
+    }
+    expect(screen.queryByRole('button', { name: /Más filtros/ })).toBeNull()
+  })
 
-    await userEvent.click(boton)
-    expect(boton).toHaveAttribute('aria-expanded', 'true')
+  it('las fichas y las listas del catálogo cambian los filtros', async () => {
+    const spy = vi.fn()
+    render(<Harness onChangeSpy={spy} />)
     await within(screen.getByLabelText('Departamento')).findByRole('option', { name: 'Arequipa (6)' })
     await userEvent.selectOptions(screen.getByLabelText('Departamento'), 'Arequipa')
     await userEvent.click(within(screen.getByRole('group', { name: 'Cocheras' })).getByRole('button', { name: '2+' }))
+    await userEvent.click(within(screen.getByRole('group', { name: 'Operación' })).getByRole('button', { name: 'Venta' }))
     await userEvent.click(screen.getByLabelText('Solo avisos con precio publicado'))
-    expect(within(boton).getByText('3')).toBeInTheDocument()
+    expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ departamento: 'Arequipa', cocheras: '2+', operacion: 'VENTA', soloConPrecio: true }))
+    expect(screen.getByText('3 de detalle')).toBeInTheDocument()
   })
 
   it('las provincias se limitan al departamento elegido y el tipo sale del catálogo', async () => {
     render(<Harness />)
-    await userEvent.click(screen.getByRole('button', { name: /Más filtros/ }))
     await within(screen.getByLabelText('Departamento')).findByRole('option', { name: 'Arequipa (6)' })
     await userEvent.selectOptions(screen.getByLabelText('Departamento'), 'Arequipa')
     const provincia = screen.getByLabelText('Ciudad o provincia')
     expect(within(provincia).getByRole('option', { name: 'Camaná (1)' })).toBeInTheDocument()
     expect(within(provincia).queryByRole('option', { name: 'Lima (40)' })).toBeNull()
-    expect(within(screen.getByLabelText('Tipo de inmueble')).getByRole('option', { name: 'Terreno (3)' })).toBeInTheDocument()
+    expect(await within(screen.getByRole('group', { name: 'Tipo' })).findByRole('button', { name: /Terreno/ })).toHaveTextContent('3')
+  })
+
+  it('cambiar la moneda limpia los precios escritos', async () => {
+    const spy = vi.fn()
+    render(<Harness onChangeSpy={spy} />)
+    await userEvent.type(screen.getByLabelText('Mín. (USD)'), '100000')
+    await userEvent.click(within(screen.getByRole('group', { name: 'Moneda del rango' })).getByRole('button', { name: /Soles/ }))
+    expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ moneda: 'PEN', precioMin: '', precioMax: '' }))
+    expect(screen.getByLabelText('Mín. (S/)')).toHaveValue(null)
   })
 
   it('buscar y limpiar siguen funcionando y no dependen de las facetas', async () => {

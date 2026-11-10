@@ -1,12 +1,11 @@
-import { Bath, BedDouble, CalendarClock, ChevronDown, Hammer, MapPin, Ruler, Search, SlidersHorizontal, UserRound, X } from "lucide-react"
-import { useId, useMemo, useState } from "react"
-import { Grupo, Segmented, Selector } from "@/components/filters/Campos"
+import { Bath, BedDouble, Building2, CalendarClock, Car, CircleDollarSign, Hammer, Home, KeyRound, Layers, MapPin, Ruler, Search, SlidersHorizontal, Store, Tag, TextCursorInput, Trees, UserRound, X, type LucideIcon } from "lucide-react"
+import { useMemo } from "react"
+import { Bloque, Fichas, Selector, type OpcionFicha } from "@/components/filters/Campos"
 import { Icono3D } from "@/components/portal/detail/Piezas"
 import { useFacetas } from "@/hooks/useFacetas"
 import { PORTALS } from "@/lib/portals"
-import { cn } from "@/lib/utils"
-import { claveNombre } from "@shared/ubicacion"
 import { contarDetalle, type AdminSearchFilters } from "@/lib/propertiesApi"
+import { claveNombre } from "@shared/ubicacion"
 
 interface PropiedadesFiltersProps {
   filters: AdminSearchFilters
@@ -15,243 +14,189 @@ interface PropiedadesFiltersProps {
   onClear: () => void
 }
 
-/** Formulario de filtros de la pestaña "Buscar" del panel admin. */
-export default function PropiedadesFilters({
-  filters,
-  onChange,
-  onSearch,
-  onClear,
-}: PropiedadesFiltersProps) {
+const ICONO_TIPO: Record<string, LucideIcon> = {
+  departamento: Building2,
+  casa: Home,
+  terreno: Trees,
+  "local comercial": Store,
+}
+
+const numero = (v: string): number | "" => (v === "" ? "" : Number(v))
+
+/** Ventana de filtros de la pestaña "Buscar" del panel admin: todos los filtros a la vista, en bloques. */
+export default function PropiedadesFilters({ filters, onChange, onSearch, onClear }: PropiedadesFiltersProps) {
   const set = (patch: Partial<AdminSearchFilters>) => onChange({ ...filters, ...patch })
 
   // Los precios escritos pertenecen a la moneda anterior: se limpian para no
   // interpretar un rango en otra moneda por accidente.
-  const handleCambioMoneda = (moneda: "USD" | "PEN") =>
-    set({ moneda, precioMin: "", precioMax: "" })
+  const handleCambioMoneda = (moneda: "USD" | "PEN") => set({ moneda, precioMin: "", precioMax: "" })
 
   const monedaLabel = filters.moneda === "PEN" ? "S/" : "USD"
-
-  const [mas, setMas] = useState(false)
-  const masId = useId()
   const facetas = useFacetas()
   const nDetalle = contarDetalle(filters)
 
-  // Provincias del departamento elegido; tipos y anunciantes del catálogo (con respaldo si no hay datos).
   const provincias = useMemo(
     () => (facetas?.provincias ?? []).filter(p => !filters.departamento || !p.padre || claveNombre(p.padre) === claveNombre(filters.departamento)),
     [facetas, filters.departamento]
   )
-  const inmuebles = facetas?.inmuebles?.length ? facetas.inmuebles : [{ valor: "Departamento" }, { valor: "Casa" }]
-  const numero = (v: string): number | "" => (v === "" ? "" : Number(v))
+  const tipos: OpcionFicha<string>[] = useMemo(() => {
+    const base = facetas?.inmuebles?.length ? facetas.inmuebles.slice(0, 5) : [{ valor: "Departamento", n: undefined }, { valor: "Casa", n: undefined }]
+    return [{ value: "todos", label: "Todos", icon: Layers }, ...base.map(t => ({ value: t.valor, label: t.valor, icon: ICONO_TIPO[t.valor.toLowerCase()] ?? Building2, n: t.n }))]
+  }, [facetas])
+  const tiposConActual = filters.inmueble !== "todos" && !tipos.some(t => t.value === filters.inmueble) ? [...tipos, { value: filters.inmueble, label: filters.inmueble, icon: Building2 }] : tipos
 
   return (
-    <form
-      onSubmit={e => {
-        e.preventDefault()
-        onSearch()
-      }}
-      className="card space-y-6 p-5 sm:p-6"
-      role="search"
-      aria-label="Filtros de propiedades"
-    >
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-      <div className="xl:col-span-2">
-        <label htmlFor="adm-distrito" className="field-label">Distrito</label>
-        <div className="field-icon">
-          <Search className="size-4" />
-          <input
-            id="adm-distrito"
-            type="text"
-            value={filters.distrito}
-            onChange={e => set({ distrito: e.target.value })}
-            placeholder="Buscar distrito..."
-            className="field"
-          />
+    <form onSubmit={e => { e.preventDefault(); onSearch() }} className="card overflow-hidden" role="search" aria-label="Filtros de propiedades">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4 sm:px-6">
+        <div className="flex items-center gap-3">
+          <Icono3D icon={SlidersHorizontal} tono="gold" size="sm" />
+          <h2 className="text-base font-semibold text-text">Filtros</h2>
+          {nDetalle > 0 && <span className="badge badge-gold">{nDetalle} de detalle</span>}
         </div>
-      </div>
-
-      <div>
-        <label htmlFor="adm-operacion" className="field-label">Operación</label>
-        <select
-          id="adm-operacion"
-          value={filters.operacion}
-          onChange={e => set({ operacion: e.target.value })}
-          className="field"
-        >
-          <option value="todos">Todas</option>
-          <option value="ALQUILER">Alquiler</option>
-          <option value="VENTA">Venta</option>
-        </select>
-      </div>
-
-      <div>
-        <label htmlFor="adm-portal" className="field-label">Portal</label>
-        <select
-          id="adm-portal"
-          value={filters.portal}
-          onChange={e => set({ portal: e.target.value })}
-          className="field"
-        >
-          <option value="todos">Todos</option>
-          {PORTALS.map(portal => (
-            <option key={portal.key} value={portal.label}>
-              {portal.label}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div>
-        <label htmlFor="adm-moneda" className="field-label">Moneda</label>
-        <select
-          id="adm-moneda"
-          value={filters.moneda ?? "USD"}
-          onChange={e => handleCambioMoneda(e.target.value as "USD" | "PEN")}
-          className="field"
-        >
-          <option value="USD">Dólares (USD)</option>
-          <option value="PEN">Soles (S/)</option>
-        </select>
-      </div>
-
-      <div>
-        <label htmlFor="adm-min" className="field-label">Precio mín. ({monedaLabel})</label>
-        <input
-          id="adm-min"
-          type="number"
-          min={0}
-          value={filters.precioMin}
-          onChange={e => set({ precioMin: e.target.value })}
-          placeholder="0"
-          className="field mono"
-        />
-      </div>
-
-      <div>
-        <label htmlFor="adm-max" className="field-label">Precio máx. ({monedaLabel})</label>
-        <input
-          id="adm-max"
-          type="number"
-          min={0}
-          value={filters.precioMax}
-          onChange={e => set({ precioMax: e.target.value })}
-          placeholder="Sin límite"
-          className="field mono"
-        />
-      </div>
-
-      </div>
-
-      {/* Desglose: ubicación y detalle (los mismos filtros del portal de clientes) */}
-      <div>
-        <button
-          type="button"
-          onClick={() => setMas(v => !v)}
-          aria-expanded={mas}
-          aria-controls={masId}
-          className="flex w-full items-center justify-between gap-3 rounded-2xl border border-dashed border-line-strong bg-surface-3/30 px-4 py-3 text-left transition hover:border-gold/50 hover:bg-surface-3/60"
-        >
-          <span className="flex items-center gap-2.5 text-sm font-semibold text-text">
-            <Icono3D icon={SlidersHorizontal} tono="violet" size="sm" />
-            <span className="whitespace-nowrap">Más filtros</span>
-            <span className="hidden text-xs font-normal text-text-muted sm:inline">Departamento, ciudad, tipo, ambientes, cocheras, área, antigüedad y anunciante</span>
-            {nDetalle > 0 && <span className="badge badge-gold">{nDetalle}</span>}
-          </span>
-          <ChevronDown className={cn("size-5 shrink-0 text-text-muted transition-transform duration-300", mas && "rotate-180")} />
+        <button type="button" onClick={onClear} className="btn btn-ghost btn-sm" title="Limpiar filtros" aria-label="Limpiar filtros">
+          <X className="size-4" />
+          Limpiar todo
         </button>
+      </header>
 
-        <div
-          id={masId}
-          inert={!mas}
-          className={cn("grid transition-[grid-template-rows,opacity,margin] duration-500 ease-[var(--ease-out)]", mas ? "mt-6 grid-rows-[1fr] opacity-100" : "mt-0 grid-rows-[0fr] opacity-0")}
-        >
-          <div className="min-h-0 overflow-hidden">
-            <div className="space-y-7 pb-1 pt-0.5">
-              <Grupo icon={MapPin} tono="blue" title="Ubicación y tipo">
-                <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-                  <Selector id="adm-departamento" label="Departamento" value={filters.departamento} onChange={v => set({ departamento: v, provincia: "" })} opciones={facetas?.departamentos ?? []} vacio="Sin datos aún" />
-                  <Selector id="adm-provincia" label="Ciudad o provincia" value={filters.provincia} onChange={v => set({ provincia: v })} opciones={provincias} vacio="Sin datos aún" />
-                  <Selector id="adm-inmueble" label="Tipo de inmueble" value={filters.inmueble === "todos" ? "" : filters.inmueble} onChange={v => set({ inmueble: v || "todos" })} opciones={inmuebles} vacio="Todos" />
-                  <div>
-                    <label htmlFor="adm-texto" className="field-label">Palabra clave</label>
-                    <input id="adm-texto" type="search" value={filters.texto} onChange={e => set({ texto: e.target.value })} placeholder="Ej.: terraza" className="field" maxLength={80} autoComplete="off" />
-                  </div>
-                </div>
-              </Grupo>
-
-              <Grupo icon={BedDouble} tono="violet" title="Ambientes y cocheras">
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-3">
-                  <Segmented label="Dormitorios" value={filters.dormitorios} options={[{ value: "todos", label: "Todos" }, { value: "1", label: "1" }, { value: "2", label: "2" }, { value: "3", label: "3" }, { value: "4+", label: "4+" }]} onChange={dormitorios => set({ dormitorios })} />
-                  <Segmented label="Baños" value={filters.banios} options={[{ value: "todos", label: "Todos" }, { value: "1", label: "1" }, { value: "2", label: "2" }, { value: "3+", label: "3+" }]} onChange={banios => set({ banios })} />
-                  <Segmented label="Cocheras" value={filters.cocheras} options={[{ value: "todos", label: "Todas" }, { value: "1+", label: "1+" }, { value: "2+", label: "2+" }, { value: "3+", label: "3+" }]} onChange={cocheras => set({ cocheras })} />
-                </div>
-              </Grupo>
-
-              <div className="grid gap-7 xl:grid-cols-2">
-                <Grupo icon={Ruler} tono="green" title="Área construida">
-                  <div className="grid gap-5 sm:grid-cols-2">
-                    <div>
-                      <label htmlFor="adm-area-min" className="field-label">Área mín. (m²)</label>
-                      <input id="adm-area-min" type="number" min={0} inputMode="numeric" value={filters.areaMin} onChange={e => set({ areaMin: numero(e.target.value) })} placeholder="0" className="field mono" />
-                    </div>
-                    <div>
-                      <label htmlFor="adm-area-max" className="field-label">Área máx. (m²)</label>
-                      <input id="adm-area-max" type="number" min={0} inputMode="numeric" value={filters.areaMax} onChange={e => set({ areaMax: numero(e.target.value) })} placeholder="Sin límite" className="field mono" />
-                    </div>
-                  </div>
-                </Grupo>
-
-                <Grupo icon={Hammer} tono="rose" title="Antigüedad (años)">
-                  <Segmented
-                    label="Máxima"
-                    value={String(filters.antiguedadMax)}
-                    options={[{ value: "", label: "Cualquiera" }, { value: "0", label: "Estreno" }, { value: "5", label: "Hasta 5" }, { value: "10", label: "Hasta 10" }, { value: "20", label: "Hasta 20" }]}
-                    onChange={v => set({ antiguedadMax: v === "" ? "" : Number(v) })}
-                  />
-                </Grupo>
-              </div>
-
-              <div className="grid gap-7 xl:grid-cols-2">
-                <Grupo icon={UserRound} tono="amber" title="Anunciante">
-                  <div>
-                    <label htmlFor="adm-anunciante" className="field-label">Inmobiliaria o persona</label>
-                    <input id="adm-anunciante" type="text" list="adm-anunciantes" value={filters.anunciante} onChange={e => set({ anunciante: e.target.value })} placeholder="Ej.: Prisma" className="field" maxLength={80} autoComplete="off" />
-                    <datalist id="adm-anunciantes">
-                      {(facetas?.anunciantes ?? []).map(a => <option key={a.valor} value={a.valor} />)}
-                    </datalist>
-                  </div>
-                </Grupo>
-
-                <Grupo icon={CalendarClock} tono="teal" title="Novedades y precio">
-                  <div className="space-y-4">
-                    <Segmented label="Publicado en el sistema" value={filters.publicado} options={[{ value: "todos", label: "Cualquiera" }, { value: "hoy", label: "Hoy" }, { value: "semana", label: "7 días" }, { value: "mes", label: "30 días" }]} onChange={publicado => set({ publicado })} />
-                    <label className="flex w-fit cursor-pointer items-center gap-3 rounded-2xl border border-line bg-surface-3/40 px-4 py-2.5 text-sm text-text transition hover:border-gold/40">
-                      <input type="checkbox" checked={filters.soloConPrecio} onChange={e => set({ soloConPrecio: e.target.checked })} className="size-4 cursor-pointer accent-gold" />
-                      Solo avisos con precio publicado
-                    </label>
-                  </div>
-                </Grupo>
+      <div className="grid gap-4 p-4 sm:p-5 md:grid-cols-2 xl:grid-cols-3">
+        <Bloque icon={TextCursorInput} tono="rose" title="Buscar">
+          <div className="grid gap-4">
+            <div>
+              <label htmlFor="adm-texto" className="field-label">Palabra clave</label>
+              <input id="adm-texto" type="search" value={filters.texto} onChange={e => set({ texto: e.target.value })} placeholder="Ej.: terraza" className="field" maxLength={80} autoComplete="off" />
+            </div>
+            <div>
+              <label htmlFor="adm-distrito" className="field-label">Distrito</label>
+              <div className="field-icon">
+                <Search className="size-4" />
+                <input id="adm-distrito" type="text" value={filters.distrito} onChange={e => set({ distrito: e.target.value })} placeholder="Buscar distrito..." className="field" />
               </div>
             </div>
           </div>
-        </div>
+        </Bloque>
+
+        <Bloque icon={KeyRound} tono="gold" title="Operación y portal">
+          <div className="grid gap-4">
+            <Fichas
+              label="Operación"
+              columnas={3}
+              value={filters.operacion as "todos" | "ALQUILER" | "VENTA"}
+              onChange={operacion => set({ operacion })}
+              options={[{ value: "todos", label: "Todas", icon: Layers }, { value: "ALQUILER", label: "Alquiler", icon: KeyRound }, { value: "VENTA", label: "Venta", icon: Tag }]}
+            />
+            <div>
+              <label htmlFor="adm-portal" className="field-label">Portal</label>
+              <select id="adm-portal" value={filters.portal} onChange={e => set({ portal: e.target.value })} className="field">
+                <option value="todos">Todos</option>
+                {PORTALS.map(portal => (
+                  <option key={portal.key} value={portal.label}>{portal.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </Bloque>
+
+        <Bloque icon={Building2} tono="violet" title="Tipo de inmueble">
+          <Fichas label="Tipo" columnas={3} value={filters.inmueble} onChange={inmueble => set({ inmueble })} options={tiposConActual} />
+        </Bloque>
+
+        <Bloque icon={MapPin} tono="blue" title="Ubicación">
+          <div className="grid gap-4">
+            <Selector id="adm-departamento" label="Departamento" value={filters.departamento} onChange={v => set({ departamento: v, provincia: "" })} opciones={facetas?.departamentos ?? []} vacio="Sin datos aún" />
+            <Selector id="adm-provincia" label="Ciudad o provincia" value={filters.provincia} onChange={v => set({ provincia: v })} opciones={provincias} vacio="Sin datos aún" />
+          </div>
+        </Bloque>
+
+        <Bloque icon={CircleDollarSign} tono="green" title="Precio">
+          <div className="grid gap-4">
+            <Fichas
+              label="Moneda del rango"
+              columnas={2}
+              value={filters.moneda ?? "USD"}
+              onChange={m => handleCambioMoneda(m as "USD" | "PEN")}
+              options={[{ value: "USD", label: "Dólares (USD)", icon: CircleDollarSign }, { value: "PEN", label: "Soles (S/)", icon: CircleDollarSign }]}
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="adm-min" className="field-label">Mín. ({monedaLabel})</label>
+                <input id="adm-min" type="number" min={0} value={filters.precioMin} onChange={e => set({ precioMin: e.target.value })} placeholder="0" className="field mono" />
+              </div>
+              <div>
+                <label htmlFor="adm-max" className="field-label">Máx. ({monedaLabel})</label>
+                <input id="adm-max" type="number" min={0} value={filters.precioMax} onChange={e => set({ precioMax: e.target.value })} placeholder="Sin límite" className="field mono" />
+              </div>
+            </div>
+            <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-line bg-surface-3/40 px-4 py-2.5 text-sm text-text transition hover:border-gold/40">
+              <input type="checkbox" checked={filters.soloConPrecio} onChange={e => set({ soloConPrecio: e.target.checked })} className="size-4 cursor-pointer accent-gold" />
+              Solo avisos con precio publicado
+            </label>
+            <p className="text-xs text-text-muted">El rango se escribe en {filters.moneda === "PEN" ? "soles" : "dólares"} y no oculta avisos publicados en la otra moneda.</p>
+          </div>
+        </Bloque>
+
+        <Bloque icon={BedDouble} tono="violet" title="Ambientes y cocheras">
+          <div className="grid gap-4">
+            <Fichas label="Dormitorios" columnas={5} value={filters.dormitorios} onChange={dormitorios => set({ dormitorios })} options={[["todos", "Todos"], ["1", "1"], ["2", "2"], ["3", "3"], ["4+", "4+"]].map(([value, label]) => ({ value: value as AdminSearchFilters["dormitorios"], label, icon: value === "todos" ? Layers : BedDouble }))} />
+            <Fichas label="Baños" columnas={4} value={filters.banios} onChange={banios => set({ banios })} options={[["todos", "Todos"], ["1", "1"], ["2", "2"], ["3+", "3+"]].map(([value, label]) => ({ value: value as AdminSearchFilters["banios"], label, icon: value === "todos" ? Layers : Bath }))} />
+            <Fichas label="Cocheras" columnas={4} value={filters.cocheras} onChange={cocheras => set({ cocheras })} options={[{ value: "todos", label: "Todas", icon: Layers }, { value: "1+", label: "1+", icon: Car }, { value: "2+", label: "2+", icon: Car }, { value: "3+", label: "3+", icon: Car }]} />
+          </div>
+        </Bloque>
+
+        <Bloque icon={Ruler} tono="blue" title="Área construida">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="adm-area-min" className="field-label">Mín. (m²)</label>
+              <input id="adm-area-min" type="number" min={0} inputMode="numeric" value={filters.areaMin} onChange={e => set({ areaMin: numero(e.target.value) })} placeholder="0" className="field mono" />
+            </div>
+            <div>
+              <label htmlFor="adm-area-max" className="field-label">Máx. (m²)</label>
+              <input id="adm-area-max" type="number" min={0} inputMode="numeric" value={filters.areaMax} onChange={e => set({ areaMax: numero(e.target.value) })} placeholder="Sin límite" className="field mono" />
+            </div>
+          </div>
+        </Bloque>
+
+        <Bloque icon={Hammer} tono="rose" title="Antigüedad">
+          <Fichas
+            label="Años máximos"
+            columnas={5}
+            value={String(filters.antiguedadMax)}
+            onChange={v => set({ antiguedadMax: v === "" ? "" : Number(v) })}
+            options={[{ value: "", label: "Todas", icon: Layers }, { value: "0", label: "Estreno", icon: Hammer }, { value: "5", label: "5", icon: Hammer }, { value: "10", label: "10", icon: Hammer }, { value: "20", label: "20", icon: Hammer }]}
+          />
+        </Bloque>
+
+        <Bloque icon={UserRound} tono="amber" title="Anunciante">
+          <div>
+            <label htmlFor="adm-anunciante" className="field-label">Inmobiliaria o persona</label>
+            <input id="adm-anunciante" type="text" list="adm-anunciantes" value={filters.anunciante} onChange={e => set({ anunciante: e.target.value })} placeholder="Ej.: Prisma" className="field" maxLength={80} autoComplete="off" />
+            <datalist id="adm-anunciantes">
+              {(facetas?.anunciantes ?? []).map(a => <option key={a.valor} value={a.valor} />)}
+            </datalist>
+          </div>
+        </Bloque>
+
+        <Bloque icon={CalendarClock} tono="green" title="Publicación">
+          <Fichas
+            label="Publicado en el sistema"
+            columnas={4}
+            value={filters.publicado}
+            onChange={publicado => set({ publicado })}
+            options={[{ value: "todos", label: "Siempre", icon: Layers }, { value: "hoy", label: "Hoy", icon: CalendarClock }, { value: "semana", label: "7 días", icon: CalendarClock }, { value: "mes", label: "30 días", icon: CalendarClock }]}
+          />
+        </Bloque>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
-        <p className="text-xs text-text-muted">
-          El rango de precio se interpreta en {filters.moneda === 'PEN' ? 'soles' : 'dólares'} y no oculta avisos publicados en la otra moneda.
-        </p>
-        <div className="flex gap-2.5">
-          <button type="button" onClick={onClear} className="btn btn-secondary" title="Limpiar filtros" aria-label="Limpiar filtros">
-            <X className="size-4" />
-            Limpiar
-          </button>
-          <button type="submit" className="btn btn-primary">
-            <Search className="size-4" />
-            Buscar
-          </button>
-        </div>
-      </div>
+      <footer className="flex flex-wrap items-center justify-end gap-3 border-t border-line bg-surface-1/60 px-5 py-4 sm:px-6">
+        <button type="button" onClick={onClear} className="btn btn-secondary">
+          <X className="size-4" />
+          Limpiar
+        </button>
+        <button type="submit" className="btn btn-primary">
+          <Search className="size-4" />
+          Buscar
+        </button>
+      </footer>
     </form>
   )
 }

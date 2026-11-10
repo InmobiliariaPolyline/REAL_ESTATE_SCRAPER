@@ -23,6 +23,18 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "2.4.0",
+    fecha: "2026-11-10",
+    titulo: "Nueva ventana de filtros: todo a la vista",
+    cambios: [
+      { tipo: "implementacion", texto: "La ventana de filtros se rediseñó por completo: ya no hay «Más filtros» oculto, todos los bloques están a la vista (palabra clave, operación, tipo, ubicación, precio, ambientes y cocheras, área, antigüedad, portales, anunciante y publicación)." },
+      { tipo: "implementacion", texto: "En pantallas anchas la ventana queda a la izquierda y siempre visible al desplazar los resultados; en el celular sigue siendo un panel lateral con el botón Buscar fijo abajo." },
+      { tipo: "mejora", texto: "Opciones como fichas con icono (operación, tipo con la cantidad de avisos, dormitorios, baños, cocheras, antigüedad, publicación), portales como etiquetas de color y distritos con más avisos con un solo clic." },
+      { tipo: "mejora", texto: "El total de avisos se actualiza en vivo mientras eliges filtros, antes de pulsar Buscar; hay atajos de precio y de área, y los chips se quitan al instante." },
+      { tipo: "mejora", texto: "Propiedades del administrador usa la misma ventana de filtros, con todos los bloques a la vista." },
+    ],
+  },
+  {
     version: "2.3.1",
     fecha: "2026-11-10",
     titulo: "Los filtros nuevos también están en el panel de administración",

@@ -1,10 +1,10 @@
 // @vitest-environment jsdom
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { DEFAULT_FILTERS, type FilterState } from '@/types'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { reiniciarFacetas } from '@/hooks/useFacetas'
+import { DEFAULT_FILTERS, type FilterState } from '@/types'
 import PortalFilters from './PortalFilters'
 
 const fetchFacetas = vi.fn()
@@ -18,126 +18,165 @@ const FACETAS = {
   anunciantes: [{ valor: 'Inmobiliaria Prisma', n: 5 }],
 }
 
+interface HarnessProps {
+  inicial?: FilterState
+  onApply?: (f: FilterState) => void
+  onSearch?: () => void
+  onClear?: (f: FilterState) => void
+  contar?: (f: FilterState) => Promise<number>
+}
+
+function Harness({ inicial = DEFAULT_FILTERS, onApply = vi.fn(), onSearch = vi.fn(), onClear = vi.fn(), contar }: HarnessProps) {
+  const [filters, setFilters] = useState<FilterState>({ ...inicial, portales: [...inicial.portales] })
+  return <PortalFilters filters={filters} onFiltersChange={setFilters} onApply={onApply} onSearch={onSearch} onClear={onClear} contar={contar} />
+}
+
+const grupo = (nombre: string) => screen.getByRole('group', { name: nombre })
+
 beforeEach(() => {
   reiniciarFacetas()
   fetchFacetas.mockReset().mockResolvedValue(FACETAS)
 })
 
-function Harness({ inicial = DEFAULT_FILTERS, onApply = vi.fn(), onSearch = vi.fn(), onClear = vi.fn() }: { inicial?: FilterState; onApply?: (f: FilterState) => void; onSearch?: () => void; onClear?: (f: FilterState) => void }) {
-  const [filters, setFilters] = useState<FilterState>({ ...inicial, portales: [...inicial.portales] })
-  return <PortalFilters filters={filters} onFiltersChange={setFilters} onApply={onApply} onSearch={onSearch} onClear={onClear} />
-}
-
-describe('PortalFilters', () => {
-  it('sin filtros lo dice y no muestra chips', () => {
+describe('PortalFilters (ventana de filtros)', () => {
+  it('muestra todos los bloques a la vista, sin desglose que abrir', () => {
     render(<Harness />)
-    expect(screen.getByText(/Sin filtros: se muestran todos los avisos/)).toBeInTheDocument()
-    expect(screen.queryByLabelText('Filtros aplicados')?.querySelector('button')).toBeNull()
+    for (const titulo of ['Buscar por palabra', 'Operación', 'Tipo de inmueble', 'Ubicación', 'Precio', 'Ambientes y cocheras', 'Área construida', 'Antigüedad', 'Portales', 'Anunciante', 'Publicación']) {
+      expect(screen.getByRole('heading', { name: titulo })).toBeInTheDocument()
+    }
+    expect(screen.queryByRole('button', { name: /Más filtros/ })).toBeNull()
+    expect(screen.getByLabelText('Mín. (m²)')).toBeInTheDocument()
+    expect(screen.getByText('Sin filtros')).toBeInTheDocument()
   })
 
-  it('«Más filtros» despliega dormitorios, baños, área y publicación, y se oculta a los lectores al cerrarse', async () => {
+  it('operación, dormitorios, baños, cocheras, antigüedad y publicación se eligen con fichas', async () => {
     render(<Harness />)
-    const boton = screen.getByRole('button', { name: /Más filtros/ })
-    expect(boton).toHaveAttribute('aria-expanded', 'false')
-    expect(document.getElementById(boton.getAttribute('aria-controls')!)).toHaveAttribute('inert')
-
-    await userEvent.click(boton)
-    expect(boton).toHaveAttribute('aria-expanded', 'true')
-    expect(document.getElementById(boton.getAttribute('aria-controls')!)).not.toHaveAttribute('inert')
-    expect(screen.getByLabelText('Área mín. (m²)')).toBeInTheDocument()
-    expect(screen.getByRole('group', { name: 'Baños' })).toBeInTheDocument()
-    expect(screen.getByRole('group', { name: 'Publicado en el sistema' })).toBeInTheDocument()
-  })
-
-  it('cada filtro cambiado aparece como chip con contador, y quitarlo lo aplica al instante', async () => {
-    const onApply = vi.fn()
-    render(<Harness inicial={{ ...DEFAULT_FILTERS, operacion: 'VENTA', banios: '2', areaMin: 80 }} onApply={onApply} />)
-    expect(screen.getByText('3 activos')).toBeInTheDocument()
-    // Hay filtros avanzados puestos: el desglose ya viene abierto.
-    expect(screen.getByRole('button', { name: /Más filtros/ })).toHaveAttribute('aria-expanded', 'true')
-
+    await userEvent.click(within(grupo('Qué buscas')).getByRole('button', { name: 'Venta' }))
+    await userEvent.click(within(grupo('Dormitorios')).getByRole('button', { name: '3' }))
+    await userEvent.click(within(grupo('Baños')).getByRole('button', { name: '2' }))
+    await userEvent.click(within(grupo('Cocheras')).getByRole('button', { name: '2+' }))
+    await userEvent.click(within(grupo('Años máximos')).getByRole('button', { name: 'Estreno' }))
+    await userEvent.click(within(grupo('Publicado en el sistema')).getByRole('button', { name: '7 días' }))
     const chips = screen.getByLabelText('Filtros aplicados')
-    expect(within(chips).getByText('Venta')).toBeInTheDocument()
-    expect(within(chips).getByText('2 baños')).toBeInTheDocument()
-
-    await userEvent.click(within(chips).getByRole('button', { name: 'Quitar filtro: 2 baños' }))
-    expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ banios: 'todos', operacion: 'VENTA', areaMin: 80 }))
-    expect(screen.getByText('2 activos')).toBeInTheDocument()
+    for (const t of ['Venta', '3 dorm.', '2 baños', '2+ cocheras', 'Estreno', 'Última semana']) expect(within(chips).getByText(t)).toBeInTheDocument()
+    expect(screen.getByText('6 activos')).toBeInTheDocument()
   })
 
-  it('los atajos de precio fijan el tope máximo y buscan', async () => {
+  it('el tipo de inmueble sale del catálogo, con su cantidad y un icono', async () => {
+    render(<Harness />)
+    const tipos = grupo('Tipo')
+    expect(await within(tipos).findByRole('button', { name: /Terreno/ })).toHaveTextContent('3')
+    await userEvent.click(within(tipos).getByRole('button', { name: /Casa/ }))
+    expect(within(screen.getByLabelText('Filtros aplicados')).getByText('Casa')).toBeInTheDocument()
+  })
+
+  it('las listas de departamento y provincia salen del catálogo y se enlazan entre sí', async () => {
+    render(<Harness inicial={{ ...DEFAULT_FILTERS, departamento: 'Lima', provincia: 'Lima' }} />)
+    await within(screen.getByLabelText('Departamento')).findByRole('option', { name: 'Arequipa (6)' })
+    await userEvent.selectOptions(screen.getByLabelText('Departamento'), 'Arequipa')
+    const provincia = screen.getByLabelText('Ciudad o provincia')
+    expect(provincia).toHaveValue('')
+    expect(within(provincia).getByRole('option', { name: 'Camaná (1)' })).toBeInTheDocument()
+    expect(within(provincia).queryByRole('option', { name: 'Lima (40)' })).toBeNull()
+  })
+
+  it('los distritos con más avisos se eligen con un clic y se quitan con otro', async () => {
+    const onApply = vi.fn()
+    render(<Harness onApply={onApply} />)
+    const populares = await screen.findByRole('group', { name: 'Distritos con más avisos' })
+    await userEvent.click(within(populares).getByRole('button', { name: /Miraflores/ }))
+    expect(onApply).toHaveBeenLastCalledWith(expect.objectContaining({ distrito: 'Miraflores' }))
+    expect(screen.getByLabelText('Distrito')).toHaveValue('Miraflores')
+    await userEvent.click(within(populares).getByRole('button', { name: /Miraflores/ }))
+    expect(onApply).toHaveBeenLastCalledWith(expect.objectContaining({ distrito: '' }))
+  })
+
+  it('los portales se activan como etiquetas, varios a la vez', async () => {
+    render(<Harness />)
+    const portales = grupo('Dónde se publicó')
+    await userEvent.click(within(portales).getByRole('button', { name: 'Urbania' }))
+    await userEvent.click(within(portales).getByRole('button', { name: 'Infocasas' }))
+    expect(within(portales).getByRole('button', { name: 'Urbania' })).toHaveAttribute('aria-pressed', 'true')
+    expect(within(screen.getByLabelText('Filtros aplicados')).getByText('Urbania, Infocasas')).toBeInTheDocument()
+    await userEvent.click(within(portales).getByRole('button', { name: 'Urbania' }))
+    expect(within(screen.getByLabelText('Filtros aplicados')).getByText('Infocasas')).toBeInTheDocument()
+  })
+
+  it('los atajos de precio y de área aplican al instante', async () => {
     const onApply = vi.fn()
     render(<Harness inicial={{ ...DEFAULT_FILTERS, moneda: 'USD', operacion: 'ALQUILER', precioMin: 100 }} onApply={onApply} />)
     await userEvent.click(screen.getByRole('button', { name: 'Hasta USD 700' }))
-    expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ precioMax: 700, precioMin: '' }))
-    expect(screen.getByLabelText('Precio máx. (USD)')).toHaveValue(700)
+    expect(onApply).toHaveBeenLastCalledWith(expect.objectContaining({ precioMax: 700, precioMin: '' }))
+    await userEvent.click(screen.getByRole('button', { name: '50 a 100 m²' }))
+    expect(onApply).toHaveBeenLastCalledWith(expect.objectContaining({ areaMin: 50, areaMax: 100 }))
+    expect(screen.getByLabelText('Mín. (m²)')).toHaveValue(50)
   })
 
-  it('escribir una palabra clave y buscar; «Limpiar todo» restablece y avisa', async () => {
+  it('quitar un chip lo aplica al instante y «solo con precio» es una casilla', async () => {
+    const onApply = vi.fn()
+    render(<Harness inicial={{ ...DEFAULT_FILTERS, operacion: 'VENTA', banios: '2' }} onApply={onApply} />)
+    await userEvent.click(screen.getByLabelText('Solo avisos con precio publicado'))
+    const chips = screen.getByLabelText('Filtros aplicados')
+    expect(within(chips).getByText('Con precio')).toBeInTheDocument()
+    await userEvent.click(within(chips).getByRole('button', { name: 'Quitar filtro: 2 baños' }))
+    expect(onApply).toHaveBeenCalledWith(expect.objectContaining({ banios: 'todos', operacion: 'VENTA', soloConPrecio: true }))
+  })
+
+  it('buscar y limpiar todo avisan al padre y no dependen de las facetas', async () => {
+    fetchFacetas.mockRejectedValue(new Error('sin red'))
     const onSearch = vi.fn()
     const onClear = vi.fn()
-    render(<Harness onSearch={onSearch} onClear={onClear} />)
-    await userEvent.type(screen.getByLabelText('Palabra clave'), 'terraza')
-    expect(screen.getByText('1 activo')).toBeInTheDocument()
+    render(<Harness inicial={{ ...DEFAULT_FILTERS, texto: 'terraza' }} onSearch={onSearch} onClear={onClear} />)
     await userEvent.click(screen.getByRole('button', { name: 'Buscar' }))
     expect(onSearch).toHaveBeenCalledTimes(1)
-
     await userEvent.click(screen.getByRole('button', { name: /Limpiar todo/ }))
     expect(onClear).toHaveBeenCalledWith(expect.objectContaining({ texto: '', operacion: 'todos' }))
     expect(screen.getByLabelText('Palabra clave')).toHaveValue('')
   })
 
-  it('las listas de departamento, provincia y tipo salen del catálogo, con su cantidad', async () => {
-    render(<Harness />)
-    const departamento = screen.getByLabelText('Departamento')
-    expect(await within(departamento).findByRole('option', { name: 'Arequipa (6)' })).toBeInTheDocument()
-    expect(within(screen.getByLabelText('Tipo de inmueble')).getByRole('option', { name: 'Terreno (3)' })).toBeInTheDocument()
-    expect(within(screen.getByLabelText('Ciudad o provincia')).getByRole('option', { name: 'Camaná (1)' })).toBeInTheDocument()
-  })
-
-  it('al elegir un departamento las provincias se limitan a ese departamento y se limpia la anterior', async () => {
-    render(<Harness inicial={{ ...DEFAULT_FILTERS, departamento: 'Lima', provincia: 'Lima' }} />)
-    await within(screen.getByLabelText('Departamento')).findByRole('option', { name: 'Arequipa (6)' })
-    await userEvent.selectOptions(screen.getByLabelText('Departamento'), 'Arequipa')
-    expect(screen.getByLabelText('Ciudad o provincia')).toHaveValue('')
-    expect(within(screen.getByLabelText('Ciudad o provincia')).queryByRole('option', { name: 'Lima (40)' })).toBeNull() // la provincia de Lima ya no se ofrece
-    await userEvent.selectOptions(screen.getByLabelText('Ciudad o provincia'), 'Camaná')
-    expect(screen.getByLabelText('Ciudad o provincia')).toHaveValue('Camaná')
-  })
-
-  it('el tipo de inmueble y «solo con precio» se aplican como chips', async () => {
-    render(<Harness />)
-    await within(screen.getByLabelText('Tipo de inmueble')).findByRole('option', { name: 'Terreno (3)' })
-    await userEvent.selectOptions(screen.getByLabelText('Tipo de inmueble'), 'Terreno')
-    await userEvent.click(screen.getByLabelText('Solo avisos con precio publicado'))
-    const chips = screen.getByLabelText('Filtros aplicados')
-    expect(within(chips).getByText('Terreno')).toBeInTheDocument()
-    expect(within(chips).getByText('Con precio')).toBeInTheDocument()
-  })
-
-  it('cocheras y antigüedad máxima se eligen en el desglose', async () => {
-    render(<Harness />)
-    await userEvent.click(screen.getByRole('button', { name: /Más filtros/ }))
-    await userEvent.click(within(screen.getByRole('group', { name: 'Cocheras' })).getByRole('button', { name: '2+' }))
-    await userEvent.click(within(screen.getByRole('group', { name: 'Máxima' })).getByRole('button', { name: 'Estreno' }))
-    const chips = screen.getByLabelText('Filtros aplicados')
-    expect(within(chips).getByText('2+ cocheras')).toBeInTheDocument()
-    expect(within(chips).getByText('Estreno')).toBeInTheDocument()
-  })
-
-  it('sin datos de ubicación en el catálogo las listas salen vacías y el distrito sigue sugiriendo', async () => {
+  it('sin datos de ubicación las listas salen vacías, pero el distrito y los tipos de siempre siguen', async () => {
     fetchFacetas.mockResolvedValue({ departamentos: [], provincias: [], distritos: [], inmuebles: [], anunciantes: [] })
     render(<Harness />)
     expect(await screen.findAllByRole('option', { name: 'Sin datos aún' })).toHaveLength(2)
     await userEvent.type(screen.getByLabelText('Distrito'), 'mira')
-    expect(await screen.findByRole('button', { name: 'Miraflores' })).toBeInTheDocument() // lista de respaldo
-    expect(screen.getByRole('option', { name: 'Casa' })).toBeInTheDocument() // tipos de respaldo
+    expect(await screen.findByRole('button', { name: 'Miraflores' })).toBeInTheDocument()
+    expect(within(grupo('Tipo')).getByRole('button', { name: /Casa/ })).toBeInTheDocument()
+  })
+})
+
+describe('PortalFilters: total en vivo', () => {
+  beforeEach(() => vi.useFakeTimers({ shouldAdvanceTime: true }))
+  afterEach(() => vi.useRealTimers())
+
+  it('cuenta los avisos un instante después del último cambio y muestra el total', async () => {
+    const contar = vi.fn().mockResolvedValue(1234)
+    render(<Harness contar={contar} />)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500)
+    })
+    expect(contar).toHaveBeenCalledTimes(1)
+    expect(await screen.findByText('1,234')).toBeInTheDocument()
+
+    await userEvent.click(within(grupo('Qué buscas')).getByRole('button', { name: 'Venta' }))
+    await userEvent.click(within(grupo('Cocheras')).getByRole('button', { name: '1+' }))
+    expect(contar).toHaveBeenCalledTimes(1) // todavía no pasó el instante de espera
+    contar.mockResolvedValue(1)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500)
+    })
+    expect(contar).toHaveBeenCalledTimes(2)
+    expect(contar).toHaveBeenLastCalledWith(expect.objectContaining({ operacion: 'VENTA', cocheras: '1+' }))
+    await vi.waitFor(() => expect(document.querySelector('footer strong')).toHaveTextContent('1'))
+    expect(document.querySelector('footer p')?.textContent).toBe('1 aviso') // singular
   })
 
-  it('si no se pueden cargar las facetas los filtros siguen funcionando', async () => {
-    fetchFacetas.mockRejectedValue(new Error('sin red'))
-    render(<Harness />)
-    await userEvent.type(screen.getByLabelText('Palabra clave'), 'terraza')
-    expect(screen.getByText('1 activo')).toBeInTheDocument()
+  it('si no se puede contar, no muestra ningún total', async () => {
+    const contar = vi.fn().mockRejectedValue(new Error('fallo'))
+    render(<Harness contar={contar} />)
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500)
+    })
+    expect(contar).toHaveBeenCalled()
+    expect(document.querySelector('footer strong')).toBeNull()
   })
 })

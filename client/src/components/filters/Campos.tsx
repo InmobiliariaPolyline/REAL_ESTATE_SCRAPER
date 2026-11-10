@@ -1,5 +1,7 @@
+import type { LucideIcon } from 'lucide-react'
 import { useId, type ReactNode } from 'react'
 import { Icono3D, type Tono } from '@/components/portal/detail/Piezas'
+import { cn } from '@/lib/utils'
 import { claveNombre } from '@shared/ubicacion'
 
 /** Grupo de opciones excluyentes con estilo segmentado. */
@@ -81,5 +83,118 @@ export function Grupo({ icon, tono, title, children, aside }: { icon: Parameters
       </legend>
       {children}
     </fieldset>
+  )
+}
+
+export interface OpcionFicha<T extends string> {
+  value: T
+  label: string
+  /** Icono que se muestra sobre la etiqueta. */
+  icon?: LucideIcon
+  /** Cantidad de avisos con esta opción. */
+  n?: number
+}
+
+/**
+ * Opciones excluyentes como fichas grandes (icono arriba, etiqueta y cantidad), más fáciles de ver y
+ * de tocar que un menú. `columnas` es el número de fichas por fila.
+ */
+export function Fichas<T extends string>({
+  label,
+  value,
+  options,
+  onChange,
+  columnas = 3,
+}: {
+  label: string
+  value: T
+  options: OpcionFicha<T>[]
+  onChange: (value: T) => void
+  columnas?: 2 | 3 | 4 | 5
+}) {
+  const id = useId()
+  const cols = { 2: 'grid-cols-2', 3: 'grid-cols-3', 4: 'grid-cols-4', 5: 'grid-cols-5' }[columnas]
+  return (
+    <div className="min-w-0">
+      <span className="field-label" id={id}>{label}</span>
+      <div className={cn('grid gap-2', cols)} role="group" aria-labelledby={id}>
+        {options.map(o => {
+          const Icon = o.icon
+          const activa = value === o.value
+          return (
+            <button
+              key={o.value}
+              type="button"
+              aria-pressed={activa}
+              onClick={() => onChange(o.value)}
+              className={cn(
+                'flex min-w-0 flex-col items-center justify-center gap-1 rounded-2xl border px-2 py-2.5 text-center transition',
+                activa
+                  ? 'border-gold bg-gold-soft text-text shadow-[0_8px_20px_-12px_rgb(var(--gold-rgb)/0.8)]'
+                  : 'border-line bg-surface-3/50 text-text-muted hover:border-gold/40 hover:text-text'
+              )}
+            >
+              {Icon && <Icon className={cn('size-[1.15rem]', activa ? 'text-gold' : 'text-text-faint')} strokeWidth={1.75} aria-hidden="true" />}
+              <span className="w-full truncate text-xs font-semibold">{o.label}</span>
+              {o.n !== undefined && <span className="mono text-[0.625rem] text-text-faint">{o.n.toLocaleString('es-PE')}</span>}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/** Opciones que se pueden activar varias a la vez (portales), como etiquetas con un punto de color. */
+export function Etiquetas({
+  label,
+  options,
+  seleccion,
+  onToggle,
+}: {
+  label: string
+  options: { value: string; label: string; color?: string; n?: number }[]
+  seleccion: string[]
+  onToggle: (value: string) => void
+}) {
+  const id = useId()
+  return (
+    <div className="min-w-0">
+      <span className="field-label" id={id}>{label}</span>
+      <div className="flex flex-wrap gap-2" role="group" aria-labelledby={id}>
+        {options.map(o => {
+          const activa = seleccion.includes(o.value)
+          return (
+            <button
+              key={o.value}
+              type="button"
+              aria-pressed={activa}
+              onClick={() => onToggle(o.value)}
+              className={cn(
+                'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition',
+                activa ? 'border-gold bg-gold-soft text-text' : 'border-line bg-surface-3/50 text-text-muted hover:border-gold/40 hover:text-text'
+              )}
+            >
+              <span className="size-2 rounded-full" style={{ backgroundColor: o.color ?? 'var(--gold)' }} aria-hidden="true" />
+              {o.label}
+              {o.n !== undefined && <span className="mono text-[0.625rem] text-text-faint">{o.n.toLocaleString('es-PE')}</span>}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+/** Bloque de la ventana de filtros: tarjeta con icono 3D, título y sus campos a la vista. */
+export function Bloque({ icon, tono, title, children, className }: { icon: LucideIcon; tono: Tono; title: string; children: ReactNode; className?: string }) {
+  return (
+    <section className={cn('min-w-0 space-y-4 rounded-2xl border border-line bg-surface-2/60 p-4', className)}>
+      <h3 className="flex items-center gap-2.5 text-sm font-semibold text-text">
+        <Icono3D icon={icon} tono={tono} size="sm" />
+        {title}
+      </h3>
+      {children}
+    </section>
   )
 }

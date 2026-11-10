@@ -1,6 +1,9 @@
-import { Bath, BedDouble, Building2, CalendarClock, Car, ChevronDown, CircleDollarSign, Hammer, Landmark, MapPin, Ruler, Search, SlidersHorizontal, TextCursorInput, UserRound, X } from 'lucide-react'
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
-import { Grupo, Segmented, Selector } from '@/components/filters/Campos'
+import {
+  Bath, BedDouble, Briefcase, Building2, CalendarClock, Car, CircleDollarSign, Construction, Hammer, Home, KeyRound, Layers, Loader2, MapPin, Ruler,
+  Search, SlidersHorizontal, Store, Tag, TextCursorInput, Trees, UserRound, Warehouse, X, BedSingle, type LucideIcon,
+} from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Bloque, Etiquetas, Fichas, Selector, type OpcionFicha } from '@/components/filters/Campos'
 import { Icono3D } from '@/components/portal/detail/Piezas'
 import { useFacetas } from '@/hooks/useFacetas'
 import { atajosDePrecio, filtrosActivos } from '@/lib/filterChips'
@@ -21,10 +24,10 @@ interface PortalFiltersProps {
   onClear: (cleared: FilterState) => void
   /** Aplica filtros al instante (al quitar un chip o elegir un atajo); sin esta función solo se editan. */
   onApply?: (filters: FilterState) => void
+  /** Cuántos avisos cumplen unos filtros; si se da, la ventana muestra el total en vivo mientras se editan. */
+  contar?: (filters: FilterState) => Promise<number>
   isMobileDrawer?: boolean
 }
-
-const PORTALES_OPCIONES = PORTALS.map(p => p.label)
 
 /** Distritos que se sugieren mientras no se conoce el catálogo (o si aún no tiene ubicación guardada). */
 const DISTRITOS_BASE = [
@@ -36,51 +39,28 @@ const DISTRITOS_BASE = [
   'Arequipa', 'Cayma', 'Cerro Colorado', 'Trujillo', 'Chiclayo', 'Cusco', 'Piura', 'Tarapoto', 'Huancayo', 'Iquitos', 'Tacna',
 ].sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }))
 
-const OPERACIONES: { value: FilterState['operacion']; label: string }[] = [
-  { value: 'todos', label: 'Todos' },
-  { value: 'ALQUILER', label: 'Alquiler' },
-  { value: 'VENTA', label: 'Venta' },
-]
-
-const DORMITORIOS: { value: FilterState['dormitorios']; label: string }[] = [
-  { value: 'todos', label: 'Todos' },
-  { value: '1', label: '1' },
-  { value: '2', label: '2' },
-  { value: '3', label: '3' },
-  { value: '4+', label: '4+' },
-]
-
-const BANIOS: { value: FilterState['banios']; label: string }[] = [
-  { value: 'todos', label: 'Todos' },
-  { value: '1', label: '1' },
-  { value: '2', label: '2' },
-  { value: '3+', label: '3+' },
-]
-
-const COCHERAS: { value: FilterState['cocheras']; label: string }[] = [
-  { value: 'todos', label: 'Todas' },
-  { value: '1+', label: '1+' },
-  { value: '2+', label: '2+' },
-  { value: '3+', label: '3+' },
-]
-
-const PUBLICADOS: { value: FilterState['publicado']; label: string }[] = [
-  { value: 'todos', label: 'Cualquiera' },
-  { value: 'hoy', label: 'Hoy' },
-  { value: 'semana', label: '7 días' },
-  { value: 'mes', label: '30 días' },
-]
-
-/** Antigüedad máxima: «Estreno» es 0 años. El valor es el texto del número («» = cualquiera). */
-const ANTIGUEDADES: { value: string; label: string }[] = [
-  { value: '', label: 'Cualquiera' },
-  { value: '0', label: 'Estreno' },
-  { value: '5', label: 'Hasta 5' },
-  { value: '10', label: 'Hasta 10' },
-  { value: '20', label: 'Hasta 20' },
-]
+const ICONO_TIPO: Record<string, LucideIcon> = {
+  departamento: Building2,
+  casa: Home,
+  terreno: Trees,
+  oficina: Briefcase,
+  'local comercial': Store,
+  proyecto: Construction,
+  habitación: BedSingle,
+  habitacion: BedSingle,
+  'galpón': Warehouse,
+}
 
 const removeAccents = (str: string) => str.normalize('NFD').replace(/[̀-ͯ]/g, '')
+const numero = (value: string): number | '' => (value === '' ? '' : Number(value))
+
+/** Rangos de área rápidos. */
+const AREAS_RAPIDAS: { label: string; min: number | ''; max: number | '' }[] = [
+  { label: 'Hasta 50 m²', min: '', max: 50 },
+  { label: '50 a 100 m²', min: 50, max: 100 },
+  { label: '100 a 200 m²', min: 100, max: 200 },
+  { label: 'Más de 200 m²', min: 200, max: '' },
+]
 
 export default function PortalFilters({
   filters,
@@ -88,34 +68,40 @@ export default function PortalFilters({
   onSearch,
   onClear,
   onApply,
+  contar,
   isMobileDrawer = false,
 }: PortalFiltersProps) {
-  const [showPortalDropdown, setShowPortalDropdown] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
-  const [mas, setMas] = useState(false)
-  const portalRef = useRef<HTMLDivElement>(null)
-  const masId = useId()
   const facetas = useFacetas()
 
   const update = (patch: Partial<FilterState>) => onFiltersChange({ ...filters, ...patch })
-
-  // Cierra el selector de portales al hacer clic fuera.
-  useEffect(() => {
-    if (!showPortalDropdown) return
-    const onDown = (e: MouseEvent) => {
-      if (!portalRef.current?.contains(e.target as Node)) setShowPortalDropdown(false)
-    }
-    document.addEventListener('mousedown', onDown)
-    return () => document.removeEventListener('mousedown', onDown)
-  }, [showPortalDropdown])
+  const aplicar = (patch: Partial<FilterState>) => {
+    const next = { ...filters, ...patch }
+    onFiltersChange(next)
+    onApply?.(next)
+  }
 
   const activos = filtrosActivos(filters)
-  const nAvanzados = activos.filter(a => a.avanzado).length
 
-  // Si ya hay filtros avanzados puestos (p. ej. al aplicar una búsqueda guardada), el desglose se abre.
+  // Total en vivo: se vuelve a contar un instante después del último cambio.
+  const [total, setTotal] = useState<number | null>(null)
+  const [contando, setContando] = useState(false)
+  const claveFiltros = JSON.stringify(filters)
+  const ultimo = useRef(0)
   useEffect(() => {
-    if (nAvanzados > 0) setMas(true)
-  }, [nAvanzados])
+    if (!contar) return
+    const id = ++ultimo.current
+    setContando(true)
+    const t = setTimeout(() => {
+      contar(filters)
+        .then(n => id === ultimo.current && setTotal(n))
+        .catch(() => id === ultimo.current && setTotal(null))
+        .finally(() => id === ultimo.current && setContando(false))
+    }, 450)
+    return () => clearTimeout(t)
+    // `contar` cambia de identidad en cada render del padre: solo importan los filtros.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [claveFiltros])
 
   // Listas del catálogo: las provincias se limitan al departamento elegido y los distritos a ambos.
   const departamentos = facetas?.departamentos ?? []
@@ -127,24 +113,29 @@ export default function PortalFilters({
     () => (facetas?.distritos ?? []).filter(d => !filters.departamento || !d.padre || claveNombre(d.padre) === claveNombre(filters.departamento)),
     [facetas, filters.departamento]
   )
-  const inmuebles = facetas?.inmuebles?.length ? facetas.inmuebles : [{ valor: 'Departamento' }, { valor: 'Casa' }]
 
-  // Sugerencias de distrito: primero los del catálogo (con su cantidad) y, si no hay, la lista base.
+  // Tipos de inmueble: los más frecuentes del catálogo (con su cantidad), o los dos de siempre si aún no hay datos.
+  const tipos: OpcionFicha<string>[] = useMemo(() => {
+    const base = facetas?.inmuebles?.length ? facetas.inmuebles.slice(0, 5) : [{ valor: 'Departamento', n: undefined }, { valor: 'Casa', n: undefined }]
+    return [
+      { value: 'todos', label: 'Todos', icon: Layers },
+      ...base.map(t => ({ value: t.valor, label: t.valor, icon: ICONO_TIPO[t.valor.toLowerCase()] ?? Building2, n: t.n })),
+    ]
+  }, [facetas])
+  // Si el tipo elegido no está entre los más frecuentes (búsqueda guardada), se muestra igual.
+  const tiposConActual = filters.inmueble !== 'todos' && !tipos.some(t => t.value === filters.inmueble) ? [...tipos, { value: filters.inmueble, label: filters.inmueble, icon: Building2 }] : tipos
+
+  // Sugerencias de distrito mientras se escribe.
   const suggestions = useMemo(() => {
     const q = removeAccents(filters.distrito.trim().toLowerCase())
     if (!q) return []
     const base: { valor: string; n?: number }[] = distritosCatalogo.length > 0 ? distritosCatalogo : DISTRITOS_BASE.map(valor => ({ valor }))
     return base.filter(d => removeAccents(d.valor.toLowerCase()).includes(q)).slice(0, 12)
   }, [filters.distrito, distritosCatalogo])
+  const populares = distritosCatalogo.slice(0, 8)
 
   const handlePortalToggle = (portal: string) =>
-    update({
-      portales: filters.portales.includes(portal)
-        ? filters.portales.filter(p => p !== portal)
-        : [...filters.portales, portal],
-    })
-
-  const numero = (value: string): number | '' => (value === '' ? '' : Number(value))
+    update({ portales: filters.portales.includes(portal) ? filters.portales.filter(p => p !== portal) : [...filters.portales, portal] })
 
   const handleClear = () => {
     const cleared: FilterState = { ...DEFAULT_FILTERS, portales: [] }
@@ -152,16 +143,12 @@ export default function PortalFilters({
     onClear(cleared)
   }
 
-  const quitar = (patch: Partial<FilterState>) => {
-    const next = { ...filters, ...patch }
-    onFiltersChange(next)
-    onApply?.(next)
-  }
-
   const currency = filters.moneda === 'PEN' ? 'S/' : 'USD'
   const atajos = atajosDePrecio(filters.moneda, filters.operacion)
-  const grid = isMobileDrawer ? 'grid grid-cols-1 gap-5' : 'grid gap-5 md:grid-cols-2 xl:grid-cols-12'
-  const col = (xl: string) => (isMobileDrawer ? '' : xl)
+  const numeros = (cant: 3 | 4) =>
+    (cant === 4
+      ? [['todos', 'Todos'], ['1', '1'], ['2', '2'], ['3', '3'], ['4+', '4+']]
+      : [['todos', 'Todos'], ['1', '1'], ['2', '2'], ['3+', '3+']]) as [string, string][]
 
   return (
     <form
@@ -169,13 +156,13 @@ export default function PortalFilters({
         e.preventDefault()
         onSearch()
       }}
-      className={cn(isMobileDrawer ? 'space-y-6 p-5' : 'card overflow-visible')}
+      className={cn(isMobileDrawer ? 'flex h-full flex-col' : 'card flex flex-col overflow-hidden xl:max-h-[calc(100vh-6.5rem)]')}
       role="search"
       aria-label="Filtros de propiedades"
     >
       {/* Cabecera: título, cantidad de filtros y limpiar todo */}
       {!isMobileDrawer && (
-        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4 sm:px-6">
+        <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-4">
           <div className="flex items-center gap-3">
             <Icono3D icon={SlidersHorizontal} tono="gold" size="sm" />
             <h2 className="text-base font-semibold text-text">Filtros</h2>
@@ -190,14 +177,33 @@ export default function PortalFilters({
         </header>
       )}
 
-      <div className={cn(isMobileDrawer ? 'space-y-6' : 'space-y-7 px-5 py-6 sm:px-6')}>
-        {/* Qué buscas */}
-        <Grupo icon={Building2} tono="rose" title="Qué buscas">
-          <div className={grid}>
-            <div className={col('xl:col-span-5')}>
+      {/* Filtros aplicados */}
+      <ul className={cn('flex flex-wrap items-center gap-2 border-b border-line px-5 py-3', activos.length === 0 && 'hidden')} aria-label="Filtros aplicados">
+        {activos.map(a => (
+          <li key={a.clave}>
+            <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-gold/30 bg-gold-soft py-1 pl-3 pr-1 text-xs font-medium text-text">
+              <span className="truncate">{a.etiqueta}</span>
+              <button
+                type="button"
+                onClick={() => aplicar(a.quitar)}
+                className="inline-flex size-5 shrink-0 items-center justify-center rounded-full text-text-muted transition hover:bg-gold/25 hover:text-text"
+                aria-label={`Quitar filtro: ${a.etiqueta}`}
+              >
+                <X className="size-3" />
+              </button>
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      {/* Ventana de filtros: todo a la vista, en bloques */}
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+        <div className={cn('grid gap-4', !isMobileDrawer && 'md:grid-cols-2 xl:grid-cols-1')}>
+          <Bloque icon={TextCursorInput} tono="rose" title="Buscar por palabra">
+            <div>
               <label className="field-label" htmlFor="flt-texto">Palabra clave</label>
               <div className="field-icon">
-                <TextCursorInput className="size-4" />
+                <Search className="size-4" />
                 <input
                   id="flt-texto"
                   type="search"
@@ -210,321 +216,242 @@ export default function PortalFilters({
                 />
               </div>
             </div>
+          </Bloque>
 
-            <div className={col('xl:col-span-4')}>
-              <Segmented label="Operación" value={filters.operacion} options={OPERACIONES} onChange={operacion => update({ operacion })} />
-            </div>
-
-            <div className={col('xl:col-span-3')}>
-              <Selector id="flt-inmueble" label="Tipo de inmueble" value={filters.inmueble === 'todos' ? '' : filters.inmueble} onChange={v => update({ inmueble: v || 'todos' })} opciones={inmuebles} vacio="Todos" />
-            </div>
-          </div>
-        </Grupo>
-
-        {/* Ubicación */}
-        <Grupo icon={MapPin} tono="blue" title="Ubicación">
-          <div className={grid}>
-            <div className={col('xl:col-span-4')}>
-              <Selector
-                id="flt-departamento"
-                label="Departamento"
-                value={filters.departamento}
-                onChange={v => update({ departamento: v, provincia: '' })}
-                opciones={departamentos}
-                vacio="Sin datos aún"
-              />
-            </div>
-
-            <div className={col('xl:col-span-4')}>
-              <Selector id="flt-provincia" label="Ciudad o provincia" value={filters.provincia} onChange={v => update({ provincia: v })} opciones={provincias} vacio="Sin datos aún" />
-            </div>
-
-            {/* Distrito */}
-            <div className={cn('relative', col('xl:col-span-4'))}>
-              <label className="field-label" htmlFor="flt-distrito">Distrito</label>
-              <div className="field-icon">
-                <Search className="size-4" />
-                <input
-                  id="flt-distrito"
-                  type="text"
-                  value={filters.distrito}
-                  onChange={e => {
-                    update({ distrito: e.target.value })
-                    setShowSuggestions(true)
-                  }}
-                  onFocus={() => setShowSuggestions(true)}
-                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-                  placeholder="Buscar distrito..."
-                  className="field"
-                  autoComplete="off"
-                />
-              </div>
-              {showSuggestions && suggestions.length > 0 && (
-                <ul className="animate-popIn absolute left-0 right-0 top-full z-30 mt-2 max-h-60 overflow-y-auto rounded-2xl border border-line-strong bg-surface-2 p-1.5 shadow-2xl">
-                  {suggestions.map(d => (
-                    <li key={d.valor}>
-                      <button
-                        type="button"
-                        onMouseDown={e => e.preventDefault()}
-                        onClick={() => {
-                          update({ distrito: d.valor })
-                          setShowSuggestions(false)
-                        }}
-                        className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm text-text transition hover:bg-surface-3"
-                      >
-                        <span className="truncate">{d.valor}</span>
-                        {d.n !== undefined && <span className="mono shrink-0 text-xs text-text-muted">{d.n.toLocaleString('es-PE')}</span>}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </div>
-        </Grupo>
-
-        {/* Precio y portales */}
-        <Grupo
-          icon={CircleDollarSign}
-          tono="green"
-          title="Precio y portales"
-          aside={
-            <div className="flex flex-wrap items-center justify-end gap-1.5" role="group" aria-label="Topes de precio rápidos">
-              {atajos.map(a => (
-                <button
-                  key={a}
-                  type="button"
-                  aria-pressed={filters.precioMax === a && filters.precioMin === ''}
-                  onClick={() => {
-                    const next = { ...filters, precioMin: '' as const, precioMax: a }
-                    onFiltersChange(next)
-                    onApply?.(next)
-                  }}
-                  className="rounded-full border border-line bg-surface-3 px-2.5 py-1 text-xs font-medium text-text-muted transition hover:border-gold/50 hover:text-text aria-pressed:border-gold aria-pressed:bg-gold-soft aria-pressed:text-gold"
-                >
-                  Hasta {currency} {a.toLocaleString('es-PE')}
-                </button>
-              ))}
-            </div>
-          }
-        >
-          <div className={grid}>
-            <div className={col('xl:col-span-3')}>
-              <Segmented
-                label="Moneda"
-                value={filters.moneda}
-                options={[
-                  { value: 'PEN', label: 'Soles' },
-                  { value: 'USD', label: 'Dólares' },
-                ]}
-                onChange={moneda => update({ moneda })}
-              />
-            </div>
-
-            <div className={col('xl:col-span-3')}>
-              <label className="field-label" htmlFor="flt-min">Precio mín. ({currency})</label>
-              <input
-                id="flt-min"
-                type="number"
-                min={0}
-                inputMode="numeric"
-                value={filters.precioMin}
-                onChange={e => update({ precioMin: numero(e.target.value) })}
-                placeholder="0"
-                className="field mono"
-              />
-            </div>
-
-            <div className={col('xl:col-span-3')}>
-              <label className="field-label" htmlFor="flt-max">Precio máx. ({currency})</label>
-              <input
-                id="flt-max"
-                type="number"
-                min={0}
-                inputMode="numeric"
-                value={filters.precioMax}
-                onChange={e => update({ precioMax: numero(e.target.value) })}
-                placeholder="Sin límite"
-                className="field mono"
-              />
-            </div>
-
-            {/* Portales */}
-            <div className={cn('relative', col('xl:col-span-3'))} ref={portalRef}>
-              <span className="field-label" id="flt-portal-label">Portal</span>
-              <button
-                type="button"
-                onClick={() => setShowPortalDropdown(!showPortalDropdown)}
-                aria-haspopup="listbox"
-                aria-expanded={showPortalDropdown}
-                aria-labelledby="flt-portal-label"
-                className="field flex items-center justify-between gap-2 text-left"
-              >
-                <span className={cn('truncate', filters.portales.length === 0 && 'text-text-faint')}>
-                  {filters.portales.length === 0 ? 'Todos los portales' : `${filters.portales.length} seleccionado(s)`}
-                </span>
-                <ChevronDown className={cn('size-4 shrink-0 text-text-muted transition', showPortalDropdown && 'rotate-180')} />
-              </button>
-              {showPortalDropdown && (
-                <div
-                  className={cn(
-                    'animate-popIn z-30 mt-2 w-full rounded-2xl border border-line-strong bg-surface-2 p-1.5 shadow-2xl',
-                    isMobileDrawer ? '' : 'absolute left-0 right-0 top-full'
-                  )}
-                >
-                  {PORTALES_OPCIONES.map(portal => (
-                    <label
-                      key={portal}
-                      className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-text transition hover:bg-surface-3"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={filters.portales.includes(portal)}
-                        onChange={() => handlePortalToggle(portal)}
-                        className="size-4 cursor-pointer accent-gold"
-                      />
-                      <span>{portal}</span>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <label className="flex w-fit cursor-pointer items-center gap-3 rounded-2xl border border-line bg-surface-3/40 px-4 py-2.5 text-sm text-text transition hover:border-gold/40">
-            <input
-              type="checkbox"
-              checked={filters.soloConPrecio}
-              onChange={e => update({ soloConPrecio: e.target.checked })}
-              className="size-4 cursor-pointer accent-gold"
+          <Bloque icon={KeyRound} tono="gold" title="Operación">
+            <Fichas
+              label="Qué buscas"
+              columnas={3}
+              value={filters.operacion}
+              onChange={operacion => update({ operacion })}
+              options={[
+                { value: 'todos', label: 'Todas', icon: Layers },
+                { value: 'ALQUILER', label: 'Alquiler', icon: KeyRound },
+                { value: 'VENTA', label: 'Venta', icon: Tag },
+              ]}
             />
-            Solo avisos con precio publicado
-          </label>
-        </Grupo>
+          </Bloque>
 
-        {/* Desglose: más filtros */}
-        <div>
-          <button
-            type="button"
-            onClick={() => setMas(v => !v)}
-            aria-expanded={mas}
-            aria-controls={masId}
-            className="group flex w-full items-center justify-between gap-3 rounded-2xl border border-dashed border-line-strong bg-surface-3/30 px-4 py-3 text-left transition hover:border-gold/50 hover:bg-surface-3/60"
-          >
-            <span className="flex items-center gap-2.5 text-sm font-semibold text-text">
-              <Icono3D icon={SlidersHorizontal} tono="violet" size="sm" />
-              Más filtros
-              <span className="hidden text-xs font-normal text-text-muted sm:inline">Ambientes, cocheras, área, antigüedad, anunciante y fecha</span>
-              {nAvanzados > 0 && <span className="badge badge-gold">{nAvanzados}</span>}
-            </span>
-            <ChevronDown className={cn('size-5 shrink-0 text-text-muted transition-transform duration-300', mas && 'rotate-180')} />
-          </button>
+          <Bloque icon={Building2} tono="violet" title="Tipo de inmueble" className="md:col-span-2 xl:col-span-1">
+            <Fichas label="Tipo" columnas={3} value={filters.inmueble} onChange={inmueble => update({ inmueble })} options={tiposConActual} />
+          </Bloque>
 
-          <div
-            id={masId}
-            inert={!mas}
-            className={cn('grid transition-[grid-template-rows,opacity,margin] duration-500 ease-[var(--ease-out)]', mas ? 'mt-6 grid-rows-[1fr] opacity-100' : 'mt-0 grid-rows-[0fr] opacity-0')}
-          >
-            <div className="min-h-0 overflow-hidden">
-              <div className="space-y-7 pb-1 pt-0.5">
-                <Grupo icon={BedDouble} tono="violet" title="Ambientes y cocheras">
-                  <div className={grid}>
-                    <div className={col('xl:col-span-5')}>
-                      <Segmented label="Dormitorios" value={filters.dormitorios} options={DORMITORIOS} onChange={dormitorios => update({ dormitorios })} />
-                    </div>
-                    <div className={col('xl:col-span-4')}>
-                      <Segmented label="Baños" value={filters.banios} options={BANIOS} onChange={banios => update({ banios })} />
-                    </div>
-                    <div className={col('xl:col-span-3')}>
-                      <Segmented label="Cocheras" value={filters.cocheras} options={COCHERAS} onChange={cocheras => update({ cocheras })} />
-                    </div>
-                  </div>
-                </Grupo>
+          <Bloque icon={MapPin} tono="blue" title="Ubicación">
+            <div className="grid gap-4">
+              <Selector id="flt-departamento" label="Departamento" value={filters.departamento} onChange={v => update({ departamento: v, provincia: '' })} opciones={departamentos} vacio="Sin datos aún" />
+              <Selector id="flt-provincia" label="Ciudad o provincia" value={filters.provincia} onChange={v => update({ provincia: v })} opciones={provincias} vacio="Sin datos aún" />
 
-                <div className={cn('grid gap-7', !isMobileDrawer && 'xl:grid-cols-2')}>
-                  <Grupo icon={Ruler} tono="blue" title="Área construida">
-                    <div className={cn('grid gap-5', !isMobileDrawer && 'sm:grid-cols-2')}>
-                      <div>
-                        <label className="field-label" htmlFor="flt-area-min">Área mín. (m²)</label>
-                        <input id="flt-area-min" type="number" min={0} inputMode="numeric" value={filters.areaMin} onChange={e => update({ areaMin: numero(e.target.value) })} placeholder="0" className="field mono" />
-                      </div>
-                      <div>
-                        <label className="field-label" htmlFor="flt-area-max">Área máx. (m²)</label>
-                        <input id="flt-area-max" type="number" min={0} inputMode="numeric" value={filters.areaMax} onChange={e => update({ areaMax: numero(e.target.value) })} placeholder="Sin límite" className="field mono" />
-                      </div>
-                    </div>
-                  </Grupo>
-
-                  <Grupo icon={Hammer} tono="rose" title="Antigüedad (años)">
-                    <Segmented
-                      label="Máxima"
-                      value={String(filters.antiguedadMax)}
-                      options={ANTIGUEDADES}
-                      onChange={v => update({ antiguedadMax: v === '' ? '' : Number(v) })}
-                    />
-                  </Grupo>
+              <div className="relative">
+                <label className="field-label" htmlFor="flt-distrito">Distrito</label>
+                <div className="field-icon">
+                  <Search className="size-4" />
+                  <input
+                    id="flt-distrito"
+                    type="text"
+                    value={filters.distrito}
+                    onChange={e => {
+                      update({ distrito: e.target.value })
+                      setShowSuggestions(true)
+                    }}
+                    onFocus={() => setShowSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                    placeholder="Buscar distrito..."
+                    className="field"
+                    autoComplete="off"
+                  />
                 </div>
+                {showSuggestions && suggestions.length > 0 && (
+                  <ul className="animate-popIn absolute left-0 right-0 top-full z-30 mt-2 max-h-60 overflow-y-auto rounded-2xl border border-line-strong bg-surface-2 p-1.5 shadow-2xl">
+                    {suggestions.map(d => (
+                      <li key={d.valor}>
+                        <button
+                          type="button"
+                          onMouseDown={e => e.preventDefault()}
+                          onClick={() => {
+                            update({ distrito: d.valor })
+                            setShowSuggestions(false)
+                          }}
+                          className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm text-text transition hover:bg-surface-3"
+                        >
+                          <span className="truncate">{d.valor}</span>
+                          {d.n !== undefined && <span className="mono shrink-0 text-xs text-text-muted">{d.n.toLocaleString('es-PE')}</span>}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
 
-                <div className={cn('grid gap-7', !isMobileDrawer && 'xl:grid-cols-2')}>
-                  <Grupo icon={UserRound} tono="green" title="Anunciante">
-                    <div>
-                      <label className="field-label" htmlFor="flt-anunciante">Inmobiliaria o persona</label>
-                      <input
-                        id="flt-anunciante"
-                        type="text"
-                        list="flt-anunciantes"
-                        value={filters.anunciante}
-                        onChange={e => update({ anunciante: e.target.value })}
-                        placeholder="Ej.: Prisma"
-                        className="field"
-                        maxLength={80}
-                        autoComplete="off"
-                      />
-                      <datalist id="flt-anunciantes">
-                        {(facetas?.anunciantes ?? []).map(a => <option key={a.valor} value={a.valor} />)}
-                      </datalist>
-                    </div>
-                  </Grupo>
+              {populares.length > 0 && (
+                <Etiquetas
+                  label="Distritos con más avisos"
+                  options={populares.map(d => ({ value: d.valor, label: d.valor, n: d.n }))}
+                  seleccion={filters.distrito ? [populares.find(d => claveNombre(d.valor) === claveNombre(filters.distrito))?.valor ?? ''] : []}
+                  onToggle={v => aplicar({ distrito: claveNombre(filters.distrito) === claveNombre(v) ? '' : v })}
+                />
+              )}
+            </div>
+          </Bloque>
 
-                  <Grupo icon={CalendarClock} tono="amber" title="Novedades">
-                    <Segmented label="Publicado en el sistema" value={filters.publicado} options={PUBLICADOS} onChange={publicado => update({ publicado })} />
-                  </Grupo>
+          <Bloque icon={CircleDollarSign} tono="green" title="Precio">
+            <div className="grid gap-4">
+              <Fichas
+                label="Moneda"
+                columnas={2}
+                value={filters.moneda}
+                onChange={moneda => update({ moneda })}
+                options={[
+                  { value: 'PEN', label: 'Soles (S/)', icon: CircleDollarSign },
+                  { value: 'USD', label: 'Dólares (USD)', icon: CircleDollarSign },
+                ]}
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="field-label" htmlFor="flt-min">Mín. ({currency})</label>
+                  <input id="flt-min" type="number" min={0} inputMode="numeric" value={filters.precioMin} onChange={e => update({ precioMin: numero(e.target.value) })} placeholder="0" className="field mono" />
+                </div>
+                <div>
+                  <label className="field-label" htmlFor="flt-max">Máx. ({currency})</label>
+                  <input id="flt-max" type="number" min={0} inputMode="numeric" value={filters.precioMax} onChange={e => update({ precioMax: numero(e.target.value) })} placeholder="Sin límite" className="field mono" />
                 </div>
               </div>
+              <div className="flex flex-wrap gap-1.5" role="group" aria-label="Topes de precio rápidos">
+                {atajos.map(a => (
+                  <button
+                    key={a}
+                    type="button"
+                    aria-pressed={filters.precioMax === a && filters.precioMin === ''}
+                    onClick={() => aplicar({ precioMin: '', precioMax: a })}
+                    className="rounded-full border border-line bg-surface-3 px-2.5 py-1 text-xs font-medium text-text-muted transition hover:border-gold/50 hover:text-text aria-pressed:border-gold aria-pressed:bg-gold-soft aria-pressed:text-gold"
+                  >
+                    Hasta {currency} {a.toLocaleString('es-PE')}
+                  </button>
+                ))}
+              </div>
+              <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-line bg-surface-3/40 px-4 py-2.5 text-sm text-text transition hover:border-gold/40">
+                <input type="checkbox" checked={filters.soloConPrecio} onChange={e => update({ soloConPrecio: e.target.checked })} className="size-4 cursor-pointer accent-gold" />
+                Solo avisos con precio publicado
+              </label>
             </div>
-          </div>
+          </Bloque>
+
+          <Bloque icon={BedDouble} tono="violet" title="Ambientes y cocheras">
+            <div className="grid gap-4">
+              <Fichas label="Dormitorios" columnas={5} value={filters.dormitorios} onChange={dormitorios => update({ dormitorios })} options={numeros(4).map(([value, label]) => ({ value: value as FilterState['dormitorios'], label, icon: value === 'todos' ? Layers : BedDouble }))} />
+              <Fichas label="Baños" columnas={4} value={filters.banios} onChange={banios => update({ banios })} options={numeros(3).map(([value, label]) => ({ value: value as FilterState['banios'], label, icon: value === 'todos' ? Layers : Bath }))} />
+              <Fichas
+                label="Cocheras"
+                columnas={4}
+                value={filters.cocheras}
+                onChange={cocheras => update({ cocheras })}
+                options={[
+                  { value: 'todos', label: 'Todas', icon: Layers },
+                  { value: '1+', label: '1+', icon: Car },
+                  { value: '2+', label: '2+', icon: Car },
+                  { value: '3+', label: '3+', icon: Car },
+                ]}
+              />
+            </div>
+          </Bloque>
+
+          <Bloque icon={Ruler} tono="blue" title="Área construida">
+            <div className="grid gap-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="field-label" htmlFor="flt-area-min">Mín. (m²)</label>
+                  <input id="flt-area-min" type="number" min={0} inputMode="numeric" value={filters.areaMin} onChange={e => update({ areaMin: numero(e.target.value) })} placeholder="0" className="field mono" />
+                </div>
+                <div>
+                  <label className="field-label" htmlFor="flt-area-max">Máx. (m²)</label>
+                  <input id="flt-area-max" type="number" min={0} inputMode="numeric" value={filters.areaMax} onChange={e => update({ areaMax: numero(e.target.value) })} placeholder="Sin límite" className="field mono" />
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-1.5" role="group" aria-label="Rangos de área rápidos">
+                {AREAS_RAPIDAS.map(a => (
+                  <button
+                    key={a.label}
+                    type="button"
+                    aria-pressed={filters.areaMin === a.min && filters.areaMax === a.max}
+                    onClick={() => aplicar({ areaMin: a.min, areaMax: a.max })}
+                    className="rounded-full border border-line bg-surface-3 px-2.5 py-1 text-xs font-medium text-text-muted transition hover:border-gold/50 hover:text-text aria-pressed:border-gold aria-pressed:bg-gold-soft aria-pressed:text-gold"
+                  >
+                    {a.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </Bloque>
+
+          <Bloque icon={Hammer} tono="rose" title="Antigüedad">
+            <Fichas
+              label="Años máximos"
+              columnas={5}
+              value={String(filters.antiguedadMax)}
+              onChange={v => update({ antiguedadMax: v === '' ? '' : Number(v) })}
+              options={[
+                { value: '', label: 'Todas', icon: Layers },
+                { value: '0', label: 'Estreno', icon: Hammer },
+                { value: '5', label: '5', icon: Hammer },
+                { value: '10', label: '10', icon: Hammer },
+                { value: '20', label: '20', icon: Hammer },
+              ]}
+            />
+          </Bloque>
+
+          <Bloque icon={Building2} tono="teal" title="Portales">
+            <Etiquetas
+              label="Dónde se publicó"
+              options={PORTALS.map(p => ({ value: p.label, label: p.label, color: p.color }))}
+              seleccion={filters.portales}
+              onToggle={handlePortalToggle}
+            />
+          </Bloque>
+
+          <Bloque icon={UserRound} tono="amber" title="Anunciante">
+            <div>
+              <label className="field-label" htmlFor="flt-anunciante">Inmobiliaria o persona</label>
+              <input id="flt-anunciante" type="text" list="flt-anunciantes" value={filters.anunciante} onChange={e => update({ anunciante: e.target.value })} placeholder="Ej.: Prisma" className="field" maxLength={80} autoComplete="off" />
+              <datalist id="flt-anunciantes">
+                {(facetas?.anunciantes ?? []).map(a => <option key={a.valor} value={a.valor} />)}
+              </datalist>
+            </div>
+          </Bloque>
+
+          <Bloque icon={CalendarClock} tono="green" title="Publicación">
+            <Fichas
+              label="Publicado en el sistema"
+              columnas={4}
+              value={filters.publicado}
+              onChange={publicado => update({ publicado })}
+              options={[
+                { value: 'todos', label: 'Siempre', icon: Layers },
+                { value: 'hoy', label: 'Hoy', icon: CalendarClock },
+                { value: 'semana', label: '7 días', icon: CalendarClock },
+                { value: 'mes', label: '30 días', icon: CalendarClock },
+              ]}
+            />
+          </Bloque>
         </div>
       </div>
 
-      {/* Pie: filtros activos y acciones */}
-      <footer
-        className={cn(
-          'flex flex-wrap items-center justify-between gap-4',
-          isMobileDrawer ? 'border-t border-line pt-5' : 'rounded-b-[1.5rem] border-t border-line bg-surface-1/60 px-5 py-4 sm:px-6'
-        )}
-      >
-        <ul className="flex min-w-0 flex-1 flex-wrap items-center gap-2" aria-label="Filtros aplicados">
-          {activos.length === 0 ? (
-            <li className="text-sm text-text-muted">Sin filtros: se muestran todos los avisos.</li>
-          ) : (
-            activos.map(a => (
-              <li key={a.clave}>
-                <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-gold/30 bg-gold-soft py-1 pl-3 pr-1 text-xs font-medium text-text">
-                  <span className="truncate">{a.etiqueta}</span>
-                  <button
-                    type="button"
-                    onClick={() => quitar(a.quitar)}
-                    className="inline-flex size-5 shrink-0 items-center justify-center rounded-full text-text-muted transition hover:bg-gold/25 hover:text-text"
-                    aria-label={`Quitar filtro: ${a.etiqueta}`}
-                  >
-                    <X className="size-3" />
-                  </button>
-                </span>
-              </li>
-            ))
-          )}
-        </ul>
-
+      {/* Pie fijo: total en vivo y acciones */}
+      <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-line bg-surface-1/70 px-5 py-4">
+        <p className="flex min-h-5 items-center gap-2 text-sm text-text-muted" aria-live="polite">
+          {contar ? (
+            contando ? (
+              <>
+                <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+                Contando…
+              </>
+            ) : total !== null ? (
+              <>
+                <strong className="mono text-base font-semibold text-gold">{total.toLocaleString('es-PE')}</strong> aviso{total === 1 ? '' : 's'}
+              </>
+            ) : null
+          ) : activos.length === 0 ? (
+            'Sin filtros'
+          ) : null}
+        </p>
         <div className="flex gap-2.5">
           <button type="button" onClick={handleClear} className="btn btn-secondary" aria-label="Limpiar filtros" title="Limpiar filtros">
             <X className="size-4" />
