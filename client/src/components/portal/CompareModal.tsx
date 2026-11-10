@@ -2,7 +2,7 @@ import { Building2, Scale, Trophy, X } from 'lucide-react'
 import { useEffect } from 'react'
 import { parseAreaM2, pricePerM2 } from '@shared/area'
 import { getOperacionColor, getPortalColor } from '@/lib/portals'
-import { currencyLabel, getDisplayPrice, type Currency } from '@/lib/prices'
+import { currencyLabel, formatDisplayPrice, getDisplayPrice, getPublishedPrice, type Currency } from '@/lib/prices'
 import { safeHttpUrl } from '@/lib/url'
 import { cn } from '@/lib/utils'
 import type { Propiedad } from '@/types'
@@ -39,10 +39,8 @@ export default function CompareModal({ items, moneda, onRemove, onClose }: Compa
   const rows: Row[] = [
     {
       label: 'Precio',
-      value: p => {
-        const price = priceOf(p)
-        return price.amount > 0 ? `${label} ${price.approximate ? '~' : ''}${fmt(price.amount)}` : 'Sin precio'
-      },
+      // El texto es el precio publicado; la comparación (mejor, peor) usa la moneda elegida para que sea justa.
+      value: p => formatDisplayPrice(getPublishedPrice(p.precio, p.precio_usd, p.moneda, moneda)),
       score: p => (priceOf(p).amount > 0 ? priceOf(p).amount : null),
       best: 'min',
     },

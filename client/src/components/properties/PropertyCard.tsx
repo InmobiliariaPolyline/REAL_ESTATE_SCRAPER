@@ -1,7 +1,7 @@
 import { Bath, BedDouble, Car, ExternalLink, Heart, Info, Link2, MapPin, Ruler, Scale, Trash2, type LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 import { getOperacionColor, getPortalColor } from '@/lib/portals'
-import { formatDisplayPrice, getDisplayPrice, type Currency } from '@/lib/prices'
+import { formatDisplayPrice, getPublishedPrice, type Currency } from '@/lib/prices'
 import {
   esAlquiler,
   esNuevo,
@@ -104,7 +104,8 @@ export default function PropertyCard({
 }: PropertyCardProps) {
   const [mostrarEnlaces, setMostrarEnlaces] = useState(false)
 
-  const price = getDisplayPrice(precio, precioUsd, moneda, monedaOriginal)
+  // El precio de la tarjeta es el que publicó el aviso (moneda de origen), no una conversión.
+  const price = getPublishedPrice(precio, precioUsd, monedaOriginal, moneda)
   const hasPrice = price.amount > 0
   const safeUrl = safeHttpUrl(url)
   const safeImage = safeHttpUrl(imagen)

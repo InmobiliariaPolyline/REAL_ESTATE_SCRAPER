@@ -6,7 +6,7 @@ import StatCard from "@/components/common/StatCard"
 import { useToast } from "@/contexts/ToastContext"
 import { timeAgo } from "@/lib/account"
 import { fetchInicio, type Inicio } from "@/lib/insights"
-import { getDisplayPrice, formatDisplayPrice } from "@/lib/prices"
+import { getPublishedPrice, formatDisplayPrice } from "@/lib/prices"
 import { esAlquiler, tipoVisual } from "@/lib/propertyTags"
 import { safeHttpUrl } from "@/lib/url"
 import type { FilterState, Propiedad } from "@/types"
@@ -19,7 +19,7 @@ interface PortalInicioProps {
 
 function MiniAviso({ p, onOpen, extra }: { p: Propiedad; onOpen: () => void; extra?: React.ReactNode }) {
   const img = safeHttpUrl(p.imagen)
-  const price = formatDisplayPrice(getDisplayPrice(p.precio, p.precio_usd, "PEN", p.moneda))
+  const price = formatDisplayPrice(getPublishedPrice(p.precio, p.precio_usd, p.moneda))
   const tipo = tipoVisual(p.inmueble)
   const TipoIcono = tipo.icono
   const alquiler = esAlquiler(p.operacion)

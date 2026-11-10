@@ -3,7 +3,7 @@ import { getOperacionColor, getPortalColor } from '@/lib/portals'
 import {
   currencyLabel,
   formatDisplayPrice,
-  getDisplayPrice,
+  getPublishedPrice,
   type Currency,
 } from '@/lib/prices'
 import { cn } from '@/lib/utils'
@@ -36,7 +36,7 @@ export default function PropertyTable({ properties, moneda }: PropertyTableProps
             {properties.map(prop => {
               const image = safeHttpUrl(prop.imagen)
               const url = safeHttpUrl(prop.url)
-              const price = getDisplayPrice(prop.precio, prop.precio_usd, moneda, prop.moneda)
+              const price = getPublishedPrice(prop.precio, prop.precio_usd, prop.moneda, moneda)
               return (
                 <tr key={prop.id}>
                   <td className="max-w-[22rem]">

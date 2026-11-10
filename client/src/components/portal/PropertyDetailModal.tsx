@@ -15,7 +15,7 @@ import { USD_TO_PEN_RATE } from '@/lib/config'
 import { formatDate } from '@/lib/dates'
 import { fetchPropertyDetail, type PropertyDetail } from '@/lib/propertiesApi'
 import { getOperacionColor, getPortalColor } from '@/lib/portals'
-import { currencyLabel, formatDisplayPrice, getDisplayPrice, type Currency } from '@/lib/prices'
+import { currencyLabel, formatDisplayPrice, getDisplayPrice, getPublishedPrice, type Currency } from '@/lib/prices'
 import {
   HIPOTECA, MESES_GARANTIA, antiguedadTexto, baniosN, categoriaTamano, diasDesde, dormitoriosN, financiamiento, mapaUrl,
   posicionEnRango, posicionEnZona, precioPorM2, preciosDelAviso, resumenDelAviso, variacionDePrecio, whatsappUrl,
@@ -115,10 +115,12 @@ export default function PropertyDetailModal({
   const sym = currencyLabel(mon)
   const money = useCallback((n: number | null | undefined) => (n && n > 0 ? `${sym} ${fmt(n)}` : NA), [sym])
 
-  const price = p ? getDisplayPrice(p.precio, p.precio_usd, mon, p.moneda) : null
+  // Precio principal: el publicado por el aviso, en su moneda; la otra moneda va aparte como equivalente aproximado.
+  const price = p ? getPublishedPrice(p.precio, p.precio_usd, p.moneda, mon) : null
   const precios = useMemo(() => (p ? preciosDelAviso(p) : null), [p])
   const enMoneda = mon === 'USD' ? precios?.usd ?? 0 : precios?.pen ?? 0
-  const otra = mon === 'USD' ? precios?.pen ?? 0 : precios?.usd ?? 0
+  const monedaPublicada: Currency = price?.label === 'USD' ? 'USD' : 'PEN'
+  const otra = monedaPublicada === 'USD' ? precios?.pen ?? 0 : precios?.usd ?? 0
   const sinPrecio = !!price && price.amount <= 0
   const tipo = tipoVisual(p?.inmueble)
   const operacionTag = operacionVisual(p?.operacion)
@@ -272,8 +274,8 @@ export default function PropertyDetailModal({
                           {alquiler && <span className="text-sm font-medium text-text-muted">al mes</span>}
                         </p>
                         <p className="mt-2 text-sm text-text-muted">
-                          {otra > 0 && `≈ ${currencyLabel(mon === 'USD' ? 'PEN' : 'USD')} ${fmt(otra)}`}
-                          {price.approximate && `${otra > 0 ? ' · ' : ''}conversión aproximada`}
+                          {otra > 0 && `≈ ${currencyLabel(monedaPublicada === 'USD' ? 'PEN' : 'USD')} ${fmt(otra)}`}
+                          {otra > 0 ? ' · conversión aproximada' : ''}{price.approximate && `${otra > 0 ? ' · ' : ''}precio convertido`}
                         </p>
                         {porM2Texto && !alquiler && (
                           <p className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">
@@ -491,7 +493,7 @@ export default function PropertyDetailModal({
                   <Seccion icon={Sparkles} tono="violet" title="Parecidos en la zona" subtitle="Misma operación y distrito, con un precio cercano">
                     <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                       {detail!.similares!.map(s => {
-                        const sp = getDisplayPrice(s.precio, s.precio_usd, mon, s.moneda)
+                        const sp = getPublishedPrice(s.precio, s.precio_usd, s.moneda, mon)
                         const foto = safeHttpUrl(s.imagen)
                         return (
                           <li key={s.id}>

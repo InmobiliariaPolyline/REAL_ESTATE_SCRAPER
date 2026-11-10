@@ -23,6 +23,15 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "3.1.1",
+    fecha: "2026-11-10",
+    titulo: "Precios tal como los publica el aviso",
+    cambios: [
+      { tipo: "correccion", texto: "Los precios ya no se mostraban igual que en el portal de origen: un aviso publicado en dólares (U$S 340.000) se veía convertido a soles con el tipo de cambio del sistema (S/ ~1 275 000), distinto del que muestra el portal. Ahora tarjetas, tabla, inicio, vista previa y comparación muestran el precio y la moneda exactos del aviso." },
+      { tipo: "mejora", texto: "En la vista previa, la otra moneda aparece aparte como equivalente aproximado («≈ S/ …· conversión aproximada»); el precio por m² se calcula sobre el precio publicado. Los filtros de precio y el orden siguen comparando en la moneda elegida." },
+    ],
+  },
+  {
     version: "3.1.0",
     fecha: "2026-11-10",
     titulo: "Remasterización: administración, métricas y estadísticas",

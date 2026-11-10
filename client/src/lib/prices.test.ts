@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { USD_TO_PEN_RATE } from "./config"
-import { formatDisplayPrice, getDisplayPrice } from "./prices"
+import { formatDisplayPrice, getDisplayPrice, getPublishedPrice } from "./prices"
 
 describe("getDisplayPrice", () => {
   it("usa el precio nativo cuando existe", () => {
@@ -52,5 +52,31 @@ describe("getDisplayPrice con la moneda original del aviso", () => {
   it("sin moneda original se asume soles (comportamiento anterior)", () => {
     expect(getDisplayPrice(375000, 100000, "PEN").amount).toBe(375000)
     expect(getDisplayPrice(375000, 0, "USD").amount).toBe(Math.round(375000 / USD_TO_PEN_RATE))
+  })
+})
+
+describe("getPublishedPrice (el precio exacto del aviso)", () => {
+  it("un aviso en dólares se muestra en dólares, sin convertir, aunque se pida en soles", () => {
+    const p = getPublishedPrice(340000, 340000, "USD", "PEN")
+    expect(p).toEqual({ amount: 340000, approximate: false, label: "USD" })
+    expect(formatDisplayPrice(p)).toBe("USD 340,000")
+  })
+
+  it("un aviso en soles se muestra en soles, aunque se pida en dólares", () => {
+    const p = getPublishedPrice(613343, 177700, "PEN", "USD")
+    expect(formatDisplayPrice(p)).toBe("S/ 613,343")
+    expect(p.approximate).toBe(false)
+  })
+
+  it("sin moneda de origen se asume soles", () => {
+    expect(formatDisplayPrice(getPublishedPrice(2500, 650, undefined))).toBe("S/ 2,500")
+  })
+
+  it("sin precio publicado cae a la conversión (aproximada) y sin nada dice «Sin precio»", () => {
+    const conv = getPublishedPrice(0, 100000, "USD", "PEN")
+    expect(conv.approximate).toBe(true)
+    expect(conv.amount).toBe(Math.round(100000 * USD_TO_PEN_RATE))
+    expect(formatDisplayPrice(getPublishedPrice(0, 0, "USD", "PEN"))).toBe("Sin precio")
+    expect(formatDisplayPrice(getPublishedPrice(null, null, null))).toBe("Sin precio")
   })
 })

@@ -60,4 +60,11 @@ describe('PropertyCard', () => {
     expect(screen.queryByText('baños')).toBeNull()
     expect(screen.getByText('Cayma, Arequipa')).toBeInTheDocument()
   })
+
+  it('el precio es el publicado por el aviso, sin convertir: en dólares muestra USD aunque la vista sea en soles', () => {
+    render(<PropertyCard {...base} precio={340000} precioUsd={340000} monedaOriginal="USD" moneda="PEN" inmueble="Departamento" />)
+    expect(screen.getByText('USD 340,000')).toBeInTheDocument()
+    expect(screen.queryByText(/S\/ ~/)).toBeNull()
+    expect(screen.getByText('USD 3,400 por m²')).toBeInTheDocument()
+  })
 })

@@ -103,4 +103,16 @@ describe('PropertyDetailModal', () => {
     expect(barra.className).toContain('sticky')
     expect(dialogo.contains(barra)).toBe(true)
   })
+
+  it('el precio principal es el publicado; la otra moneda va como equivalente aproximado', async () => {
+    fetchPropertyDetail.mockResolvedValue({ ...detalle, propiedad: { ...detalle.propiedad, precio: 340000, precio_usd: 340000, moneda: 'USD' } })
+    render(
+      <ToastProvider>
+        <PropertyDetailModal propertyId="urbania:1" moneda="PEN" isFavorite={false} onToggleFavorite={() => {}}
+          isCompared={false} compareDisabled={false} onClose={() => {}} />
+      </ToastProvider>
+    )
+    expect(await screen.findByText('USD 340,000')).toBeInTheDocument()
+    expect(screen.getByText(/≈ S\/ [\d,]+ · conversión aproximada/)).toBeInTheDocument()
+  })
 })

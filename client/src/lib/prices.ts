@@ -54,6 +54,26 @@ export function getDisplayPrice(
   return { amount: 0, approximate: false, label }
 }
 
+/**
+ * Precio tal como lo publicó el aviso: el monto y la moneda del portal de origen, sin conversión (un aviso de
+ * U$S 340 000 se muestra «USD 340,000», no su equivalente en soles al tipo de cambio del sistema). Si el aviso no
+ * trae su precio publicado, se recurre a la conversión desde la otra moneda, marcada como aproximada.
+ *
+ * `original` es la moneda en que se publicó (`moneda` de la fila); sin ese dato se asume soles.
+ */
+export function getPublishedPrice(
+  precio: number | null | undefined,
+  precioUsd: number | null | undefined,
+  original: string | null | undefined,
+  respaldo: Currency = "PEN"
+): DisplayPrice {
+  if (positive(precio)) {
+    const enDolares = (original ?? "").toUpperCase() === "USD"
+    return { amount: precio, approximate: false, label: currencyLabel(enDolares ? "USD" : "PEN") }
+  }
+  return getDisplayPrice(precio, precioUsd, respaldo, original)
+}
+
 /** Texto cuando el aviso no publicó precio: sin símbolo de moneda ni «0», porque no hay ningún monto. */
 export const SIN_PRECIO = "Sin precio"
 
