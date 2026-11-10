@@ -1481,6 +1481,36 @@ describe("carga automática (Apify)", () => {
     await pg.exec("delete from propiedades where id like 'loc%'")
   })
 
+  it("el panel de administración también filtra por departamento, ciudad, tipo, cocheras y demás", async () => {
+    await pg.exec(`
+      insert into propiedades (id, portal, operacion, inmueble, titulo, precio, precio_usd, moneda, distrito, departamento, provincia, estacionamientos, antiguedad, publicador, dormitorios, banios, area) values
+        ('adm1','infocasas','VENTA','Casa','Casa Cayma',500000,133000,'PEN','Cayma','Arequipa','Arequipa','2','5 años','Inmobiliaria Prisma','4','3','200 m2'),
+        ('adm2','infocasas','VENTA','Departamento','Depa Miraflores',300000,80000,'PEN','Miraflores','Lima','Lima','1','Estreno','Casas del Sur','2','1','60 m2'),
+        ('adm3','infocasas','ALQUILER','Departamento','Depa sin precio',0,0,'PEN','Lince','Lima','Lima','0','12 años',null,'1','1','40 m2')
+    `)
+    const ids = async (q: string) =>
+      (await call("GET", `/api/admin/propiedades?pageSize=50&${q}`, { token: admin })).body.data
+        .map((p: any) => p.id)
+        .filter((id: string) => id.startsWith("adm"))
+        .sort()
+
+    expect(await ids("departamento=Arequipa")).toEqual(["adm1"])
+    expect(await ids("departamento=lima&provincia=lima")).toEqual(["adm2", "adm3"])
+    expect(await ids("inmueble=Casa")).toEqual(["adm1"])
+    expect(await ids("cocheras=1%2B")).toEqual(["adm1", "adm2"])
+    expect(await ids("antiguedadMax=0")).toEqual(["adm2"])
+    expect(await ids("anunciante=prisma")).toEqual(["adm1"])
+    expect(await ids("soloConPrecio=1")).toEqual(["adm1", "adm2"])
+    expect(await ids("dormitorios=4%2B")).toEqual(["adm1"])
+    expect(await ids("banios=1")).toEqual(["adm2", "adm3"])
+    expect(await ids("areaMin=50")).toEqual(["adm1", "adm2"])
+    expect(await ids("texto=cayma")).toEqual(["adm1"])
+    // Combinados con los filtros propios del panel.
+    expect(await ids("operacion=VENTA&departamento=Lima&soloConPrecio=1")).toEqual(["adm2"])
+    expect((await call("GET", "/api/admin/propiedades?cocheras=9", { token: admin })).status).toBe(400)
+    await pg.exec("delete from propiedades where id like 'adm%'")
+  })
+
   it("la migración 011 unifica distritos y deduce departamento y provincia de lo ya guardado", async () => {
     await pg.exec(`
       insert into propiedades (id, portal, operacion, inmueble, titulo, distrito) values

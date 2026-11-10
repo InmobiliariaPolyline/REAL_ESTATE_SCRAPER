@@ -3,7 +3,9 @@ import { ADMIN_PAGE_SIZE } from "@shared/constants"
 import { useToast } from "@/contexts/ToastContext"
 import { api } from "@/lib/api"
 import {
+  DETALLE_VACIO,
   EMPTY_ADMIN_SEARCH,
+  contarDetalle,
   fetchAdminPage,
   toUsd,
   type AdminSearchFilters,
@@ -168,7 +170,10 @@ export function useAdminPropiedades() {
         precio_min: toUsd(draft.precioMin, draft.moneda),
         precio_max: toUsd(draft.precioMax, draft.moneda),
       })
-      addToast("Búsqueda guardada", "success")
+      addToast(
+        contarDetalle(draft) > 0 ? "Búsqueda guardada (guarda distrito, operación, portal y precio; los filtros de «Más filtros» no)" : "Búsqueda guardada",
+        "success"
+      )
       loadBusquedas()
       return true
     } catch (err) {
@@ -188,6 +193,7 @@ export function useAdminPropiedades() {
       precioMin: b.precio_min !== null ? String(b.precio_min) : "",
       precioMax: b.precio_max !== null ? String(b.precio_max) : "",
       moneda: "USD",
+      ...DETALLE_VACIO,
     }
     setDraft(form)
     setActiveSavedSearch(true)

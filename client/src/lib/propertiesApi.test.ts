@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 const get = vi.fn()
 vi.mock("./api", () => ({ api: { get: (...a: unknown[]) => get(...a) } }))
 
-import { EMPTY_ADMIN_SEARCH, fetchAdminPage } from "./propertiesApi"
+import { DETALLE_VACIO, EMPTY_ADMIN_SEARCH, contarDetalle, fetchAdminPage } from "./propertiesApi"
 
 beforeEach(() => get.mockReset().mockResolvedValue({ data: [], count: 0 }))
 

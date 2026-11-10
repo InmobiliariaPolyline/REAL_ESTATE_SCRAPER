@@ -143,12 +143,24 @@ export function parsePortalFilters(q: URLSearchParams): PortalFilters {
   }
 }
 
-/** Agrega a `w` las condiciones de los filtros del portal. */
-function applyPortalWhere(w: Where, f: PortalFilters, usdToPen: number) {
-  if (f.operacion) w.add(`lower(operacion) = lower(${w.p(f.operacion)})`)
+/** Filtros de ubicación y detalle que comparten el portal y el panel de administración. */
+export type FiltrosDetalle = Pick<
+  PortalFilters,
+  "inmueble" | "dormitorios" | "banios" | "departamento" | "provincia" | "cocheras" | "antiguedadMax" | "anunciante" | "soloConPrecio" | "areaMin" | "areaMax" | "publicado" | "texto"
+>
+
+const CLAVES_DETALLE = [
+  "inmueble", "dormitorios", "banios", "departamento", "provincia", "cocheras", "antiguedadMax", "anunciante", "soloConPrecio", "areaMin", "areaMax", "publicado", "texto",
+] as const
+
+/** Los filtros de detalle de una consulta (los mismos parámetros del portal); lo que falte queda sin filtrar. */
+export function parseFiltrosDetalle(q: URLSearchParams): FiltrosDetalle {
+  const f = parsePortalFilters(q)
+  return Object.fromEntries(CLAVES_DETALLE.map(k => [k, f[k]])) as FiltrosDetalle
+}
+
+function applyDetalleWhere(w: Where, f: FiltrosDetalle) {
   if (f.inmueble) w.add(`lower(inmueble) = lower(${w.p(f.inmueble)})`)
-  if (f.distrito) w.add(`distrito ~* ${w.p(accentInsensitivePattern(f.distrito))}`)
-  if (f.portales.length) w.add(`portal = any(${w.p(f.portales)}::text[])`)
 
   const dorm = bedroomsPattern(f.dormitorios)
   if (dorm) w.add(`dormitorios ~* ${w.p(dorm)}`)
@@ -190,6 +202,15 @@ function applyPortalWhere(w: Where, f: PortalFilters, usdToPen: number) {
     const like = w.p(`%${escapeLike(f.texto)}%`)
     w.add(`(titulo ilike ${like} or distrito ilike ${like})`)
   }
+}
+
+/** Agrega a `w` las condiciones de los filtros del portal. */
+function applyPortalWhere(w: Where, f: PortalFilters, usdToPen: number) {
+  if (f.operacion) w.add(`lower(operacion) = lower(${w.p(f.operacion)})`)
+  if (f.distrito) w.add(`distrito ~* ${w.p(accentInsensitivePattern(f.distrito))}`)
+  if (f.portales.length) w.add(`portal = any(${w.p(f.portales)}::text[])`)
+
+  applyDetalleWhere(w, f)
 
   // Rango de precio: el aviso entra si su precio nativo cae en el rango o, cuando solo tiene
   // el precio en la otra moneda, si esa cifra convertida cae en el rango.
@@ -287,6 +308,8 @@ export interface AdminFilters {
   moneda: "USD" | "PEN" | null
   minUsd: number | null
   maxUsd: number | null
+  /** Ubicación y detalle (departamento, ciudad, tipo, cocheras…): los mismos del portal. */
+  detalle: FiltrosDetalle
 }
 
 export function parseAdminFilters(q: URLSearchParams): AdminFilters {
@@ -298,6 +321,7 @@ export function parseAdminFilters(q: URLSearchParams): AdminFilters {
     moneda: moneda === "USD" || moneda === "PEN" ? moneda : null,
     minUsd: optNumber(q.get("minUsd")),
     maxUsd: optNumber(q.get("maxUsd")),
+    detalle: parseFiltrosDetalle(q),
   }
 }
 
@@ -308,6 +332,7 @@ function applyAdminWhere(w: Where, f: AdminFilters) {
   if (f.moneda) w.add(`moneda = ${w.p(f.moneda)}`)
   if (f.minUsd !== null) w.add(`precio_usd >= ${w.p(f.minUsd)}`)
   if (f.maxUsd !== null) w.add(`precio_usd <= ${w.p(f.maxUsd)}`)
+  applyDetalleWhere(w, f.detalle)
 }
 
 export function buildAdminQuery(f: AdminFilters, page: number, pageSize: number): BuiltQuery {

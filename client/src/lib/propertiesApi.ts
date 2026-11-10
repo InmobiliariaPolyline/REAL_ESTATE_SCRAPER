@@ -1,6 +1,6 @@
 import { api } from "./api"
 import { USD_TO_PEN_RATE } from "./config"
-import type { FilterState, Propiedad } from "@/types"
+import { DEFAULT_FILTERS, type FilterState, type Propiedad } from "@/types"
 import type { MercadoZona } from "./propertyInsights"
 
 export interface PropertyPage {
@@ -117,7 +117,38 @@ export const deleteSavedSearch = (id: string) => api.delete(`/busquedas/${encode
 
 // ── Búsqueda del panel de administración ─────────────────────────────────────
 
-export interface AdminSearchFilters {
+/** Filtros de ubicación y detalle: los mismos del portal de clientes. */
+export type DetalleFiltros = Pick<
+  FilterState,
+  "inmueble" | "dormitorios" | "banios" | "departamento" | "provincia" | "cocheras" | "antiguedadMax" | "anunciante" | "soloConPrecio" | "areaMin" | "areaMax" | "publicado" | "texto"
+>
+
+/** Valores de «sin filtrar» de los filtros de detalle. */
+export const DETALLE_VACIO: DetalleFiltros = {
+  inmueble: DEFAULT_FILTERS.inmueble,
+  dormitorios: DEFAULT_FILTERS.dormitorios,
+  banios: DEFAULT_FILTERS.banios,
+  departamento: DEFAULT_FILTERS.departamento,
+  provincia: DEFAULT_FILTERS.provincia,
+  cocheras: DEFAULT_FILTERS.cocheras,
+  antiguedadMax: DEFAULT_FILTERS.antiguedadMax,
+  anunciante: DEFAULT_FILTERS.anunciante,
+  soloConPrecio: DEFAULT_FILTERS.soloConPrecio,
+  areaMin: DEFAULT_FILTERS.areaMin,
+  areaMax: DEFAULT_FILTERS.areaMax,
+  publicado: DEFAULT_FILTERS.publicado,
+  texto: DEFAULT_FILTERS.texto,
+}
+
+/** Cuántos filtros de detalle están puestos (para el contador de «Más filtros»). */
+export function contarDetalle(f: DetalleFiltros): number {
+  return (Object.keys(DETALLE_VACIO) as (keyof DetalleFiltros)[]).filter(k => {
+    const v = f[k]
+    return typeof v === "string" ? v.trim() !== "" && v !== DETALLE_VACIO[k] : v !== DETALLE_VACIO[k]
+  }).length
+}
+
+export interface AdminSearchFilters extends DetalleFiltros {
   distrito: string
   operacion: string
   portal: string
@@ -134,6 +165,7 @@ export const EMPTY_ADMIN_SEARCH: AdminSearchFilters = {
   precioMin: "",
   precioMax: "",
   moneda: "USD",
+  ...DETALLE_VACIO,
 }
 
 /** Convierte el monto escrito (en la moneda del filtro) a USD normalizado. */
@@ -159,5 +191,18 @@ export function fetchAdminPage(
     // original del aviso (si lo hiciera, con «USD» elegido se ocultarían todos los avisos en soles).
     minUsd: toUsd(filters.precioMin, filters.moneda),
     maxUsd: toUsd(filters.precioMax, filters.moneda),
+    inmueble: filters.inmueble,
+    dormitorios: filters.dormitorios,
+    banios: filters.banios,
+    departamento: filters.departamento.trim(),
+    provincia: filters.provincia.trim(),
+    cocheras: filters.cocheras,
+    antiguedadMax: filters.antiguedadMax,
+    anunciante: filters.anunciante.trim(),
+    soloConPrecio: filters.soloConPrecio ? 1 : "",
+    areaMin: filters.areaMin,
+    areaMax: filters.areaMax,
+    publicado: filters.publicado,
+    texto: filters.texto.trim(),
   })
 }

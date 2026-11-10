@@ -23,6 +23,16 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "2.3.1",
+    fecha: "2026-11-10",
+    titulo: "Los filtros nuevos también están en el panel de administración",
+    cambios: [
+      { tipo: "correccion", texto: "Los filtros de departamento, ciudad, tipo, cocheras, antigüedad, anunciante y demás solo se habían puesto en el catálogo de los clientes: ahora Propiedades (administración) tiene el mismo desglose «Más filtros»." },
+      { tipo: "mejora", texto: "El panel y el catálogo comparten la misma lógica de filtrado y los mismos campos, así que se comportan igual." },
+      { tipo: "mejora", texto: "Las búsquedas guardadas del administrador siguen guardando distrito, operación, portal y precio; al guardar con filtros de «Más filtros» puestos, se avisa de que esos no se guardan." },
+    ],
+  },
+  {
     version: "2.3.0",
     fecha: "2026-11-10",
     titulo: "Filtros por departamento, ciudad, tipo, cocheras y más",
