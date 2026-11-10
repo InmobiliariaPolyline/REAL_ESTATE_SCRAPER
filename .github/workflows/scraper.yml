@@ -1,0 +1,43 @@
+# Scraper propio de InfoCasas en la nube: corre solo, sin depender de ningún computador.
+#
+# Secreto requerido (Settings → Secrets and variables → Actions):
+#   INGESTA_TOKEN   el mismo valor que la variable INGESTA_TOKEN de Netlify
+#
+# Se ejecuta lunes y jueves (09:00 hora de Lima) y a mano desde la pestaña Actions → Run workflow.
+# Guía: docs/SCRAPER_PROPIO.md
+
+name: Scraper propio (InfoCasas)
+
+on:
+  schedule:
+    - cron: "0 14 * * 1,4"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scraper-propio
+  cancel-in-progress: false
+
+jobs:
+  scraper:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verificar secreto
+        env:
+          INGESTA_TOKEN: ${{ secrets.INGESTA_TOKEN }}
+        run: |
+          if [ -z "$INGESTA_TOKEN" ]; then
+            echo "::error::Falta el secreto INGESTA_TOKEN (Settings → Secrets and variables → Actions)"
+            exit 1
+          fi
+      - name: Leer y enviar avisos
+        env:
+          INGESTA_TOKEN: ${{ secrets.INGESTA_TOKEN }}
+        run: node scraper/scraper.mjs --portal infocasas --paginas 5 --provincias

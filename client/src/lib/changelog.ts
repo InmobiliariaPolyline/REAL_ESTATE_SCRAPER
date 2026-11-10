@@ -23,6 +23,14 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "2.9.1",
+    fecha: "2026-11-10",
+    titulo: "Scraper automático en la nube",
+    cambios: [
+      { tipo: "implementacion", texto: "Nuevo workflow de GitHub Actions que ejecuta el scraper de InfoCasas lunes y jueves sin depender de ningún computador; solo necesita el secreto INGESTA_TOKEN." },
+    ],
+  },
+  {
     version: "2.9.0",
     fecha: "2026-11-10",
     titulo: "Scraper propio: provincias y programación",

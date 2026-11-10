@@ -99,6 +99,11 @@ servidor (no reintenta ni intenta esquivar nada). Cada página se envía apenas 
 
 Las direcciones de búsqueda de cada portal están en `docs/URLS_BUSQUEDA.md`.
 
+**Programarlo en la nube (recomendado, sin computador):** el workflow `.github/workflows/scraper.yml` corre el
+scraper solo, lunes y jueves. Solo hay que crear el secreto `INGESTA_TOKEN` en GitHub (Settings → Secrets and
+variables → Actions) y probarlo una vez con Actions → «Scraper propio (InfoCasas)» → Run workflow. Si InfoCasas
+bloquea las IP de GitHub (403), el scraper se detiene y el workflow sale en rojo: en ese caso se usa el computador.
+
 **Programarlo en Windows (automático):** `.\scraper\programar-windows.ps1 -Token "tu-clave"` crea la tarea (lunes y jueves 8:00).
 
 **Programarlo en Windows (a mano):** Programador de tareas → Crear tarea básica → acción «Iniciar un programa» con
