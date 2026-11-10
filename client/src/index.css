@@ -979,6 +979,8 @@
   .badge-rose { background: rgb(242 112 107 / 0.1); color: var(--rose); border-color: rgb(242 112 107 / 0.25); }
   .badge-blue { background: rgb(110 168 254 / 0.1); color: var(--blue); border-color: rgb(110 168 254 / 0.25); }
   .badge-muted { background: var(--surface-3); color: var(--text-muted); border-color: var(--line); }
+  .badge-violet { background: rgb(167 139 250 / 0.1); color: var(--violet); border-color: rgb(167 139 250 / 0.25); }
+  .badge-amber { background: rgb(245 180 84 / 0.1); color: var(--amber); border-color: rgb(245 180 84 / 0.25); }
 
   .dot {
     display: inline-block;

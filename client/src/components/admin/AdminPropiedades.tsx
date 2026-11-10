@@ -168,6 +168,8 @@ export default function AdminPropiedades() {
                   imagen={prop.imagen}
                   url={prop.url}
                   index={idx}
+                  inmueble={prop.inmueble}
+                  creadoEn={prop.creado_en}
                   isFavorite={p.favoritos.has(prop.id)}
                   onToggleFavorite={p.toggleFavorite}
                   onView={p.registerView}

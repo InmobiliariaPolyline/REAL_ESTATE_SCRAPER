@@ -1,14 +1,21 @@
-import { Bath, BedDouble, Building2, ExternalLink, Heart, Info, Link2, MapPin, Ruler, Scale, Trash2 } from 'lucide-react'
+import { Bath, BedDouble, Car, ExternalLink, Heart, Info, Link2, MapPin, Ruler, Scale, Trash2, type LucideIcon } from 'lucide-react'
 import { useState } from 'react'
 import { getOperacionColor, getPortalColor } from '@/lib/portals'
+import { formatDisplayPrice, getDisplayPrice, type Currency } from '@/lib/prices'
 import {
-  formatDisplayPrice,
-  getDisplayPrice,
-  type Currency,
-} from '@/lib/prices'
+  esAlquiler,
+  esNuevo,
+  estadoDeAntiguedad,
+  formatoArea,
+  operacionVisual,
+  precioPorM2Texto,
+  tipoVisual,
+  ubicacionTexto,
+} from '@/lib/propertyTags'
 import { safeHttpUrl } from '@/lib/url'
 import { cn } from '@/lib/utils'
 import EnlacesPropiedad from './EnlacesPropiedad'
+import { ChipFotos, ChipFoto, ChipNuevo, Etiqueta } from './Etiquetas'
 
 interface PropertyCardProps {
   id: string
@@ -28,6 +35,13 @@ interface PropertyCardProps {
   imagen: string | null
   url: string
   index: number
+  /** Datos para las etiquetas (todos opcionales: sin ellos la tarjeta muestra lo básico). */
+  inmueble?: string
+  creadoEn?: string
+  fotos?: number
+  estacionamientos?: string | null
+  antiguedad?: string | null
+  departamento?: string | null
   isFavorite?: boolean
   onToggleFavorite?: (id: string) => void
   onDelete?: (id: string) => void
@@ -40,20 +54,22 @@ interface PropertyCardProps {
   onToggleCompare?: (id: string) => void
 }
 
-/** Dato de ficha (dormitorios, baños, área) con icono; se oculta si no hay valor. */
-function Meta({ icon: Icon, value, label }: { icon: typeof Bath; value: string; label: string }) {
-  if (!value) return null
+/** Dato de ficha (dormitorios, baños, área, cocheras) con icono y su unidad; se oculta si no hay valor. */
+function Dato({ icon: Icon, value, unidad, label }: { icon: LucideIcon; value: string | null | undefined; unidad?: string; label: string }) {
+  const v = (value ?? '').trim()
+  if (!v) return null
   return (
-    <span
-      className="inline-flex items-center gap-1.5 rounded-lg bg-surface-3 px-2.5 py-1.5 text-xs text-text"
-      title={label}
-    >
-      <Icon className="size-3.5 text-text-muted" strokeWidth={1.75} aria-hidden="true" />
+    <span className="inline-flex items-center gap-1.5 rounded-lg bg-surface-3 px-2.5 py-1.5 text-xs text-text" title={label}>
+      <Icon className="size-3.5 shrink-0 text-text-muted" strokeWidth={1.75} aria-hidden="true" />
       <span className="sr-only">{label}: </span>
-      {value}
+      <span className="font-semibold">{v}</span>
+      {unidad && <span className="text-text-muted">{unidad}</span>}
     </span>
   )
 }
+
+/** Valor de la ficha sin espacios sobrantes. */
+const cantidad = (v: string | null | undefined) => (v ?? '').trim()
 
 export default function PropertyCard({
   id,
@@ -71,6 +87,12 @@ export default function PropertyCard({
   imagen,
   url,
   index,
+  inmueble,
+  creadoEn,
+  fotos,
+  estacionamientos,
+  antiguedad,
+  departamento,
   isFavorite,
   onToggleFavorite,
   onDelete,
@@ -86,6 +108,18 @@ export default function PropertyCard({
   const hasPrice = price.amount > 0
   const safeUrl = safeHttpUrl(url)
   const safeImage = safeHttpUrl(imagen)
+
+  const tipo = tipoVisual(inmueble)
+  const TipoIcono = tipo.icono
+  const op = operacionVisual(operacion)
+  const OpIcono = op.icono
+  const alquiler = esAlquiler(operacion)
+  const esProyecto = tipo.label === 'Proyecto'
+  const estado = estadoDeAntiguedad(antiguedad)
+  const porM2 = precioPorM2Texto(price, area)
+  const nuevo = esNuevo(creadoEn)
+  const lugar = ubicacionTexto(distrito, departamento)
+  const cocheras = cantidad(estacionamientos)
 
   return (
     <>
@@ -115,23 +149,26 @@ export default function PropertyCard({
               decoding="async"
             />
           ) : (
-            <div className="flex size-full items-center justify-center bg-[radial-gradient(circle_at_30%_20%,var(--surface-4),var(--surface-3))]">
-              <Building2 className="size-10 text-text-faint" strokeWidth={1.25} />
+            <div className="flex size-full flex-col items-center justify-center gap-2 bg-[radial-gradient(circle_at_30%_20%,var(--surface-4),var(--surface-3))]">
+              <TipoIcono className="size-10 text-text-faint" strokeWidth={1.25} aria-hidden="true" />
+              <span className="text-xs text-text-faint">Sin fotos</span>
             </div>
           )}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/60 to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/65 to-transparent" />
 
-          <span className="pointer-events-none absolute left-3 top-3 z-[2] inline-flex items-center gap-1.5 rounded-full bg-black/55 px-2.5 py-1 text-xs font-medium capitalize text-white backdrop-blur-md">
+          <span className="pointer-events-none absolute left-3 top-3 z-[2] inline-flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-xs font-medium capitalize text-white backdrop-blur-md">
             <span className="dot" style={{ color: getPortalColor(portal) }} />
             {portal}
           </span>
 
           <div className="absolute right-3 top-3 z-[2] flex items-center gap-2">
             <span
-              className="rounded-full px-2.5 py-1 text-[0.6875rem] font-semibold uppercase tracking-wide text-[#10131a]"
+              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[0.6875rem] font-semibold uppercase tracking-wide text-[#10131a]"
               style={{ backgroundColor: getOperacionColor(operacion) }}
+              title={alquiler ? 'Se alquila' : 'Se vende'}
             >
-              {operacion}
+              <OpIcono className="size-3.5" strokeWidth={2} aria-hidden="true" />
+              {op.label}
             </span>
             {onToggleFavorite && (
               <button
@@ -142,30 +179,37 @@ export default function PropertyCard({
                   onToggleFavorite(id)
                 }}
                 aria-pressed={!!isFavorite}
-                className="inline-flex size-8 items-center justify-center rounded-full bg-black/55 backdrop-blur-md transition hover:bg-black/75"
+                className="inline-flex size-8 items-center justify-center rounded-full bg-black/60 backdrop-blur-md transition hover:bg-black/80"
                 title={isFavorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}
               >
-                <Heart
-                  className={cn('size-4', isFavorite ? 'fill-rose text-rose' : 'text-white')}
-                />
-                <span className="sr-only">
-                  {isFavorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}
-                </span>
+                <Heart className={cn('size-4', isFavorite ? 'fill-rose text-rose' : 'text-white')} />
+                <span className="sr-only">{isFavorite ? 'Quitar de favoritos' : 'Agregar a favoritos'}</span>
               </button>
             )}
+          </div>
+
+          {/* Abajo de la foto: tipo de inmueble a la izquierda; novedad y cantidad de fotos a la derecha */}
+          <div className="pointer-events-none absolute inset-x-3 bottom-3 z-[2] flex items-end justify-between gap-2">
+            <ChipFoto icono={tipo.icono} className="min-w-0">{tipo.label}</ChipFoto>
+            <div className="flex shrink-0 items-center gap-1.5">
+              {nuevo && <ChipNuevo />}
+              {(fotos ?? 0) > 1 && <ChipFotos cantidad={fotos as number} />}
+            </div>
           </div>
         </div>
 
         {/* Contenido */}
         <div className="flex flex-1 flex-col gap-3 p-5">
-          <p
-            className={cn(
-              'mono text-2xl font-semibold tracking-tight',
-              hasPrice ? 'text-gold' : 'text-text-faint'
-            )}
-          >
-            {formatDisplayPrice(price)}
-          </p>
+          <div>
+            <p className="flex items-baseline gap-1.5">
+              {esProyecto && hasPrice && <span className="text-xs font-semibold uppercase tracking-wide text-text-muted">Desde</span>}
+              <span className={cn('mono text-2xl font-semibold tracking-tight', hasPrice ? 'text-gold' : 'text-lg text-text-faint')}>
+                {formatDisplayPrice(price)}
+              </span>
+              {hasPrice && alquiler && <span className="text-xs font-medium text-text-muted">al mes</span>}
+            </p>
+            {hasPrice && porM2 && !alquiler && <p className="mt-0.5 text-xs text-text-muted">{porM2}</p>}
+          </div>
 
           <h3 className="line-clamp-2 min-h-[2.5rem] text-sm font-medium leading-snug text-text">
             {onOpenDetail ? (
@@ -182,15 +226,22 @@ export default function PropertyCard({
           </h3>
 
           <div className="flex flex-wrap gap-2">
-            <Meta icon={BedDouble} value={dormitorios} label="Dormitorios" />
-            <Meta icon={Bath} value={banios} label="Baños" />
-            <Meta icon={Ruler} value={area} label="Área" />
+            <Dato icon={BedDouble} value={cantidad(dormitorios)} unidad="dorm." label="Dormitorios" />
+            <Dato icon={Bath} value={cantidad(banios)} unidad={cantidad(banios) === '1' ? 'baño' : 'baños'} label="Baños" />
+            <Dato icon={Ruler} value={formatoArea(area)} label="Área" />
+            <Dato icon={Car} value={cocheras} unidad={cocheras === '1' ? 'cochera' : 'cocheras'} label="Cocheras" />
           </div>
 
-          {distrito && (
+          {estado && (
+            <div className="flex flex-wrap gap-1.5">
+              <Etiqueta visual={estado} />
+            </div>
+          )}
+
+          {lugar && (
             <p className="flex items-center gap-1.5 text-xs text-text-muted">
-              <MapPin className="size-3.5 shrink-0" strokeWidth={1.75} />
-              <span className="truncate">{distrito}</span>
+              <MapPin className="size-3.5 shrink-0" strokeWidth={1.75} aria-hidden="true" />
+              <span className="truncate">{lugar}</span>
             </p>
           )}
 
@@ -201,10 +252,7 @@ export default function PropertyCard({
               rel="noopener noreferrer"
               onClick={() => onView?.(id)}
               aria-disabled={!safeUrl}
-              className={cn(
-                'btn btn-primary btn-sm flex-1',
-                !safeUrl && 'pointer-events-none opacity-50'
-              )}
+              className={cn('btn btn-primary btn-sm flex-1', !safeUrl && 'pointer-events-none opacity-50')}
             >
               <ExternalLink className="size-4" />
               Ver aviso
@@ -235,17 +283,8 @@ export default function PropertyCard({
                 onClick={() => onToggleCompare(id)}
                 disabled={compareDisabled && !isCompared}
                 aria-pressed={!!isCompared}
-                className={cn(
-                  'btn btn-sm btn-icon',
-                  isCompared ? 'btn-primary' : 'btn-secondary'
-                )}
-                title={
-                  isCompared
-                    ? 'Quitar de la comparación'
-                    : compareDisabled
-                      ? 'Máximo 3 propiedades'
-                      : 'Agregar a la comparación'
-                }
+                className={cn('btn btn-sm btn-icon', isCompared ? 'btn-primary' : 'btn-secondary')}
+                title={isCompared ? 'Quitar de la comparación' : compareDisabled ? 'Máximo 3 propiedades' : 'Agregar a la comparación'}
                 aria-label={isCompared ? 'Quitar de la comparación' : 'Agregar a la comparación'}
               >
                 <Scale className="size-4" />
@@ -266,9 +305,8 @@ export default function PropertyCard({
         </div>
       </article>
 
-      {mostrarEnlaces && (
-        <EnlacesPropiedad propiedadId={id} onClose={() => setMostrarEnlaces(false)} />
-      )}
+      {mostrarEnlaces && <EnlacesPropiedad propiedadId={id} onClose={() => setMostrarEnlaces(false)} />}
     </>
   )
 }
+

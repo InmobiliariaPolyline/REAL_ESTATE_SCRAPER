@@ -35,6 +35,9 @@ export interface Propiedad {
   banios: string
   area: string
   imagen: string | null
+  /** Cantidad de fotos del aviso (catálogo del portal). */
+  fotos?: number
+  departamento?: string | null
   /** Todas las fotos del aviso (solo en el detalle). */
   imagenes?: string[]
   url: string

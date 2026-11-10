@@ -146,4 +146,20 @@ describe("E2E con avisos reales de InfoCasas", () => {
     expect((await call("GET", "/api/inicio", { token: member })).status).toBe(200)
     expect((await call("GET", "/api/estadisticas", { token: member })).status).toBe(200)
   })
+
+  it("el catálogo trae lo necesario para las etiquetas de las tarjetas (y sigue funcionando sin esas columnas)", async () => {
+    const r = await lista("operacion=VENTA")
+    const fila = r.data.find((x: any) => x.fotos > 1)
+    expect(fila).toBeTruthy()
+    expect(r.data.every((x: any) => typeof x.fotos === "number")).toBe(true)
+    expect(Object.keys(fila)).toEqual(expect.arrayContaining(["inmueble", "creado_en", "estacionamientos", "antiguedad", "departamento", "fotos"]))
+    const detalle = await call("GET", `/api/propiedades/${encodeURIComponent(fila.id)}`, { token: member })
+    expect(detalle.body.propiedad).toHaveProperty("departamento")
+
+    // Sin una de esas columnas (base sin migrar) el catálogo sigue respondiendo, con lo básico.
+    await pg.exec("alter table public.propiedades drop column antiguedad")
+    const basico = await lista("operacion=VENTA")
+    expect(basico.data.length).toBeGreaterThan(0)
+    expect(basico.data[0]).not.toHaveProperty("fotos")
+  })
 })

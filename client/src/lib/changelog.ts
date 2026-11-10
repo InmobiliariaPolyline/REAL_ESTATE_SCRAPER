@@ -23,6 +23,18 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "2.14.0",
+    fecha: "2026-11-10",
+    titulo: "Tarjetas y vista previa renovadas",
+    cambios: [
+      { tipo: "mejora", texto: "Tarjetas rediseñadas: sobre la foto, el tipo de inmueble con su icono y color (departamento, casa, terreno, oficina, local, proyecto…), la operación con icono, la cantidad de fotos y la etiqueta «Nuevo» para avisos de los últimos 3 días." },
+      { tipo: "mejora", texto: "El precio ahora trae contexto: «Desde» en proyectos, «al mes» en alquileres y el precio por m² en ventas. Las fichas llevan su unidad (dorm., baños, m², cocheras), aparece el estado de la construcción (Estreno, En construcción, N años) y la ubicación suma el departamento cuando no es Lima." },
+      { tipo: "mejora", texto: "Vista previa reorganizada: fila de etiquetas por tipo, operación, estado y novedad, y debajo los datos secundarios (código, fecha, fotos). Las fichas solo aparecen si hay dato (un terreno ya no muestra dormitorios vacíos) y se agrega el estado de la construcción." },
+      { tipo: "mejora", texto: "Sin fotos, la tarjeta muestra el icono del tipo de inmueble en lugar de un cuadro genérico. Todo con iconos, sin emojis." },
+      { tipo: "implementacion", texto: "El catálogo entrega cantidad de fotos, cocheras, antigüedad y departamento; si la base aún no tiene esas columnas sigue funcionando con lo básico." },
+    ],
+  },
+  {
     version: "2.13.0",
     fecha: "2026-11-10",
     titulo: "Tipo de inmueble razonado y avisos sin precio",

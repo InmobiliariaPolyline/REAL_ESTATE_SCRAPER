@@ -9,6 +9,7 @@ import { createPortal } from 'react-dom'
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import ImageGallery from '@/components/common/ImageGallery'
 import EnlacesPropiedad from '@/components/properties/EnlacesPropiedad'
+import { Etiqueta } from '@/components/properties/Etiquetas'
 import { useToast } from '@/contexts/ToastContext'
 import { USD_TO_PEN_RATE } from '@/lib/config'
 import { formatDate } from '@/lib/dates'
@@ -19,6 +20,7 @@ import {
   HIPOTECA, MESES_GARANTIA, antiguedadTexto, baniosN, categoriaTamano, diasDesde, dormitoriosN, financiamiento, mapaUrl,
   posicionEnRango, posicionEnZona, precioPorM2, preciosDelAviso, resumenDelAviso, variacionDePrecio, whatsappUrl,
 } from '@/lib/propertyInsights'
+import { esAlquiler, esNuevo, estadoDeAntiguedad, formatoArea, operacionVisual, precioPorM2Texto, tipoVisual, ubicacionTexto } from '@/lib/propertyTags'
 import { safeHttpUrl } from '@/lib/url'
 import { cn } from '@/lib/utils'
 import { trapFocus } from '@/lib/focusTrap'
@@ -118,6 +120,14 @@ export default function PropertyDetailModal({
   const enMoneda = mon === 'USD' ? precios?.usd ?? 0 : precios?.pen ?? 0
   const otra = mon === 'USD' ? precios?.pen ?? 0 : precios?.usd ?? 0
   const sinPrecio = !!price && price.amount <= 0
+  const tipo = tipoVisual(p?.inmueble)
+  const operacionTag = operacionVisual(p?.operacion)
+  const estado = estadoDeAntiguedad(p?.antiguedad)
+  const alquiler = esAlquiler(p?.operacion)
+  const esProyecto = tipo.label === 'Proyecto'
+  const porM2Texto = price ? precioPorM2Texto(price, p?.area) : null
+  // Las viviendas muestran dormitorios y baños aunque falten; un terreno u oficina no los necesita.
+  const esVivienda = ['Departamento', 'Casa', 'Proyecto', 'Habitación'].includes(tipo.label)
   const m2 = useMemo(() => (p ? precioPorM2(p) : null), [p])
   const m2Moneda = mon === 'USD' ? m2?.usd : m2?.pen
   const m2Otra = mon === 'USD' ? m2?.pen : m2?.usd
@@ -224,19 +234,26 @@ export default function PropertyDetailModal({
                 </ImageGallery>
 
                 <div className="flex flex-col gap-5 p-5 sm:p-6">
-                  <div className="flex flex-wrap gap-2">
-                    <span className="badge badge-muted"><Home className="size-3.5" />{p.inmueble || 'Inmueble'}</span>
-                    <span className="badge badge-muted"><Hash className="size-3.5" />{p.id.split(':').slice(1).join(':') || p.id}</span>
-                    <span className="badge badge-blue"><Clock className="size-3.5" />Publicado {antiguedadTexto(diasCreado)}</span>
-                    {nFotos > 1 && <span className="badge badge-gold"><Layers className="size-3.5" />{nFotos} fotos</span>}
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      <Etiqueta visual={tipo} />
+                      <Etiqueta visual={operacionTag} />
+                      {estado && <Etiqueta visual={estado} />}
+                      {esNuevo(p.creado_en) && <Etiqueta visual={{ label: 'Nuevo', icono: Sparkles, tono: 'gold' }} />}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <span className="badge badge-muted"><Hash className="size-3.5" />{p.id.split(':').slice(1).join(':') || p.id}</span>
+                      <span className="badge badge-muted"><Clock className="size-3.5" />Publicado {antiguedadTexto(diasCreado)}</span>
+                      {nFotos > 1 && <span className="badge badge-muted"><Layers className="size-3.5" />{nFotos} fotos</span>}
+                    </div>
                   </div>
 
                   <div>
                     <h2 className="text-xl font-semibold leading-snug text-text [text-wrap:balance]">{p.titulo}</h2>
-                    {p.distrito && (
+                    {ubicacionTexto(p.distrito, p.departamento) && (
                       <p className="mt-2 flex items-center gap-1.5 text-sm text-text-muted">
                         <MapPin className="size-4 text-gold" strokeWidth={1.75} />
-                        {p.distrito}
+                        {ubicacionTexto(p.distrito, p.departamento)}
                       </p>
                     )}
                   </div>
@@ -249,11 +266,21 @@ export default function PropertyDetailModal({
                       </>
                     ) : (
                       <>
-                        <p className="mono text-gradient-gold text-[2.1rem] font-semibold leading-none tracking-tight">{formatDisplayPrice(price)}</p>
+                        {esProyecto && <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-text-muted">Desde</p>}
+                        <p className="flex flex-wrap items-baseline gap-2">
+                          <span className="mono text-gradient-gold text-[2.1rem] font-semibold leading-none tracking-tight">{formatDisplayPrice(price)}</span>
+                          {alquiler && <span className="text-sm font-medium text-text-muted">al mes</span>}
+                        </p>
                         <p className="mt-2 text-sm text-text-muted">
                           {otra > 0 && `≈ ${currencyLabel(mon === 'USD' ? 'PEN' : 'USD')} ${fmt(otra)}`}
                           {price.approximate && `${otra > 0 ? ' · ' : ''}conversión aproximada`}
                         </p>
+                        {porM2Texto && !alquiler && (
+                          <p className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-medium text-text-muted">
+                            <Ruler className="size-3.5 text-gold" strokeWidth={1.75} aria-hidden="true" />
+                            {porM2Texto}
+                          </p>
+                        )}
                       </>
                     )}
                     {posicion && (
@@ -271,12 +298,12 @@ export default function PropertyDetailModal({
                   </div>
 
                   <dl className="grid grid-cols-2 gap-3">
-                    <Dato icon={BedDouble} tono="violet" label="Dormitorios" value={p.dormitorios || NA} />
-                    <Dato icon={Bath} tono="blue" label="Baños" value={p.banios || NA} />
-                    <Dato icon={Ruler} tono="green" label="Área" value={p.area || NA} hint={categoriaTamano(m2?.m2 ?? null) ? `Tamaño ${categoriaTamano(m2?.m2 ?? null)}` : undefined} />
-                    <Dato icon={Car} tono="amber" label="Cocheras" value={p.estacionamientos || NA} />
-                    <Dato icon={Hammer} tono="rose" label="Antigüedad" value={p.antiguedad || NA} />
-                    <Dato icon={Building2} tono="gold" label="Tipo" value={p.inmueble || NA} />
+                    {(esVivienda || p.dormitorios) && <Dato icon={BedDouble} tono="violet" label="Dormitorios" value={p.dormitorios || NA} />}
+                    {(esVivienda || p.banios) && <Dato icon={Bath} tono="blue" label="Baños" value={p.banios || NA} />}
+                    {p.area && <Dato icon={Ruler} tono="green" label="Área" value={formatoArea(p.area)} hint={categoriaTamano(m2?.m2 ?? null) ? `Tamaño ${categoriaTamano(m2?.m2 ?? null)}` : undefined} />}
+                    {p.estacionamientos && <Dato icon={Car} tono="amber" label="Cocheras" value={p.estacionamientos} />}
+                    {(estado || p.antiguedad) && <Dato icon={Hammer} tono="rose" label={estado && /construcci/i.test(estado.label) ? 'Estado' : 'Antigüedad'} value={estado?.label ?? p.antiguedad} />}
+                    <Dato icon={tipo.icono} tono="gold" label="Tipo" value={tipo.label} />
                   </dl>
                 </div>
               </div>

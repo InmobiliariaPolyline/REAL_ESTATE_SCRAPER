@@ -21,6 +21,13 @@ export const propertyColumns = (alias = "") => {
 
 export const PROPERTY_COLUMNS = propertyColumns()
 
+/**
+ * Columnas del catálogo del portal: las de siempre y las que dan las etiquetas de las tarjetas (cantidad de fotos,
+ * cocheras, antigüedad y departamento). Existen con db/008, 009 y 011; sin ellas el portal usa `PROPERTY_COLUMNS`.
+ */
+export const PROPERTY_COLUMNS_TARJETA = `${PROPERTY_COLUMNS},
+  estacionamientos, antiguedad, departamento, coalesce(cardinality(imagenes), 0)::int as fotos`
+
 /** Columnas de `enlaces` devueltas al cliente (id como número). */
 export const ENLACE_COLUMNS =
   "id::int as id, propiedad_id, titulo, descripcion, url, tipo, creado_en"
@@ -270,7 +277,8 @@ export function buildPortalQuery(
   f: PortalFilters,
   page: number,
   pageSize: number,
-  usdToPen: number
+  usdToPen: number,
+  columnas: string = PROPERTY_COLUMNS
 ): BuiltQuery {
   const w = new Where()
   applyPortalWhere(w, f, usdToPen)
@@ -278,7 +286,7 @@ export function buildPortalQuery(
   const limit = w.p(pageSize)
   const offset = w.p(page * pageSize)
   return {
-    text: `select ${PROPERTY_COLUMNS}, count(*) over()::int as total
+    text: `select ${columnas}, count(*) over()::int as total
            from public.propiedades ${w.sql()}
            ${order}
            limit ${limit} offset ${offset}`,

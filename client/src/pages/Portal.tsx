@@ -548,6 +548,12 @@ export default function Portal({
                 imagen={prop.imagen}
                 url={prop.url}
                 index={idx}
+                inmueble={prop.inmueble}
+                creadoEn={prop.creado_en}
+                fotos={prop.fotos}
+                estacionamientos={prop.estacionamientos}
+                antiguedad={prop.antiguedad}
+                departamento={prop.departamento}
                 isFavorite={favoritos.has(prop.id)}
                 onToggleFavorite={toggleFavorito}
                 onOpenDetail={setDetailId}
