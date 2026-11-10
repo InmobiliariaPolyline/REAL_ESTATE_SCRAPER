@@ -40,3 +40,17 @@ describe('atajosDePrecio', () => {
     expect(atajosDePrecio('PEN', 'ALQUILER')[0]).toBeLessThan(atajosDePrecio('PEN', 'VENTA')[0])
   })
 })
+
+describe('filtros de ubicación y detalle', () => {
+  it('describe departamento, provincia, cocheras, antigüedad, anunciante y solo con precio', () => {
+    const chips = filtrosActivos({ ...base, departamento: 'Arequipa', provincia: 'Camaná', cocheras: '2+', antiguedadMax: 0, anunciante: ' Prisma ', soloConPrecio: true, inmueble: 'Terreno' })
+    expect(chips.map(c => c.etiqueta)).toEqual(['Arequipa', 'Provincia: Camaná', 'Terreno', 'Con precio', '2+ cocheras', 'Estreno', 'Anuncia: Prisma'])
+    expect(chips.filter(c => c.avanzado).map(c => c.clave)).toEqual(['cocheras', 'antiguedad', 'anunciante'])
+  })
+
+  it('quitar el departamento también quita su provincia, y «Hasta N años» se dice así', () => {
+    const chips = filtrosActivos({ ...base, departamento: 'Lima', provincia: 'Lima', antiguedadMax: 10 })
+    expect(chips.find(c => c.clave === 'departamento')!.quitar).toEqual({ departamento: '', provincia: '' })
+    expect(chips.find(c => c.clave === 'antiguedad')!.etiqueta).toBe('Hasta 10 años')
+  })
+})

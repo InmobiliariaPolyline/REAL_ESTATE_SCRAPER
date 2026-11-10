@@ -68,7 +68,7 @@ Portales ─► Carga automática (Apify + webhook) ─► PostgreSQL (Neon) ◄
 api/                  API (handler, router, auth, consultas y rutas) + pruebas de integración
   routes/             auth · portal (propiedades y enlaces) · admin
 client/src            React: pages/, components/{admin,portal,properties,common,ui}, lib/, types/
-db/                   001..010: esquema, auth, cuenta, historial de precios, sesiones/auditoría, inactividad, carga, fotos, detalles y fuentes
+db/                   001..011: esquema, auth, cuenta, historial de precios, sesiones/auditoría, inactividad, carga, fotos, detalles, fuentes y ubicación
 netlify/functions/    Función que publica la API en Netlify
 server/index.ts       Servidor Express opcional (API + estáticos + CSP)
 shared/               Código compartido cliente/API (constantes, filtros, validación)
@@ -82,7 +82,7 @@ netlify.toml          Build, rutas, función y cabeceras de seguridad
 1. Crea el proyecto en Neon (región AWS US East 2, solo el servicio Postgres).
 2. Aplica el esquema (`db/001` a `db/005`), con `pnpm db:migrate` (lee `DATABASE_URL` del entorno o de `.env`;
    `pnpm db:migrate --check` solo lista tablas) o pegando en el **SQL Editor**, en orden,
-   los archivos `db/001_*.sql` a `db/010_*.sql`.
+   los archivos `db/001_*.sql` a `db/011_*.sql`.
 3. Crea el primer administrador con el `insert` comentado al final de `001_schema.sql`, con tu
    propia contraseña. No lo subas al repositorio.
 4. Copia la connection string (Dashboard → *Connect*). Es el valor de `DATABASE_URL`.

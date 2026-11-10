@@ -11,6 +11,7 @@ import {
   cupoRestante,
   elegirActor,
   elegirFuente,
+  lugarDePath,
   mapearAvisoInfocasas,
   mapearAvisoProperati,
   FUENTES_IDS,
@@ -683,5 +684,25 @@ describe("InfoCasas y Properati como fuentes", () => {
     expect(mapearAvisoProperati({ ...prop, location: "Punta Hermosa" })!.distrito).toBe("Punta Hermosa")
     expect(mapearAvisoProperati({ ...prop, price: null })).toMatchObject({ precio: undefined })
     expect(mapearAvisoProperati({ ...prop, operationType: "Traspaso" })).toBeNull()
+  })
+})
+
+describe("ubicación en los mapeos", () => {
+  it("lugarDePath toma provincia y departamento de los dos últimos tramos", () => {
+    expect(lugarDePath("Orrantia > San Isidro > Lima > Lima > Peru urbania")).toEqual({ provincia: "Lima", departamento: "Lima" })
+    expect(lugarDePath("Higuereta, Santiago de Surco, Lima, Lima")).toEqual({ provincia: "Lima", departamento: "Lima" })
+    expect(lugarDePath("Cayma, Arequipa, Arequipa")).toEqual({ provincia: "Arequipa", departamento: "Arequipa" })
+    expect(lugarDePath("Miraflores")).toEqual({})
+    expect(lugarDePath(undefined)).toEqual({})
+  })
+
+  it("Urbania, Properati e InfoCasas entregan su departamento y provincia", () => {
+    expect(mapearAvisoUrbania({ code: "U1", propertyTitle: "Depa", operation_type: "Venta", location_path: "Orrantia > San Isidro > Lima > Lima > Peru urbania" })).toMatchObject({ provincia: "Lima", departamento: "Lima" })
+    expect(mapearAvisoProperati({ listingId: "p1", title: "Casa", operationType: "Venta", location: "Cayma, Arequipa, Arequipa" })).toMatchObject({ provincia: "Arequipa", departamento: "Arequipa" })
+    expect(mapearAvisoInfocasas({ listingId: 1, propertyTitle: "Casa", operationType: "Venta", state: "Arequipa", city: "Arequipa", neighbourhood: "Cayma" })).toMatchObject({ departamento: "Arequipa", provincia: "Arequipa", distrito: "Cayma" })
+  })
+
+  it("Adondevivir (scrapers_lat) entrega el departamento en `state`", () => {
+    expect(mapearAviso({ id: "1", title: "Casa", operationType: "Venta", state: "Lima" })).toMatchObject({ departamento: "Lima" })
   })
 })

@@ -4,13 +4,20 @@ import type { Banios, Dormitorios, Publicado } from "./filters"
 export interface PortalFilterState {
   distrito: string
   operacion: "todos" | "ALQUILER" | "VENTA"
-  inmueble: "todos" | "Departamento" | "Casa"
+  /** «todos» o el nombre de un tipo de inmueble que existe en el catálogo (Departamento, Casa, Terreno…). */
+  inmueble: string
   portales: string[]
   moneda: "PEN" | "USD"
   precioMin: number | ""
   precioMax: number | ""
   dormitorios: Dormitorios
   banios: Banios
+  departamento: string
+  provincia: string
+  cocheras: "todos" | "1+" | "2+" | "3+"
+  antiguedadMax: number | ""
+  anunciante: string
+  soloConPrecio: boolean
   areaMin: number | ""
   areaMax: number | ""
   publicado: Publicado
@@ -28,6 +35,12 @@ export const DEFAULT_PORTAL_FILTERS: PortalFilterState = {
   precioMax: "",
   dormitorios: "todos",
   banios: "todos",
+  departamento: "",
+  provincia: "",
+  cocheras: "todos",
+  antiguedadMax: "",
+  anunciante: "",
+  soloConPrecio: false,
   areaMin: "",
   areaMax: "",
   publicado: "todos",
@@ -35,7 +48,7 @@ export const DEFAULT_PORTAL_FILTERS: PortalFilterState = {
 }
 
 const OPERACIONES = ["todos", "ALQUILER", "VENTA"] as const
-const INMUEBLES = ["todos", "Departamento", "Casa"] as const
+const COCHERAS = ["todos", "1+", "2+", "3+"] as const
 const DORMITORIOS = ["todos", "1", "2", "3", "4+"] as const
 const BANIOS = ["todos", "1", "2", "3+"] as const
 const PUBLICADOS = ["todos", "hoy", "semana", "mes"] as const
@@ -66,13 +79,19 @@ export function sanitizeFilterState(raw: unknown): PortalFilterState {
   return {
     distrito: typeof r.distrito === "string" ? r.distrito.trim().slice(0, 80) : "",
     operacion: pick(r.operacion, OPERACIONES, "todos"),
-    inmueble: pick(r.inmueble, INMUEBLES, "todos"),
+    inmueble: typeof r.inmueble === "string" && r.inmueble.trim() ? r.inmueble.trim().slice(0, 40) : "todos",
     portales,
     moneda: r.moneda === "USD" ? "USD" : "PEN",
     precioMin: price(r.precioMin),
     precioMax: price(r.precioMax),
     dormitorios: pick(r.dormitorios, DORMITORIOS, "todos"),
     banios: pick(r.banios, BANIOS, "todos"),
+    departamento: typeof r.departamento === "string" ? r.departamento.trim().slice(0, 60) : "",
+    provincia: typeof r.provincia === "string" ? r.provincia.trim().slice(0, 60) : "",
+    cocheras: pick(r.cocheras, COCHERAS, "todos"),
+    antiguedadMax: price(r.antiguedadMax),
+    anunciante: typeof r.anunciante === "string" ? r.anunciante.trim().slice(0, 80) : "",
+    soloConPrecio: r.soloConPrecio === true,
     areaMin: price(r.areaMin),
     areaMax: price(r.areaMax),
     publicado: pick(r.publicado, PUBLICADOS, "todos"),

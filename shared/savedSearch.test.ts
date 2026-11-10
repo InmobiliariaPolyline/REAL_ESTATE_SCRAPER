@@ -55,7 +55,7 @@ describe("sanitizeFilterState", () => {
     expect(r).toEqual({
       distrito: "Lince",
       operacion: "VENTA",
-      inmueble: "todos",
+      inmueble: "Castillo",
       portales: ["urbania", "properati"],
       moneda: "PEN",
       precioMin: 1500,
@@ -66,6 +66,12 @@ describe("sanitizeFilterState", () => {
       areaMax: "",
       publicado: "todos",
       texto: "",
+      departamento: "",
+      provincia: "",
+      cocheras: "todos",
+      antiguedadMax: "",
+      anunciante: "",
+      soloConPrecio: false,
     })
     expect(Object.keys(r)).not.toContain("otra")
   })
@@ -96,5 +102,19 @@ describe("filtros nuevos de la búsqueda guardada", () => {
       publicado: "todos",
     })
     expect(sanitizeFilterState({ texto: "y".repeat(300) }).texto).toHaveLength(80)
+  })
+})
+
+describe("filtros de ubicación y detalle", () => {
+  it("acepta departamento, provincia, cocheras, antigüedad, anunciante y solo con precio", () => {
+    expect(
+      sanitizeFilterState({ departamento: " Arequipa ", provincia: "Arequipa", cocheras: "2+", antiguedadMax: "10", anunciante: " Prisma ", soloConPrecio: true, inmueble: " Terreno " })
+    ).toMatchObject({ departamento: "Arequipa", provincia: "Arequipa", cocheras: "2+", antiguedadMax: 10, anunciante: "Prisma", soloConPrecio: true, inmueble: "Terreno" })
+  })
+
+  it("descarta valores inválidos y limita el largo", () => {
+    const r = sanitizeFilterState({ cocheras: "9", antiguedadMax: -3, soloConPrecio: "si", departamento: "x".repeat(200), inmueble: "   " })
+    expect(r).toMatchObject({ cocheras: "todos", antiguedadMax: "", soloConPrecio: false, inmueble: "todos" })
+    expect(r.departamento).toHaveLength(60)
   })
 })

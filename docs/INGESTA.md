@@ -23,6 +23,7 @@ necesita que quien cargue los datos escriba en `public.propiedades` con estas re
 | `operacion` | text | `VENTA` o `ALQUILER` (mayúsculas). |
 | `inmueble` | text | `Departamento`, `Casa`, ... |
 | `titulo`, `distrito`, `dormitorios`, `banios`, `area`, `imagen`, `url` | text | `url` e `imagen` deben ser http(s). |
+| `departamento`, `provincia` | text | Región («Lima», «Arequipa») y ciudad/provincia para los filtros; si faltan se deducen del distrito (Lima y Callao). Requieren `db/011_ubicacion.sql`. |
 | `descripcion`, `direccion`, `estacionamientos`, `antiguedad`, `publicador` | text | Datos extra para la vista previa (opcionales; requieren `db/009_detalles.sql`). `latitud`/`longitud` son `float8` y `mantenimiento` `numeric`. |
 | `imagenes` | text[] | Todas las fotos del aviso (http/https, hasta 20; la portada va primero). Requiere `db/008_imagenes.sql`; sin ella todo se guarda igual, solo sin galería. |
 | `precio` | numeric | Precio publicado, en la moneda de `moneda`. `0` si no tiene. |

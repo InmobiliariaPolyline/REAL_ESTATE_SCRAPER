@@ -183,14 +183,33 @@ describe("datos extra del aviso (db/009)", () => {
     }
     const r = await guardarAvisos(db, [{ ...base, codigo: "D2", descripcion: "x", imagenes: ["https://a/1.jpg"] }])
     expect(r.guardados).toBe(1)
-    expect(consultas).toHaveLength(3)
-    expect(consultas[2]).not.toContain("imagenes")
-    expect(consultas[2]).not.toContain("descripcion")
-    expect(consultas[2]).toContain("titulo")
+    expect(consultas).toHaveLength(4) // completa, sin ubicación, sin detalles y, por último, sin fotos
+    expect(consultas[3]).not.toContain("imagenes")
+    expect(consultas[3]).not.toContain("descripcion")
+    expect(consultas[3]).not.toContain("departamento")
+    expect(consultas[3]).toContain("titulo")
   })
 
   it("un error que no es de columnas faltantes se propaga", async () => {
     const db = { query: async () => { throw new Error("connection reset") } }
     await expect(guardarAvisos(db, [{ ...base, codigo: "D3" }])).rejects.toThrow("connection reset")
+  })
+})
+
+describe("ubicación del aviso", () => {
+  const base = { portal: "urbania", codigo: "L1", operacion: "VENTA", inmueble: "Casa" } as const
+
+  it("un distrito de Lima da su departamento y provincia, y se escribe con su nombre oficial", () => {
+    expect(normalizarAviso({ ...base, distrito: "SANTIAGO DE SURCO" })).toMatchObject({ distrito: "Santiago de Surco", departamento: "Lima", provincia: "Lima" })
+    expect(normalizarAviso({ ...base, distrito: "ventanilla" })).toMatchObject({ departamento: "Callao", provincia: "Callao" })
+  })
+
+  it("lo que entrega la fuente manda sobre la deducción", () => {
+    expect(normalizarAviso({ ...base, distrito: "Cayma", departamento: "AREQUIPA", provincia: "arequipa" })).toMatchObject({ distrito: "Cayma", departamento: "Arequipa", provincia: "Arequipa" })
+  })
+
+  it("fuera de Lima y sin datos no se inventa nada", () => {
+    expect(normalizarAviso({ ...base, distrito: "Cayma" })).toMatchObject({ departamento: null, provincia: null })
+    expect(normalizarAviso(base)).toMatchObject({ distrito: null, departamento: null, provincia: null })
   })
 })

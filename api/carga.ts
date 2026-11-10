@@ -458,6 +458,7 @@ export function mapearAviso(item: Record<string, unknown>): Aviso | null {
     moneda,
     precioUsd: num(item.priceUsd),
     distrito: distrito(item),
+    departamento: str(item.state),
     dormitorios: num(item.bedrooms) !== undefined ? String(item.bedrooms) : undefined,
     banios: num(item.bathrooms) !== undefined ? String(item.bathrooms) : undefined,
     area: area ? `${area} m2` : undefined,
@@ -467,6 +468,18 @@ export function mapearAviso(item: Record<string, unknown>): Aviso | null {
     descripcion: str(item.description),
     mantenimiento: num(item.maintenanceFee),
   }
+}
+
+/**
+ * Departamento y provincia al final de una ruta de lugar («Orrantia > San Isidro > Lima > Lima > Peru urbania»,
+ * «Higuereta, Santiago de Surco, Lima, Lima»): los dos últimos tramos, sin la marca del portal.
+ */
+export function lugarDePath(path: string | undefined): { provincia?: string; departamento?: string } {
+  const partes = (path ?? "")
+    .split(/>|,/)
+    .map(p => p.trim())
+    .filter(p => p && !/^peru\b/i.test(p))
+  return partes.length >= 3 ? { provincia: partes[partes.length - 2], departamento: partes[partes.length - 1] } : {}
 }
 
 /** Distrito a partir de `location_path`: «Orrantia > San Isidro > Lima > Lima > Peru urbania» -> «San Isidro». */
@@ -523,6 +536,7 @@ export function mapearAvisoUrbania(item: Record<string, unknown>): Aviso | null 
     moneda: monedaTexto.toUpperCase().includes("US") || monedaTexto.includes("$") ? "USD" : "PEN",
     precioUsd: num(item.price_usd),
     distrito: distritoUrbania(item),
+    ...lugarDePath(str(item.location_path)),
     dormitorios: num(item.bedrooms) !== undefined ? String(item.bedrooms) : undefined,
     banios: num(item.bathrooms) !== undefined ? String(item.bathrooms) : undefined,
     area: area ? `${area} m2` : undefined,
@@ -582,6 +596,8 @@ export function mapearAvisoInfocasas(item: Record<string, unknown>): Aviso | nul
     moneda: monedaDeTexto(item.priceCurrency),
     precioUsd: oculto ? undefined : num(item.priceUsd),
     distrito: str(item.neighbourhood) ?? str(item.city) ?? str(item.state),
+    departamento: str(item.state),
+    provincia: str(item.city),
     dormitorios: num(item.bedrooms) !== undefined ? String(item.bedrooms) : undefined,
     banios: num(item.bathrooms) !== undefined ? String(item.bathrooms) : undefined,
     area: area ? `${area} m2` : undefined,
@@ -620,6 +636,7 @@ export function mapearAvisoProperati(item: Record<string, unknown>): Aviso | nul
     precioUsd: num(item.priceUsd),
     // «Higuereta, Santiago de Surco, Lima, Lima»: el distrito es el segundo tramo si el primero es una urbanización.
     distrito: distritoProperati(str(item.location)),
+    ...lugarDePath(str(item.location)),
     dormitorios: num(item.bedrooms) !== undefined ? String(item.bedrooms) : undefined,
     banios: num(item.bathrooms) !== undefined ? String(item.bathrooms) : undefined,
     // Algunos avisos publican «1 m²» por error: no se muestra un área irreal.

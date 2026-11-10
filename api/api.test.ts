@@ -77,6 +77,7 @@ beforeAll(async () => {
   await pg.exec(fs.readFileSync(path.join(root, "db/008_imagenes.sql"), "utf8"))
   await pg.exec(fs.readFileSync(path.join(root, "db/009_detalles.sql"), "utf8"))
   await pg.exec(fs.readFileSync(path.join(root, "db/010_fuentes.sql"), "utf8"))
+  await pg.exec(fs.readFileSync(path.join(root, "db/011_ubicacion.sql"), "utf8"))
 
   // El admin crea a "cliente" con Premium mediante la propia función SQL.
   admin = (await login("admin", "admin-pass-123")).body.token
@@ -866,7 +867,7 @@ describe("favoritos y búsquedas guardadas de clientes", () => {
     expect(list.body[0].filtros).toEqual({
       distrito: "Lince",
       operacion: "VENTA",
-      inmueble: "todos",
+      inmueble: "Hack",
       portales: ["urbania"],
       moneda: "USD",
       precioMin: 1000,
@@ -877,6 +878,12 @@ describe("favoritos y búsquedas guardadas de clientes", () => {
       areaMax: "",
       publicado: "todos",
       texto: "",
+      departamento: "",
+      provincia: "",
+      cocheras: "todos",
+      antiguedadMax: "",
+      anunciante: "",
+      soloConPrecio: false,
     })
     expect(JSON.stringify(list.body)).not.toContain("script")
 
@@ -1429,6 +1436,66 @@ describe("carga automática (Apify)", () => {
     expect(sin.similares).toEqual([])
     expect((await call("GET", "/api/propiedades/no-existe", { token: member })).status).toBe(404)
     await pg.exec("delete from propiedades where id like 'mk%'")
+  })
+
+  it("filtros de ubicación y detalle: departamento, provincia, cocheras, antigüedad, anunciante y solo con precio", async () => {
+    await pg.exec(`
+      insert into propiedades (id, portal, operacion, inmueble, titulo, precio, precio_usd, moneda, distrito, departamento, provincia, estacionamientos, antiguedad, publicador) values
+        ('loc1','infocasas','VENTA','Casa','Casa Cayma',500000,133000,'PEN','Cayma','Arequipa','Arequipa','2','5 años','Inmobiliaria Prisma'),
+        ('loc2','infocasas','VENTA','Departamento','Depa Miraflores',300000,80000,'PEN','Miraflores','Lima','Lima','1','Estreno','Casas del Sur'),
+        ('loc3','infocasas','ALQUILER','Departamento','Depa sin precio',0,0,'PEN','Lince','Lima','Lima','0','12 años',null),
+        ('loc4','infocasas','VENTA','Terreno','Terreno Callao',900000,240000,'PEN','Ventanilla','Callao','Callao',null,null,null)
+    `)
+    const ids = async (q: string) =>
+      (await call("GET", `/api/propiedades?pageSize=50&${q}`, { token: member })).body.data
+        .map((p: any) => p.id)
+        .filter((id: string) => id.startsWith("loc"))
+        .sort()
+
+    expect(await ids("departamento=AREQUIPA")).toEqual(["loc1"])
+    expect(await ids("departamento=lima")).toEqual(["loc2", "loc3"])
+    expect(await ids("provincia=Callao")).toEqual(["loc4"])
+    expect(await ids("departamento=Lima&provincia=Callao")).toEqual([])
+    expect(await ids("cocheras=1%2B")).toEqual(["loc1", "loc2"])
+    expect(await ids("cocheras=2%2B")).toEqual(["loc1"])
+    expect(await ids("antiguedadMax=0")).toEqual(["loc2"]) // «Estreno»
+    expect(await ids("antiguedadMax=5")).toEqual(["loc1", "loc2"])
+    expect(await ids("antiguedadMax=20")).toEqual(["loc1", "loc2", "loc3"])
+    expect(await ids("anunciante=PRISMA")).toEqual(["loc1"])
+    expect(await ids("inmueble=Terreno")).toEqual(["loc4"])
+    expect(await ids("soloConPrecio=1")).toEqual(["loc1", "loc2", "loc4"])
+    expect(await ids("soloConPrecio=0")).toEqual(["loc1", "loc2", "loc3", "loc4"])
+    expect(await ids("departamento=Lima&cocheras=1%2B&soloConPrecio=1&antiguedadMax=3")).toEqual(["loc2"])
+    expect((await call("GET", "/api/propiedades?cocheras=9", { token: member })).status).toBe(400)
+    expect((await call("GET", `/api/propiedades?anunciante=${"x".repeat(100)}`, { token: member })).status).toBe(400)
+
+    // Facetas: los valores que existen, con su cantidad.
+    const f = (await call("GET", "/api/propiedades/facetas", { token: member })).body
+    expect(f.departamentos.find((x: any) => x.valor === "Lima").n).toBeGreaterThanOrEqual(2) // las filas de prueba de otras pruebas también cuentan
+    expect(f.departamentos.map((x: any) => x.valor)).toEqual(expect.arrayContaining(["Arequipa", "Callao"]))
+    expect(f.provincias.find((x: any) => x.valor === "Callao")).toMatchObject({ padre: "Callao" })
+    expect(f.distritos.map((x: any) => x.valor)).toEqual(expect.arrayContaining(["Cayma", "Miraflores"]))
+    expect(f.inmuebles.map((x: any) => x.valor)).toEqual(expect.arrayContaining(["Terreno", "Casa"]))
+    expect(f.anunciantes.map((x: any) => x.valor)).toEqual(expect.arrayContaining(["Inmobiliaria Prisma", "Casas del Sur"]))
+    expect((await call("GET", "/api/propiedades/facetas")).status).toBe(401)
+    await pg.exec("delete from propiedades where id like 'loc%'")
+  })
+
+  it("la migración 011 unifica distritos y deduce departamento y provincia de lo ya guardado", async () => {
+    await pg.exec(`
+      insert into propiedades (id, portal, operacion, inmueble, titulo, distrito) values
+        ('mig1','urbania','VENTA','Casa','a','SANTIAGO DE SURCO'),
+        ('mig2','urbania','VENTA','Casa','b','Magdalena'),
+        ('mig3','urbania','VENTA','Casa','c','Cayma')
+    `)
+    await pg.exec(fs.readFileSync(path.join(root, "db/011_ubicacion.sql"), "utf8")) // idempotente
+    const r = (await pg.query("select id, distrito, departamento, provincia from propiedades where id like 'mig%' order by id")).rows
+    expect(r).toEqual([
+      { id: "mig1", distrito: "Santiago de Surco", departamento: "Lima", provincia: "Lima" },
+      { id: "mig2", distrito: "Magdalena del Mar", departamento: "Lima", provincia: "Lima" },
+      { id: "mig3", distrito: "Cayma", departamento: null, provincia: null },
+    ])
+    await pg.exec("delete from propiedades where id like 'mig%'")
   })
 
   it("filtros nuevos del portal: baños, área, publicación y texto", async () => {

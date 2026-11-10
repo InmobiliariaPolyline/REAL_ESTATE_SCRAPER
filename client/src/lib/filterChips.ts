@@ -29,6 +29,8 @@ export function filtrosActivos(f: FilterState): FiltroActivo[] {
   if (f.texto.trim()) out.push({ clave: "texto", etiqueta: `«${f.texto.trim()}»`, quitar: { texto: d.texto }, avanzado: false })
   if (f.distrito.trim()) out.push({ clave: "distrito", etiqueta: f.distrito.trim(), quitar: { distrito: d.distrito }, avanzado: false })
   if (f.operacion !== d.operacion) out.push({ clave: "operacion", etiqueta: f.operacion === "VENTA" ? "Venta" : "Alquiler", quitar: { operacion: d.operacion }, avanzado: false })
+  if (f.departamento.trim()) out.push({ clave: "departamento", etiqueta: f.departamento.trim(), quitar: { departamento: d.departamento, provincia: d.provincia }, avanzado: false })
+  if (f.provincia.trim()) out.push({ clave: "provincia", etiqueta: `Provincia: ${f.provincia.trim()}`, quitar: { provincia: d.provincia }, avanzado: false })
   if (f.inmueble !== d.inmueble) out.push({ clave: "inmueble", etiqueta: f.inmueble, quitar: { inmueble: d.inmueble }, avanzado: false })
   if (f.portales.length > 0) out.push({ clave: "portales", etiqueta: f.portales.join(", "), quitar: { portales: [] }, avanzado: false })
 
@@ -41,8 +43,12 @@ export function filtrosActivos(f: FilterState): FiltroActivo[] {
           : `Hasta ${sym} ${num(f.precioMax as number)}`
     out.push({ clave: "precio", etiqueta, quitar: { precioMin: "", precioMax: "" }, avanzado: false })
   }
+  if (f.soloConPrecio) out.push({ clave: "soloConPrecio", etiqueta: "Con precio", quitar: { soloConPrecio: false }, avanzado: false })
 
   if (f.dormitorios !== d.dormitorios) out.push({ clave: "dormitorios", etiqueta: `${f.dormitorios} dorm.`, quitar: { dormitorios: d.dormitorios }, avanzado: true })
+  if (f.cocheras !== d.cocheras) out.push({ clave: "cocheras", etiqueta: `${f.cocheras} cocheras`, quitar: { cocheras: d.cocheras }, avanzado: true })
+  if (f.antiguedadMax !== "") out.push({ clave: "antiguedad", etiqueta: f.antiguedadMax === 0 ? "Estreno" : `Hasta ${f.antiguedadMax} años`, quitar: { antiguedadMax: "" }, avanzado: true })
+  if (f.anunciante.trim()) out.push({ clave: "anunciante", etiqueta: `Anuncia: ${f.anunciante.trim()}`, quitar: { anunciante: d.anunciante }, avanzado: true })
   if (f.banios !== d.banios) out.push({ clave: "banios", etiqueta: `${f.banios} baños`, quitar: { banios: d.banios }, avanzado: true })
 
   if (f.areaMin !== "" || f.areaMax !== "") {

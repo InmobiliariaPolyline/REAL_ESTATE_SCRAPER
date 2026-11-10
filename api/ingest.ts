@@ -1,5 +1,6 @@
 import { DEFAULT_USD_TO_PEN_RATE } from "../shared/constants"
 import { safeHttpUrl } from "../shared/url"
+import { distritoCanonico, nombreDeLugar, ubicacionDeDistrito } from "../shared/ubicacion"
 
 export const PORTALES = ["properati", "infocasas", "babilonia", "urbania", "adondevivir"] as const
 export type Portal = (typeof PORTALES)[number]
@@ -18,6 +19,9 @@ export interface Aviso {
   /** Si la fuente ya lo conoce; si no, se calcula con el tipo de cambio. */
   precioUsd?: number
   distrito?: string
+  /** Región («Lima», «Arequipa») y ciudad/provincia; si faltan se deducen del distrito (Lima y Callao). */
+  departamento?: string
+  provincia?: string
   dormitorios?: string
   banios?: string
   area?: string
@@ -47,6 +51,8 @@ export interface FilaPropiedad {
   precio_usd: number
   moneda: "PEN" | "USD"
   distrito: string | null
+  departamento: string | null
+  provincia: string | null
   dormitorios: string | null
   banios: string | null
   area: string | null
@@ -148,6 +154,9 @@ export function normalizarAviso(
   if (!precioUsd && precio) precioUsd = moneda === "USD" ? precio : precio / usdToPen
 
   const imagenes = normalizarFotos(aviso.imagen, aviso.imagenes)
+  // Un distrito de Lima o del Callao escrito de otra forma pasa a su nombre oficial y da su departamento y provincia.
+  const distrito = distritoCanonico(clean(aviso.distrito))
+  const deducida = ubicacionDeDistrito(distrito)
   return {
     id: `${aviso.portal}:${codigo}`,
     portal: aviso.portal,
@@ -157,7 +166,9 @@ export function normalizarAviso(
     precio,
     precio_usd: Math.round(precioUsd * 100) / 100,
     moneda,
-    distrito: clean(aviso.distrito),
+    distrito,
+    departamento: nombreDeLugar(aviso.departamento) ?? deducida?.departamento ?? null,
+    provincia: nombreDeLugar(aviso.provincia) ?? deducida?.provincia ?? null,
     dormitorios: clean(aviso.dormitorios),
     banios: clean(aviso.banios),
     area: clean(aviso.area),
@@ -185,17 +196,23 @@ const COLUMNAS = [
   "id", "portal", "operacion", "inmueble", "titulo", "precio", "precio_usd", "moneda",
   "distrito", "dormitorios", "banios", "area", "imagen", "url", "imagenes",
   "descripcion", "direccion", "estacionamientos", "antiguedad", "publicador", "latitud", "longitud", "mantenimiento",
+  "departamento", "provincia",
 ] as const
+
+/** Columnas de la migración 011 (ubicación). */
+const COLUMNAS_011 = ["departamento", "provincia"] as const
 
 /** Columnas que existen solo con las migraciones 008 (fotos) y 009 (detalles). */
 const COLUMNAS_009 = ["descripcion", "direccion", "estacionamientos", "antiguedad", "publicador", "latitud", "longitud", "mantenimiento"] as const
 type Columna = (typeof COLUMNAS)[number]
 
 /** De la más completa a la más básica: se usa la primera que la base acepte. */
+const en = (lista: readonly string[], c: string) => lista.includes(c)
 const NIVELES: readonly (readonly Columna[])[] = [
   COLUMNAS,
-  COLUMNAS.filter(c => !(COLUMNAS_009 as readonly string[]).includes(c)),
-  COLUMNAS.filter(c => c !== "imagenes" && !(COLUMNAS_009 as readonly string[]).includes(c)),
+  COLUMNAS.filter(c => !en(COLUMNAS_011, c)),
+  COLUMNAS.filter(c => !en(COLUMNAS_011, c) && !en(COLUMNAS_009, c)),
+  COLUMNAS.filter(c => !en(COLUMNAS_011, c) && !en(COLUMNAS_009, c) && c !== "imagenes"),
 ]
 
 async function insertarLote(db: Db, lote: FilaPropiedad[], columnas: readonly Columna[]) {

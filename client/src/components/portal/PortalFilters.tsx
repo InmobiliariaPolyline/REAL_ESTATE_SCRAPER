@@ -1,8 +1,10 @@
-import { Bath, BedDouble, CalendarClock, ChevronDown, CircleDollarSign, MapPin, Ruler, Search, SlidersHorizontal, TextCursorInput, X } from 'lucide-react'
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { Bath, BedDouble, Building2, CalendarClock, Car, ChevronDown, CircleDollarSign, Hammer, Landmark, MapPin, Ruler, Search, SlidersHorizontal, TextCursorInput, UserRound, X } from 'lucide-react'
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Icono3D, type Tono } from '@/components/portal/detail/Piezas'
+import { useFacetas } from '@/hooks/useFacetas'
 import { atajosDePrecio, filtrosActivos } from '@/lib/filterChips'
 import { PORTALS } from '@/lib/portals'
+import { claveNombre } from '@shared/ubicacion'
 import { cn } from '@/lib/utils'
 import { DEFAULT_FILTERS, type FilterState } from '@/types'
 
@@ -23,32 +25,20 @@ interface PortalFiltersProps {
 
 const PORTALES_OPCIONES = PORTALS.map(p => p.label)
 
-const PRINCIPALES_DISTRITOS = [
-  'Ancón', 'Ate', 'Barranco', 'Bellavista', 'Breña', 'Callao', 'Carabayllo',
-  'Carmen de la Legua', 'Chaclacayo', 'Chorrillos', 'Cieneguilla', 'Comas',
-  'El Agustino', 'Independencia', 'Jesús María', 'La Molina', 'La Perla',
-  'La Punta', 'La Victoria', 'Lima', 'Lince', 'Los Olivos', 'Lurigancho',
-  'Lurín', 'Magdalena del Mar', 'Mi Perú', 'Miraflores', 'Pachacámac',
-  'Pucusana', 'Pueblo Libre', 'Puente Piedra', 'Punta Hermosa', 'Punta Negra',
-  'Rímac', 'San Bartolo', 'San Borja', 'San Isidro', 'San Juan de Lurigancho',
-  'San Juan de Miraflores', 'San Luis', 'San Martín de Porres', 'San Miguel',
-  'Santa Anita', 'Santa María del Mar', 'Santa Rosa', 'Santiago de Surco',
-  'Surquillo', 'Ventanilla', 'Villa El Salvador', 'Villa María del Triunfo',
-  'Arequipa', 'Cayma', 'Cerro Colorado', 'Trujillo', 'Víctor Larco Herrera',
-  'Chiclayo', 'Cusco', 'Piura', 'Tarapoto', 'Chimbote', 'Huancayo',
-  'Iquitos', 'Pucallpa', 'Tacna'
+/** Distritos que se sugieren mientras no se conoce el catálogo (o si aún no tiene ubicación guardada). */
+const DISTRITOS_BASE = [
+  'Ancón', 'Ate', 'Barranco', 'Breña', 'Callao', 'Carabayllo', 'Chaclacayo', 'Chorrillos', 'Cieneguilla', 'Comas',
+  'El Agustino', 'Independencia', 'Jesús María', 'La Molina', 'La Perla', 'La Punta', 'La Victoria', 'Lima', 'Lince',
+  'Los Olivos', 'Lurigancho', 'Lurín', 'Magdalena del Mar', 'Miraflores', 'Pachacámac', 'Pueblo Libre', 'Puente Piedra',
+  'Rímac', 'San Borja', 'San Isidro', 'San Juan de Lurigancho', 'San Juan de Miraflores', 'San Luis', 'San Martín de Porres',
+  'San Miguel', 'Santa Anita', 'Santiago de Surco', 'Surquillo', 'Ventanilla', 'Villa El Salvador', 'Villa María del Triunfo',
+  'Arequipa', 'Cayma', 'Cerro Colorado', 'Trujillo', 'Chiclayo', 'Cusco', 'Piura', 'Tarapoto', 'Huancayo', 'Iquitos', 'Tacna',
 ].sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }))
 
 const OPERACIONES: { value: FilterState['operacion']; label: string }[] = [
   { value: 'todos', label: 'Todos' },
   { value: 'ALQUILER', label: 'Alquiler' },
   { value: 'VENTA', label: 'Venta' },
-]
-
-const TIPOS: { value: FilterState['inmueble']; label: string }[] = [
-  { value: 'todos', label: 'Todos' },
-  { value: 'Departamento', label: 'Depto.' },
-  { value: 'Casa', label: 'Casa' },
 ]
 
 const DORMITORIOS: { value: FilterState['dormitorios']; label: string }[] = [
@@ -66,11 +56,27 @@ const BANIOS: { value: FilterState['banios']; label: string }[] = [
   { value: '3+', label: '3+' },
 ]
 
+const COCHERAS: { value: FilterState['cocheras']; label: string }[] = [
+  { value: 'todos', label: 'Todas' },
+  { value: '1+', label: '1+' },
+  { value: '2+', label: '2+' },
+  { value: '3+', label: '3+' },
+]
+
 const PUBLICADOS: { value: FilterState['publicado']; label: string }[] = [
   { value: 'todos', label: 'Cualquiera' },
   { value: 'hoy', label: 'Hoy' },
   { value: 'semana', label: '7 días' },
   { value: 'mes', label: '30 días' },
+]
+
+/** Antigüedad máxima: «Estreno» es 0 años. El valor es el texto del número («» = cualquiera). */
+const ANTIGUEDADES: { value: string; label: string }[] = [
+  { value: '', label: 'Cualquiera' },
+  { value: '0', label: 'Estreno' },
+  { value: '5', label: 'Hasta 5' },
+  { value: '10', label: 'Hasta 10' },
+  { value: '20', label: 'Hasta 20' },
 ]
 
 const removeAccents = (str: string) => str.normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -108,6 +114,39 @@ function Segmented<T extends string>({
   )
 }
 
+/** Lista desplegable con «Todos» más los valores que existen en el catálogo (con su cantidad). */
+function Selector({
+  id,
+  label,
+  value,
+  onChange,
+  opciones,
+  vacio,
+}: {
+  id: string
+  label: string
+  value: string
+  onChange: (v: string) => void
+  opciones: { valor: string; n?: number }[]
+  vacio: string
+}) {
+  // Si el valor elegido ya no está en la lista (p. ej. al aplicar una búsqueda guardada) se mantiene visible.
+  const lista = value && !opciones.some(o => claveNombre(o.valor) === claveNombre(value)) ? [{ valor: value }, ...opciones] : opciones
+  return (
+    <div className="min-w-0">
+      <label className="field-label" htmlFor={id}>{label}</label>
+      <select id={id} value={value} onChange={e => onChange(e.target.value)} className="field" disabled={lista.length === 0}>
+        <option value="">{lista.length === 0 ? vacio : 'Todos'}</option>
+        {lista.map(o => (
+          <option key={o.valor} value={o.valor}>
+            {o.valor}{o.n !== undefined ? ` (${o.n.toLocaleString('es-PE')})` : ''}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
 /** Grupo con título: agrupa campos relacionados con aire suficiente entre ellos. */
 function Grupo({ icon, tono, title, children, aside }: { icon: Parameters<typeof Icono3D>[0]['icon']; tono: Tono; title: string; children: ReactNode; aside?: ReactNode }) {
   return (
@@ -137,6 +176,7 @@ export default function PortalFilters({
   const [mas, setMas] = useState(false)
   const portalRef = useRef<HTMLDivElement>(null)
   const masId = useId()
+  const facetas = useFacetas()
 
   const update = (patch: Partial<FilterState>) => onFiltersChange({ ...filters, ...patch })
 
@@ -158,12 +198,25 @@ export default function PortalFilters({
     if (nAvanzados > 0) setMas(true)
   }, [nAvanzados])
 
-  const suggestions =
-    filters.distrito.trim() === ''
-      ? []
-      : PRINCIPALES_DISTRITOS.filter(dist =>
-          removeAccents(dist.toLowerCase()).includes(removeAccents(filters.distrito.toLowerCase()))
-        )
+  // Listas del catálogo: las provincias se limitan al departamento elegido y los distritos a ambos.
+  const departamentos = facetas?.departamentos ?? []
+  const provincias = useMemo(
+    () => (facetas?.provincias ?? []).filter(p => !filters.departamento || !p.padre || claveNombre(p.padre) === claveNombre(filters.departamento)),
+    [facetas, filters.departamento]
+  )
+  const distritosCatalogo = useMemo(
+    () => (facetas?.distritos ?? []).filter(d => !filters.departamento || !d.padre || claveNombre(d.padre) === claveNombre(filters.departamento)),
+    [facetas, filters.departamento]
+  )
+  const inmuebles = facetas?.inmuebles?.length ? facetas.inmuebles : [{ valor: 'Departamento' }, { valor: 'Casa' }]
+
+  // Sugerencias de distrito: primero los del catálogo (con su cantidad) y, si no hay, la lista base.
+  const suggestions = useMemo(() => {
+    const q = removeAccents(filters.distrito.trim().toLowerCase())
+    if (!q) return []
+    const base: { valor: string; n?: number }[] = distritosCatalogo.length > 0 ? distritosCatalogo : DISTRITOS_BASE.map(valor => ({ valor }))
+    return base.filter(d => removeAccents(d.valor.toLowerCase()).includes(q)).slice(0, 12)
+  }, [filters.distrito, distritosCatalogo])
 
   const handlePortalToggle = (portal: string) =>
     update({
@@ -219,10 +272,10 @@ export default function PortalFilters({
       )}
 
       <div className={cn(isMobileDrawer ? 'space-y-6' : 'space-y-7 px-5 py-6 sm:px-6')}>
-        {/* Qué y dónde */}
-        <Grupo icon={MapPin} tono="rose" title="Qué buscas y dónde">
+        {/* Qué buscas */}
+        <Grupo icon={Building2} tono="rose" title="Qué buscas">
           <div className={grid}>
-            <div className={col('xl:col-span-4')}>
+            <div className={col('xl:col-span-5')}>
               <label className="field-label" htmlFor="flt-texto">Palabra clave</label>
               <div className="field-icon">
                 <TextCursorInput className="size-4" />
@@ -239,8 +292,36 @@ export default function PortalFilters({
               </div>
             </div>
 
+            <div className={col('xl:col-span-4')}>
+              <Segmented label="Operación" value={filters.operacion} options={OPERACIONES} onChange={operacion => update({ operacion })} />
+            </div>
+
+            <div className={col('xl:col-span-3')}>
+              <Selector id="flt-inmueble" label="Tipo de inmueble" value={filters.inmueble === 'todos' ? '' : filters.inmueble} onChange={v => update({ inmueble: v || 'todos' })} opciones={inmuebles} vacio="Todos" />
+            </div>
+          </div>
+        </Grupo>
+
+        {/* Ubicación */}
+        <Grupo icon={MapPin} tono="blue" title="Ubicación">
+          <div className={grid}>
+            <div className={col('xl:col-span-4')}>
+              <Selector
+                id="flt-departamento"
+                label="Departamento"
+                value={filters.departamento}
+                onChange={v => update({ departamento: v, provincia: '' })}
+                opciones={departamentos}
+                vacio="Sin datos aún"
+              />
+            </div>
+
+            <div className={col('xl:col-span-4')}>
+              <Selector id="flt-provincia" label="Ciudad o provincia" value={filters.provincia} onChange={v => update({ provincia: v })} opciones={provincias} vacio="Sin datos aún" />
+            </div>
+
             {/* Distrito */}
-            <div className={cn('relative', col('xl:col-span-3'))}>
+            <div className={cn('relative', col('xl:col-span-4'))}>
               <label className="field-label" htmlFor="flt-distrito">Distrito</label>
               <div className="field-icon">
                 <Search className="size-4" />
@@ -261,31 +342,24 @@ export default function PortalFilters({
               </div>
               {showSuggestions && suggestions.length > 0 && (
                 <ul className="animate-popIn absolute left-0 right-0 top-full z-30 mt-2 max-h-60 overflow-y-auto rounded-2xl border border-line-strong bg-surface-2 p-1.5 shadow-2xl">
-                  {suggestions.map(dist => (
-                    <li key={dist}>
+                  {suggestions.map(d => (
+                    <li key={d.valor}>
                       <button
                         type="button"
                         onMouseDown={e => e.preventDefault()}
                         onClick={() => {
-                          update({ distrito: dist })
+                          update({ distrito: d.valor })
                           setShowSuggestions(false)
                         }}
-                        className="flex w-full items-center rounded-xl px-3 py-2 text-left text-sm text-text transition hover:bg-surface-3"
+                        className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm text-text transition hover:bg-surface-3"
                       >
-                        {dist}
+                        <span className="truncate">{d.valor}</span>
+                        {d.n !== undefined && <span className="mono shrink-0 text-xs text-text-muted">{d.n.toLocaleString('es-PE')}</span>}
                       </button>
                     </li>
                   ))}
                 </ul>
               )}
-            </div>
-
-            <div className={col('xl:col-span-3')}>
-              <Segmented label="Operación" value={filters.operacion} options={OPERACIONES} onChange={operacion => update({ operacion })} />
-            </div>
-
-            <div className={col('xl:col-span-2')}>
-              <Segmented label="Tipo" value={filters.inmueble} options={TIPOS} onChange={inmueble => update({ inmueble })} />
             </div>
           </div>
         </Grupo>
@@ -397,6 +471,16 @@ export default function PortalFilters({
               )}
             </div>
           </div>
+
+          <label className="flex w-fit cursor-pointer items-center gap-3 rounded-2xl border border-line bg-surface-3/40 px-4 py-2.5 text-sm text-text transition hover:border-gold/40">
+            <input
+              type="checkbox"
+              checked={filters.soloConPrecio}
+              onChange={e => update({ soloConPrecio: e.target.checked })}
+              className="size-4 cursor-pointer accent-gold"
+            />
+            Solo avisos con precio publicado
+          </label>
         </Grupo>
 
         {/* Desglose: más filtros */}
@@ -411,7 +495,7 @@ export default function PortalFilters({
             <span className="flex items-center gap-2.5 text-sm font-semibold text-text">
               <Icono3D icon={SlidersHorizontal} tono="violet" size="sm" />
               Más filtros
-              <span className="hidden text-xs font-normal text-text-muted sm:inline">Dormitorios, baños, área y fecha de publicación</span>
+              <span className="hidden text-xs font-normal text-text-muted sm:inline">Ambientes, cocheras, área, antigüedad, anunciante y fecha</span>
               {nAvanzados > 0 && <span className="badge badge-gold">{nAvanzados}</span>}
             </span>
             <ChevronDown className={cn('size-5 shrink-0 text-text-muted transition-transform duration-300', mas && 'rotate-180')} />
@@ -424,34 +508,68 @@ export default function PortalFilters({
           >
             <div className="min-h-0 overflow-hidden">
               <div className="space-y-7 pb-1 pt-0.5">
-                <Grupo icon={BedDouble} tono="violet" title="Ambientes">
+                <Grupo icon={BedDouble} tono="violet" title="Ambientes y cocheras">
                   <div className={grid}>
-                    <div className={col('xl:col-span-6')}>
+                    <div className={col('xl:col-span-5')}>
                       <Segmented label="Dormitorios" value={filters.dormitorios} options={DORMITORIOS} onChange={dormitorios => update({ dormitorios })} />
                     </div>
-                    <div className={col('xl:col-span-6')}>
+                    <div className={col('xl:col-span-4')}>
                       <Segmented label="Baños" value={filters.banios} options={BANIOS} onChange={banios => update({ banios })} />
+                    </div>
+                    <div className={col('xl:col-span-3')}>
+                      <Segmented label="Cocheras" value={filters.cocheras} options={COCHERAS} onChange={cocheras => update({ cocheras })} />
                     </div>
                   </div>
                 </Grupo>
 
                 <div className={cn('grid gap-7', !isMobileDrawer && 'xl:grid-cols-2')}>
-                <Grupo icon={Ruler} tono="blue" title="Área construida">
-                  <div className={cn('grid gap-5', !isMobileDrawer && 'sm:grid-cols-2')}>
-                    <div>
-                      <label className="field-label" htmlFor="flt-area-min">Área mín. (m²)</label>
-                      <input id="flt-area-min" type="number" min={0} inputMode="numeric" value={filters.areaMin} onChange={e => update({ areaMin: numero(e.target.value) })} placeholder="0" className="field mono" />
+                  <Grupo icon={Ruler} tono="blue" title="Área construida">
+                    <div className={cn('grid gap-5', !isMobileDrawer && 'sm:grid-cols-2')}>
+                      <div>
+                        <label className="field-label" htmlFor="flt-area-min">Área mín. (m²)</label>
+                        <input id="flt-area-min" type="number" min={0} inputMode="numeric" value={filters.areaMin} onChange={e => update({ areaMin: numero(e.target.value) })} placeholder="0" className="field mono" />
+                      </div>
+                      <div>
+                        <label className="field-label" htmlFor="flt-area-max">Área máx. (m²)</label>
+                        <input id="flt-area-max" type="number" min={0} inputMode="numeric" value={filters.areaMax} onChange={e => update({ areaMax: numero(e.target.value) })} placeholder="Sin límite" className="field mono" />
+                      </div>
                     </div>
-                    <div>
-                      <label className="field-label" htmlFor="flt-area-max">Área máx. (m²)</label>
-                      <input id="flt-area-max" type="number" min={0} inputMode="numeric" value={filters.areaMax} onChange={e => update({ areaMax: numero(e.target.value) })} placeholder="Sin límite" className="field mono" />
-                    </div>
-                  </div>
-                </Grupo>
+                  </Grupo>
 
-                <Grupo icon={CalendarClock} tono="amber" title="Novedades">
-                  <Segmented label="Publicado en el sistema" value={filters.publicado} options={PUBLICADOS} onChange={publicado => update({ publicado })} />
-                </Grupo>
+                  <Grupo icon={Hammer} tono="rose" title="Antigüedad (años)">
+                    <Segmented
+                      label="Máxima"
+                      value={String(filters.antiguedadMax)}
+                      options={ANTIGUEDADES}
+                      onChange={v => update({ antiguedadMax: v === '' ? '' : Number(v) })}
+                    />
+                  </Grupo>
+                </div>
+
+                <div className={cn('grid gap-7', !isMobileDrawer && 'xl:grid-cols-2')}>
+                  <Grupo icon={UserRound} tono="green" title="Anunciante">
+                    <div>
+                      <label className="field-label" htmlFor="flt-anunciante">Inmobiliaria o persona</label>
+                      <input
+                        id="flt-anunciante"
+                        type="text"
+                        list="flt-anunciantes"
+                        value={filters.anunciante}
+                        onChange={e => update({ anunciante: e.target.value })}
+                        placeholder="Ej.: Prisma"
+                        className="field"
+                        maxLength={80}
+                        autoComplete="off"
+                      />
+                      <datalist id="flt-anunciantes">
+                        {(facetas?.anunciantes ?? []).map(a => <option key={a.valor} value={a.valor} />)}
+                      </datalist>
+                    </div>
+                  </Grupo>
+
+                  <Grupo icon={CalendarClock} tono="amber" title="Novedades">
+                    <Segmented label="Publicado en el sistema" value={filters.publicado} options={PUBLICADOS} onChange={publicado => update({ publicado })} />
+                  </Grupo>
                 </div>
               </div>
             </div>

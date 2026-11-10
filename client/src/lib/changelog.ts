@@ -23,6 +23,17 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "2.3.0",
+    fecha: "2026-11-10",
+    titulo: "Filtros por departamento, ciudad, tipo, cocheras y más",
+    cambios: [
+      { tipo: "implementacion", texto: "Nuevos filtros con datos que entregan los portales: departamento (región), ciudad o provincia, tipo de inmueble (departamento, casa, terreno, oficina…), cocheras, antigüedad máxima (desde «estreno»), anunciante y «solo avisos con precio»." },
+      { tipo: "mejora", texto: "Las listas de departamento, provincia, tipo y anunciante salen de lo que realmente hay en el catálogo, con la cantidad de avisos de cada una; el distrito sugiere los que existen y las provincias se limitan al departamento elegido." },
+      { tipo: "mejora", texto: "Los distritos de Lima y del Callao se unifican con su nombre oficial («Santiago De Surco» y «Surco» pasan a «Santiago de Surco») y deducen su departamento y provincia; la carga guarda además el departamento y la ciudad que entrega cada portal (db/011_ubicacion.sql)." },
+      { tipo: "mejora", texto: "Cada filtro nuevo aparece como chip y vale también para las búsquedas guardadas." },
+    ],
+  },
+  {
     version: "2.2.0",
     fecha: "2026-11-04",
     titulo: "InfoCasas y Properati se suman a la carga",
