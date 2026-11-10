@@ -23,6 +23,14 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "2.10.1",
+    fecha: "2026-11-10",
+    titulo: "Diagnóstico de la copia de portadas",
+    cambios: [
+      { tipo: "mejora", texto: "El registro de la función copiar-portadas ahora incluye el motivo de la primera copia fallida (permisos de la clave, foto inexistente, etc.)." },
+    ],
+  },
+  {
     version: "2.10.0",
     fecha: "2026-11-10",
     titulo: "Portadas propias en Cloudinary",

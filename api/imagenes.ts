@@ -54,6 +54,8 @@ export interface ResultadoCopia {
   intentadas: number
   copiadas: number
   fallidas: number
+  /** Motivo de la primera copia fallida (para diagnosticar permisos, claves o fotos que ya no existen). */
+  primerError?: string
 }
 
 /**
@@ -86,8 +88,9 @@ export async function copiarPortadas(
         // Solo si la portada sigue siendo la que se copió (otra corrida pudo cambiarla).
         await db.query(`update public.propiedades set imagen = $1 where id = $2 and imagen = $3`, [url, p.id, p.imagen])
         r.copiadas++
-      } catch {
+      } catch (e) {
         r.fallidas++
+        r.primerError ??= String((e as Error)?.message ?? e).slice(0, 200)
       }
     }
   }

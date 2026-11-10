@@ -74,7 +74,7 @@ describe("copiarPortadas", () => {
   it("si Cloudinary falla, el aviso conserva la foto del portal", async () => {
     await guardarAvisos(db, [aviso("c3", "https://cdn.portal.com/c.jpg")])
     const r = await copiarPortadas(db, env, { fetchFn: falsoCloudinary(true).fetchFn })
-    expect(r).toMatchObject({ copiadas: 0, fallidas: 1 })
+    expect(r).toMatchObject({ copiadas: 0, fallidas: 1, primerError: "no se pudo" })
     const f = await pg.query<{ imagen: string }>("select imagen from public.propiedades where id = 'infocasas:c3'")
     expect(f.rows[0].imagen).toBe("https://cdn.portal.com/c.jpg")
   })
