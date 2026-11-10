@@ -23,6 +23,17 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "2.8.0",
+    fecha: "2026-11-10",
+    titulo: "Búsquedas por operación, tipo y distrito",
+    cambios: [
+      { tipo: "mejora", texto: "La carga de Adondevivir y Urbania ahora recorre 61 búsquedas cada una: venta y alquiler de departamentos, casas, terrenos, locales y oficinas en Lima, más departamentos y casas en 14 distritos." },
+      { tipo: "mejora", texto: "Properati usa las direcciones exactas de departamentos y casas, venta y alquiler." },
+      { tipo: "mejora", texto: "El scraper propio de InfoCasas suma terrenos, oficinas y locales comerciales (venta y alquiler) a sus búsquedas por defecto." },
+      { tipo: "implementacion", texto: "Nueva guía docs/URLS_BUSQUEDA.md con la forma de las direcciones de cada portal según venta, alquiler, tipo y lugar." },
+    ],
+  },
+  {
     version: "2.7.0",
     fecha: "2026-11-10",
     titulo: "Scraper propio de InfoCasas",

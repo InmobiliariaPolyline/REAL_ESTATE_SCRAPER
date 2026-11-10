@@ -626,7 +626,7 @@ describe("InfoCasas y Properati como fuentes", () => {
     const p = fuentesDeCarga({}).properati
     expect(p.actores.principal).toMatchObject({ id: "scrapers_lat~properati-scraper", costoPorMil: 8, maxPorCorrida: 10 })
     expect(p.actores.principal.entrada(p.busquedas[0], 10)).toEqual({ startUrls: [p.busquedas[0]], maxListings: 10, withDetails: false })
-    expect(p.busquedas.every(b => b.startsWith("https://www.properati.com.pe/s/lima/"))).toBe(true)
+    expect(p.busquedas.every(b => b.startsWith("https://www.properati.com.pe/s/"))).toBe(true)
   })
 
   it("las búsquedas propias solo se aceptan con el formato esperado", () => {

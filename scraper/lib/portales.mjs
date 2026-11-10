@@ -96,7 +96,11 @@ export const infocasas = {
   nombre: "InfoCasas",
   base: "https://www.infocasas.com.pe",
   /** Rutas de búsqueda (la ruta termina donde empieza la paginación). Se pueden agregar distritos: «venta/departamentos/lima/miraflores». */
-  busquedas: ["venta/departamentos/lima", "alquiler/departamentos/lima", "venta/casas/lima", "alquiler/casas/lima"],
+  busquedas: [
+    "venta/departamentos/lima", "alquiler/departamentos/lima", "venta/casas/lima", "alquiler/casas/lima",
+    "venta/terrenos/lima", "venta/oficinas/lima", "alquiler/oficinas/lima",
+    "venta/locales-comerciales/lima", "alquiler/locales-comerciales/lima",
+  ],
   maxPaginas: 25,
   urlPagina: (busqueda, n) => `https://www.infocasas.com.pe/${busqueda}${n > 1 ? `/pagina${n}` : ""}`,
   extraer(html) {

@@ -82,7 +82,7 @@ precio, fotos, descripción, dirección, coordenadas, anunciante y ubicación.
 # 1) Probar sin enviar nada: muestra lo que leería
 node scraper/scraper.mjs --probar --portal infocasas --paginas 1
 
-# 2) Leer y enviar (5 páginas de cada búsqueda por defecto: departamentos y casas, venta y alquiler en Lima)
+# 2) Leer y enviar (5 páginas de cada búsqueda por defecto: departamentos, casas, terrenos, oficinas y locales, venta y alquiler en Lima)
 $env:INGESTA_TOKEN = "tu-clave-larga"            # PowerShell
 node scraper/scraper.mjs --portal infocasas --paginas 5
 
@@ -96,6 +96,8 @@ Opciones: `--paginas N` (hasta 25 por búsqueda), `--busqueda RUTA` (se puede re
 **Cómo se porta:** un solo hilo, 5 segundos o más entre peticiones, se identifica como `ScraperPropio/1.0`, consulta
 el `robots.txt` del portal antes de pedir cada página, y **se detiene** si el portal responde 403, 429 o un error del
 servidor (no reintenta ni intenta esquivar nada). Cada página se envía apenas se lee.
+
+Las direcciones de búsqueda de cada portal están en `docs/URLS_BUSQUEDA.md`.
 
 **Programarlo en Windows:** Programador de tareas → Crear tarea básica → acción «Iniciar un programa» con
 `node` como programa y `scraper\scraper.mjs --portal infocasas --paginas 5` como argumentos, y «Iniciar en» la carpeta
