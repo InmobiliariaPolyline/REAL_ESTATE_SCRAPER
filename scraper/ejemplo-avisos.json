@@ -1,0 +1,36 @@
+{
+  "avisos": [
+    {
+      "portal": "urbania",
+      "codigo": "EJEMPLO-001",
+      "operacion": "VENTA",
+      "inmueble": "Departamento",
+      "titulo": "Departamento de ejemplo en Miraflores",
+      "precio": 520000,
+      "moneda": "PEN",
+      "distrito": "Miraflores",
+      "dormitorios": 3,
+      "banios": 2,
+      "area": "95 m2",
+      "estacionamientos": 1,
+      "url": "https://example.com/aviso/EJEMPLO-001",
+      "descripcion": "Aviso de prueba para comprobar la conexión. Se puede borrar desde Propiedades."
+    },
+    {
+      "portal": "properati",
+      "codigo": "EJEMPLO-002",
+      "operacion": "ALQUILER",
+      "inmueble": "Casa",
+      "titulo": "Casa de ejemplo en Cayma",
+      "precio": 2500,
+      "moneda": "USD",
+      "distrito": "Cayma",
+      "departamento": "Arequipa",
+      "provincia": "Arequipa",
+      "dormitorios": 4,
+      "banios": 3,
+      "area": 220,
+      "url": "https://example.com/aviso/EJEMPLO-002"
+    }
+  ]
+}

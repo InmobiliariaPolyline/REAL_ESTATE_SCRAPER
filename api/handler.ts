@@ -5,10 +5,11 @@ import { createRouter } from "./router"
 import { adminRoutes } from "./routes/admin"
 import { authRoutes } from "./routes/auth"
 import { cargaRoutes } from "./routes/carga"
+import { ingestaRoutes } from "./routes/ingesta"
 import { insightsRoutes } from "./routes/insights"
 import { portalRoutes } from "./routes/portal"
 
-const dispatch = createRouter([...authRoutes, ...portalRoutes, ...insightsRoutes, ...cargaRoutes, ...adminRoutes])
+const dispatch = createRouter([...authRoutes, ...portalRoutes, ...insightsRoutes, ...cargaRoutes, ...ingestaRoutes, ...adminRoutes])
 
 /**
  * Handler Web estándar (Request → Response), independiente de la plataforma:

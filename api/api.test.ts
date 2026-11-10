@@ -1815,3 +1815,67 @@ describe("auditoría", () => {
     }
   })
 })
+
+describe("entrada de datos para scrapers propios (POST /api/ingesta)", () => {
+  const TOKEN = "token-de-prueba-largo-123456789"
+  const con = createApiHandler(() => db, { USD_TO_PEN_RATE: "4", INGESTA_TOKEN: TOKEN })
+  const sinToken = createApiHandler(() => db, { USD_TO_PEN_RATE: "4" })
+  const corto = createApiHandler(() => db, { INGESTA_TOKEN: "corto" })
+
+  const enviar = async (h: typeof con, body: unknown, token: string | null = TOKEN) => {
+    const headers: Record<string, string> = { "Content-Type": "application/json" }
+    if (token) headers.Authorization = `Bearer ${token}`
+    const res = await h(new Request("http://localhost/api/ingesta", { method: "POST", headers, body: JSON.stringify(body) }))
+    return { status: res.status, body: await res.json() }
+  }
+
+  const aviso = (codigo: string, extra: Record<string, unknown> = {}) => ({
+    portal: "urbania", codigo, operacion: "VENTA", inmueble: "Departamento", titulo: `Depa ${codigo}`, precio: 400000, moneda: "PEN", distrito: "SANTIAGO DE SURCO", ...extra,
+  })
+
+  it("sin token configurado, o demasiado corto, no acepta nada", async () => {
+    expect((await enviar(sinToken, { avisos: [] })).status).toBe(501)
+    expect((await enviar(corto, { avisos: [] }, "corto")).status).toBe(501)
+  })
+
+  it("rechaza un token ausente o equivocado", async () => {
+    expect((await enviar(con, { avisos: [aviso("x1")] }, null)).status).toBe(403)
+    expect((await enviar(con, { avisos: [aviso("x1")] }, "otro-token-equivocado-12345678")).status).toBe(403)
+    expect((await pg.query("select count(*)::int n from propiedades where id = 'urbania:x1'")).rows[0]).toEqual({ n: 0 })
+  })
+
+  it("guarda los avisos, deduce la ubicación y no duplica al enviar otra vez", async () => {
+    const r1 = await enviar(con, { avisos: [aviso("ing1"), aviso("ing2", { portal: "ADONDEVIVIR", operacion: "alquiler", dormitorios: 3, banios: "2", area: 85, imagenes: ["https://img.test/a.jpg", 5] })] })
+    expect(r1.status).toBe(200)
+    expect(r1.body).toMatchObject({ recibidos: 2, guardados: 2, descartados: 0 })
+
+    const f = (await pg.query("select id, portal, operacion, distrito, departamento, provincia, dormitorios, banios, area, imagenes from propiedades where id in ('urbania:ing1','adondevivir:ing2') order by id")).rows
+    expect(f[0]).toMatchObject({ id: "adondevivir:ing2", portal: "adondevivir", operacion: "ALQUILER", dormitorios: "3", banios: "2", area: "85 m2", imagenes: ["https://img.test/a.jpg"] })
+    expect(f[1]).toMatchObject({ id: "urbania:ing1", distrito: "Santiago de Surco", departamento: "Lima", provincia: "Lima" })
+
+    // Mismo aviso con otro precio: se actualiza, no se duplica.
+    await enviar(con, { avisos: [aviso("ing1", { precio: 420000 })] })
+    const filas = (await pg.query("select precio::int p from propiedades where id = 'urbania:ing1'")).rows
+    expect(filas).toEqual([{ p: 420000 }])
+  })
+
+  it("descarta lo que no sirve (portal desconocido, sin código, sin operación, no objeto) y cuenta cuántos", async () => {
+    const r = await enviar(con, { avisos: [aviso("ing3"), aviso("ing4", { portal: "inventado" }), aviso("", {}), aviso("ing5", { operacion: "TRUEQUE" }), "texto", null, 7] })
+    expect(r.status).toBe(200)
+    expect(r.body).toMatchObject({ recibidos: 7, guardados: 1, descartados: 6 })
+  })
+
+  it("valida la forma del envío y el tamaño del lote", async () => {
+    expect((await enviar(con, { cosa: [] })).status).toBe(400)
+    expect((await enviar(con, { avisos: "no" })).status).toBe(400)
+    expect((await enviar(con, { avisos: [] })).body).toEqual({ recibidos: 0, guardados: 0, descartados: 0 })
+    expect((await enviar(con, { avisos: Array.from({ length: 501 }, (_, i) => aviso(`g${i}`)) })).status).toBe(400)
+    const res = await con(new Request("http://localhost/api/ingesta", { method: "POST", headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" }, body: "no es json" }))
+    expect(res.status).toBe(400)
+  })
+
+  it("solo acepta POST", async () => {
+    const res = await con(new Request("http://localhost/api/ingesta", { method: "GET", headers: { Authorization: `Bearer ${TOKEN}` } }))
+    expect(res.status).toBeGreaterThanOrEqual(404)
+  })
+})

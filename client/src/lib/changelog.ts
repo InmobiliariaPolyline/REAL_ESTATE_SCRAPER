@@ -23,6 +23,15 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "2.6.0",
+    fecha: "2026-11-10",
+    titulo: "Entrada para scrapers propios (PHP, Python o Node)",
+    cambios: [
+      { tipo: "implementacion", texto: "Nueva entrada protegida con clave, POST /api/ingesta, para que cualquier scraper propio (por ejemplo un script PHP corriendo con XAMPP) envíe avisos al sistema: se guardan sin duplicar, con fotos, detalles y ubicación, igual que con Apify." },
+      { tipo: "mejora", texto: "Se agrega la carpeta scraper/ con un envío listo en PHP y en Node, un archivo de ejemplo y la guía docs/SCRAPER_PROPIO.md (crear la clave, probar la conexión, programar la tarea y entregarlo a otra persona)." },
+    ],
+  },
+  {
     version: "2.5.0",
     fecha: "2026-11-10",
     titulo: "Los filtros ofrecen todo el Perú, haya o no avisos",
