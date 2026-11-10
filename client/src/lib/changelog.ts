@@ -23,6 +23,15 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "2.9.0",
+    fecha: "2026-11-10",
+    titulo: "Scraper propio: provincias y programación",
+    cambios: [
+      { tipo: "implementacion", texto: "Nueva opción --provincias en el scraper: suma Arequipa, La Libertad, Piura, Lambayeque y la sección de proyectos de InfoCasas (rutas verificadas)." },
+      { tipo: "implementacion", texto: "Nuevo script scraper/programar-windows.ps1 que crea la tarea programada de Windows (lunes y jueves) y guarda el token como variable del usuario." },
+    ],
+  },
+  {
     version: "2.8.0",
     fecha: "2026-11-10",
     titulo: "Búsquedas por operación, tipo y distrito",

@@ -90,7 +90,7 @@ node scraper/scraper.mjs --portal infocasas --paginas 5
 node scraper/scraper.mjs --busqueda venta/departamentos/lima/miraflores --paginas 10
 ```
 
-Opciones: `--paginas N` (hasta 25 por búsqueda), `--busqueda RUTA` (se puede repetir), `--max N` (tope de avisos,
+Opciones: `--provincias` (suma Arequipa, La Libertad, Piura, Lambayeque y proyectos), `--paginas N` (hasta 25 por búsqueda), `--busqueda RUTA` (se puede repetir), `--max N` (tope de avisos,
 2000 por defecto), `--pausa S` (segundos entre peticiones, 5 por defecto, mínimo 3) y `--probar`.
 
 **Cómo se porta:** un solo hilo, 5 segundos o más entre peticiones, se identifica como `ScraperPropio/1.0`, consulta
@@ -99,7 +99,9 @@ servidor (no reintenta ni intenta esquivar nada). Cada página se envía apenas 
 
 Las direcciones de búsqueda de cada portal están en `docs/URLS_BUSQUEDA.md`.
 
-**Programarlo en Windows:** Programador de tareas → Crear tarea básica → acción «Iniciar un programa» con
+**Programarlo en Windows (automático):** `.\scraper\programar-windows.ps1 -Token "tu-clave"` crea la tarea (lunes y jueves 8:00).
+
+**Programarlo en Windows (a mano):** Programador de tareas → Crear tarea básica → acción «Iniciar un programa» con
 `node` como programa y `scraper\scraper.mjs --portal infocasas --paginas 5` como argumentos, y «Iniciar en» la carpeta
 del proyecto. La variable `INGESTA_TOKEN` debe estar definida para el usuario que ejecuta la tarea.
 

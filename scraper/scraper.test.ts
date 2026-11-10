@@ -174,6 +174,8 @@ describe("argumentos de la línea de comandos", () => {
   })
 
   it("rechaza lo inválido, incluida una pausa menor al mínimo", () => {
+    expect(leerArgumentos(["--provincias"]).provincias).toBe(true)
+    expect(leerArgumentos([]).provincias).toBe(false)
     expect(() => leerArgumentos(["--portal", "otro"])).toThrow("Portal desconocido")
     expect(() => leerArgumentos(["--pausa", "1"])).toThrow("--pausa")
     expect(() => leerArgumentos(["--paginas", "0"])).toThrow("--paginas")

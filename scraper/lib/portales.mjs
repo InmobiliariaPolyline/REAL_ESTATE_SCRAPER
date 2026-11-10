@@ -101,6 +101,12 @@ export const infocasas = {
     "venta/terrenos/lima", "venta/oficinas/lima", "alquiler/oficinas/lima",
     "venta/locales-comerciales/lima", "alquiler/locales-comerciales/lima",
   ],
+  /** Con --provincias se agregan estas (probadas): las principales ciudades fuera de Lima. */
+  busquedasProvincias: [
+    "venta/departamentos/arequipa", "alquiler/departamentos/arequipa", "venta/casas/arequipa",
+    "venta/departamentos/la-libertad", "venta/departamentos/piura", "venta/departamentos/lambayeque",
+    "proyectos",
+  ],
   maxPaginas: 25,
   urlPagina: (busqueda, n) => `https://www.infocasas.com.pe/${busqueda}${n > 1 ? `/pagina${n}` : ""}`,
   extraer(html) {

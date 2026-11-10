@@ -11,6 +11,7 @@
 //   --busqueda RUTA   ruta de búsqueda del portal (se puede repetir); sin ella usa las de siempre
 //   --max N           tope de avisos por ejecución (por defecto 2000)
 //   --pausa S         segundos entre peticiones (por defecto 5, mínimo 3)
+//   --provincias      además de Lima, lee Arequipa, La Libertad, Piura, Lambayeque y proyectos
 //   --probar          no envía; imprime un resumen y 2 avisos de muestra
 //
 // Variables de entorno (para enviar): INGESTA_TOKEN y, si quieres, INGESTA_URL.
@@ -29,7 +30,7 @@ const PAUSA_MINIMA = 3
 const dormir = ms => new Promise(r => setTimeout(r, ms))
 
 export function leerArgumentos(argv) {
-  const a = { portal: "todos", paginas: 3, busquedas: [], max: 2000, pausa: 5, probar: false }
+  const a = { portal: "todos", paginas: 3, busquedas: [], max: 2000, pausa: 5, probar: false, provincias: false }
   for (let i = 0; i < argv.length; i++) {
     const k = argv[i]
     const siguiente = () => argv[++i]
@@ -39,6 +40,7 @@ export function leerArgumentos(argv) {
     else if (k === "--max") a.max = Number(siguiente())
     else if (k === "--pausa") a.pausa = Number(siguiente())
     else if (k === "--probar") a.probar = true
+    else if (k === "--provincias") a.provincias = true
     else throw new Error(`Opción desconocida: ${k}`)
   }
   if (!["todos", ...Object.keys(PORTALES)].includes(a.portal)) throw new Error(`Portal desconocido: ${a.portal}`)
@@ -78,7 +80,7 @@ export async function leerPortal(portal, opciones, { fetchFn = fetch, dormirFn =
     }
   })()
 
-  const busquedas = opciones.busquedas.length > 0 ? opciones.busquedas : portal.busquedas
+  const busquedas = opciones.busquedas.length > 0 ? opciones.busquedas : [...portal.busquedas, ...(opciones.provincias ? portal.busquedasProvincias ?? [] : [])]
   const maxPaginas = Math.min(opciones.paginas, portal.maxPaginas)
   const vistos = new Set()
   const todos = []
