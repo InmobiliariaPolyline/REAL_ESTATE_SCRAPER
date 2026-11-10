@@ -20,6 +20,15 @@ import {
 } from "../carga"
 import { HttpError, badRequest, forbidden, readJson, timingSafeEqual } from "../http"
 import type { Route } from "../router"
+import {
+  ErrorGithub,
+  PAGINAS_MAXIMAS,
+  PAGINAS_POR_DEFECTO,
+  githubDe,
+  hayEjecucionEnCurso,
+  lanzarScraper,
+  ultimasEjecuciones,
+} from "../scraperPropio"
 
 /** Últimas corridas; tolera una base sin la columna `actor` (aún sin re-ejecutar db/007). */
 async function corridasRecientes(db: Db) {
@@ -163,6 +172,56 @@ export const cargaRoutes: Route[] = [
       for (const l of lanzadas) await audit({ db, req, access }, "carga.iniciar", l.fuente, { avisos: l.items, origen: "manual" })
       const omitidas = todas.flatMap(t => (t.resultado.ok ? [] : [{ fuente: t.fuente, motivo: t.resultado.motivo, detalle: t.resultado.detalle }]))
       return { ok: true, items: lanzadas.reduce((n, l) => n + l.items, 0), lanzadas, omitidas }
+    },
+  },
+  {
+    // Scraper propio (GitHub Actions): estado de las últimas ejecuciones y de qué fuentes cubre.
+    method: "GET",
+    path: "/api/admin/scraper-propio",
+    level: "admin",
+    handler: async ({ env }) => {
+      const cfg = githubDe(env)
+      const catalogo = fuentesDeCarga(env)
+      // Solo InfoCasas permite la lectura directa; las demás bloquean (403) las peticiones automáticas y siguen por Apify.
+      const fuentes = FUENTES_IDS.map(id => ({
+        id,
+        nombre: catalogo[id].nombre,
+        propio: id === "infocasas",
+        apify: true,
+        busquedas_apify: catalogo[id].busquedas.length,
+      }))
+      if (!cfg) return { configurado: false, repo: null, fuentes, ejecuciones: [], error: null, paginas: { por_defecto: PAGINAS_POR_DEFECTO, maximo: PAGINAS_MAXIMAS } }
+      let ejecuciones: Awaited<ReturnType<typeof ultimasEjecuciones>> = []
+      let error: string | null = null
+      try {
+        ejecuciones = await ultimasEjecuciones(cfg)
+      } catch (err) {
+        error = err instanceof ErrorGithub ? err.message : "No se pudo consultar a GitHub."
+      }
+      return { configurado: true, repo: cfg.repo, fuentes, ejecuciones, error, paginas: { por_defecto: PAGINAS_POR_DEFECTO, maximo: PAGINAS_MAXIMAS } }
+    },
+  },
+  {
+    method: "POST",
+    path: "/api/admin/scraper-propio/ejecutar",
+    level: "admin",
+    handler: async ({ req, db, env, access }) => {
+      const cfg = githubDe(env)
+      if (!cfg) throw new HttpError(501, "scraper_sin_configurar", "Falta GITHUB_TOKEN o GITHUB_REPO en el servidor.")
+      const cuerpo = await readJson(req).catch((): Record<string, unknown> => ({}))
+      const paginas = cuerpo.paginas === undefined ? PAGINAS_POR_DEFECTO : entero(cuerpo.paginas, "Las páginas por búsqueda", 1, PAGINAS_MAXIMAS)
+      try {
+        // Una sola ejecución a la vez: si hay una en cola o en curso no se lanza otra.
+        if (hayEjecucionEnCurso(await ultimasEjecuciones(cfg))) {
+          throw new HttpError(409, "scraper_en_curso", "Ya hay una ejecución del scraper en curso. Espera a que termine.")
+        }
+        await lanzarScraper(cfg, paginas)
+      } catch (err) {
+        if (err instanceof ErrorGithub) throw new HttpError(502, "github_error", err.message)
+        throw err
+      }
+      await audit({ db, req, access }, "carga.iniciar", "scraper-propio", { paginas, origen: "manual" })
+      return { ok: true, paginas }
     },
   },
   {

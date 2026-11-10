@@ -33,6 +33,7 @@ import {
 } from "@/lib/carga"
 import { formatDate } from "@/lib/dates"
 import { cn } from "@/lib/utils"
+import ScraperPropioCard from "./ScraperPropioCard"
 
 const ESTADO: Record<Corrida["estado"], { label: string; badge: string; icon: LucideIcon }> = {
   iniciada: { label: "En curso", badge: "badge-blue", icon: Clock },
@@ -393,6 +394,9 @@ export default function CargaSection() {
           </section>
         </div>
       </div>
+
+      {/* Scraper propio (GitHub Actions) */}
+      <ScraperPropioCard />
 
       {/* Historial */}
       <section className="card overflow-hidden">

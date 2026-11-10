@@ -72,3 +72,39 @@ export interface RespuestaCarga {
 }
 /** Sin fuente carga todas; con una, solo esa. */
 export const runCarga = (fuente?: FuenteId) => api.post<RespuestaCarga>("/admin/carga/ejecutar", fuente ? { fuente } : undefined)
+
+// ── Scraper propio (GitHub Actions) ──────────────────────────────────────────
+
+export type EstadoEjecucion = "en_cola" | "en_curso" | "completada" | "fallida" | "cancelada"
+
+export interface EjecucionScraper {
+  id: number
+  estado: EstadoEjecucion
+  origen: "manual" | "programada"
+  url: string
+  iniciada_en: string
+  actualizada_en: string
+}
+
+export interface CoberturaFuente {
+  id: FuenteId
+  nombre: string
+  /** El scraper propio puede leerla (solo InfoCasas); las demás bloquean el acceso automático. */
+  propio: boolean
+  apify: boolean
+  busquedas_apify: number
+}
+
+export interface EstadoScraperPropio {
+  /** Hay GITHUB_TOKEN y GITHUB_REPO válidos en el servidor. */
+  configurado: boolean
+  repo: string | null
+  fuentes: CoberturaFuente[]
+  ejecuciones: EjecucionScraper[]
+  /** Motivo si no se pudo consultar a GitHub (token vencido, sin permiso…). */
+  error: string | null
+  paginas: { por_defecto: number; maximo: number }
+}
+
+export const fetchScraperPropio = () => api.get<EstadoScraperPropio>("/admin/scraper-propio")
+export const runScraperPropio = (paginas?: number) => api.post<{ ok: true; paginas: number }>("/admin/scraper-propio/ejecutar", paginas ? { paginas } : undefined)

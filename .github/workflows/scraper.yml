@@ -12,6 +12,11 @@ on:
   schedule:
     - cron: "0 14 * * 1,4"
   workflow_dispatch:
+    inputs:
+      paginas:
+        description: "Páginas por búsqueda (1 a 25)"
+        required: false
+        default: "5"
 
 permissions:
   contents: read
@@ -40,4 +45,5 @@ jobs:
       - name: Leer y enviar avisos
         env:
           INGESTA_TOKEN: ${{ secrets.INGESTA_TOKEN }}
-        run: node scraper/scraper.mjs --portal infocasas --paginas 5 --provincias
+          PAGINAS: ${{ inputs.paginas }}
+        run: node scraper/scraper.mjs --portal infocasas --paginas "${PAGINAS:-5}" --provincias

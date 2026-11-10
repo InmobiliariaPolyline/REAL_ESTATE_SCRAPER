@@ -17,6 +17,9 @@ export interface ApiEnv {
   INGESTA_TOKEN?: string
   /** Copia de portadas a Cloudinary: `cloudinary://CLAVE:SECRETO@NOMBRE` (el valor que muestra el panel de Cloudinary). Sin ella no se copia nada. */
   CLOUDINARY_URL?: string
+  /** Scraper propio en GitHub Actions: token (solo este repositorio, permiso Actions) y «usuario/repositorio». */
+  GITHUB_TOKEN?: string
+  GITHUB_REPO?: string
   /** Actor de Apify (`usuario~nombre`); por defecto el de Adondevivir. */
   APIFY_ACTOR?: string
   /** Actor de Urbania (`usuario~nombre`) y sus búsquedas a rotar (direcciones de urbania.pe/buscar/…, separadas por comas). */

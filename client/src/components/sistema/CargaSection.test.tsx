@@ -9,6 +9,8 @@ import CargaSection from "./CargaSection"
 const fetchCarga = vi.fn()
 const saveCarga = vi.fn()
 const runCarga = vi.fn()
+const fetchScraperPropio = vi.fn()
+const runScraperPropio = vi.fn()
 
 vi.mock("@/lib/carga", async importOriginal => {
   const real = await importOriginal<typeof import("@/lib/carga")>()
@@ -17,6 +19,8 @@ vi.mock("@/lib/carga", async importOriginal => {
     fetchCarga: (...a: unknown[]) => fetchCarga(...a),
     saveCarga: (...a: unknown[]) => saveCarga(...a),
     runCarga: (...a: unknown[]) => runCarga(...a),
+    fetchScraperPropio: (...a: unknown[]) => fetchScraperPropio(...a),
+    runScraperPropio: (...a: unknown[]) => runScraperPropio(...a),
   }
 })
 
@@ -44,6 +48,8 @@ beforeEach(() => {
   fetchCarga.mockReset()
   saveCarga.mockReset()
   runCarga.mockReset()
+  fetchScraperPropio.mockReset()
+  fetchScraperPropio.mockResolvedValue({ configurado: false, repo: null, fuentes: [], ejecuciones: [], error: null, paginas: { por_defecto: 5, maximo: 25 } })
 })
 
 describe("CargaSection", () => {

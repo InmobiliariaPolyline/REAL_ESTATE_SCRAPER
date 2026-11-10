@@ -104,6 +104,16 @@ scraper solo, lunes y jueves. Solo hay que crear el secreto `INGESTA_TOKEN` en G
 variables → Actions) y probarlo una vez con Actions → «Scraper propio (InfoCasas)» → Run workflow. Si InfoCasas
 bloquea las IP de GitHub (403), el scraper se detiene y el workflow sale en rojo: en ese caso se usa el computador.
 
+**Botón en el panel (Sistema → Carga de datos → «Scraper propio»):** ejecuta ese mismo workflow con un clic, muestra
+si está en cola, en curso o terminado, y deja constancia en la auditoría. Para activarlo, en Netlify crea dos variables
+(la primera, secreta) y vuelve a desplegar:
+
+- `GITHUB_TOKEN`: en GitHub → Settings → Developer settings → Personal access tokens → **Fine-grained tokens**. Elige
+  solo este repositorio y el permiso **Actions: Read and write**. Ponle vencimiento y renuévalo cuando venza.
+- `GITHUB_REPO`: `usuario/repositorio`, por ejemplo `InmobiliariaPolyline/REAL_ESTATE_SCRAPER`.
+
+Sin esas variables el botón avisa qué falta y no ejecuta nada. Solo hay una ejecución a la vez.
+
 **Programarlo en Windows (automático):** `.\scraper\programar-windows.ps1 -Token "tu-clave"` crea la tarea (lunes y jueves 8:00).
 
 **Programarlo en Windows (a mano):** Programador de tareas → Crear tarea básica → acción «Iniciar un programa» con

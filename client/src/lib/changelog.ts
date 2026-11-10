@@ -23,6 +23,16 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "2.12.0",
+    fecha: "2026-11-10",
+    titulo: "Botón del scraper propio en Carga de datos",
+    cambios: [
+      { tipo: "implementacion", texto: "Nueva tarjeta «Scraper propio» en Sistema → Carga de datos, junto a la de Apify: un botón que ejecuta el scraper en GitHub (sin computador encendido ni créditos de Apify), con las páginas por búsqueda a elegir, el estado de las últimas ejecuciones y un enlace a cada una." },
+      { tipo: "mejora", texto: "La tarjeta muestra qué entidades cubre cada vía: InfoCasas con el scraper propio y con Apify; Urbania, Adondevivir y Properati solo con Apify (bloquean las lecturas automáticas) con todas sus direcciones de venta, alquiler y tipo." },
+      { tipo: "seguridad", texto: "Solo el administrador puede ejecutarlo, se deja constancia en la auditoría, no se lanza una ejecución si ya hay otra en curso y el token de GitHub nunca llega al navegador. Requiere las variables GITHUB_TOKEN y GITHUB_REPO en Netlify (ver docs/SCRAPER_PROPIO.md)." },
+    ],
+  },
+  {
     version: "2.11.0",
     fecha: "2026-11-10",
     titulo: "Auditoría de datos y pruebas con avisos reales",
