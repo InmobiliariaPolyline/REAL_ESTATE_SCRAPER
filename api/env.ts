@@ -15,6 +15,8 @@ export interface ApiEnv {
   APIFY_WEBHOOK_SECRET?: string
   /** Token (24 caracteres o más) con el que un scraper propio envía avisos a POST /api/ingesta. */
   INGESTA_TOKEN?: string
+  /** Copia de portadas a Cloudinary: `cloudinary://CLAVE:SECRETO@NOMBRE` (el valor que muestra el panel de Cloudinary). Sin ella no se copia nada. */
+  CLOUDINARY_URL?: string
   /** Actor de Apify (`usuario~nombre`); por defecto el de Adondevivir. */
   APIFY_ACTOR?: string
   /** Actor de Urbania (`usuario~nombre`) y sus búsquedas a rotar (direcciones de urbania.pe/buscar/…, separadas por comas). */

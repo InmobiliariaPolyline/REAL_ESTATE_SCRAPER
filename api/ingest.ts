@@ -226,7 +226,11 @@ async function insertarLote(db: Db, lote: FilaPropiedad[], columnas: readonly Co
     `insert into public.propiedades (${columnas.join(", ")}, creado_en, ultima_vista_en)
      values ${valores.join(", ")}
      on conflict (id) do update set
-       ${columnas.filter(c => c !== "id").map(c => `${c} = excluded.${c}`).join(", ")},
+       ${columnas
+         .filter(c => c !== "id")
+         // La portada ya copiada a Cloudinary no se pisa con la del portal en cada corrida.
+         .map(c => (c === "imagen" ? `imagen = case when public.propiedades.imagen like '%res.cloudinary.com%' then public.propiedades.imagen else excluded.imagen end` : `${c} = excluded.${c}`))
+         .join(", ")},
        ultima_vista_en = now()`,
     params
   )

@@ -23,6 +23,16 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "2.10.0",
+    fecha: "2026-11-10",
+    titulo: "Portadas propias en Cloudinary",
+    cambios: [
+      { tipo: "implementacion", texto: "Nueva función programada que, cada hora, copia a Cloudinary (plan gratis) las portadas de los avisos, reducidas a 720 px, para que sigan viéndose aunque el portal borre el aviso. Se activa con la variable CLOUDINARY_URL; sin ella no cambia nada." },
+      { tipo: "mejora", texto: "Una nueva lectura del portal ya no reemplaza una portada que ya fue copiada. Si una copia falla, el aviso conserva la foto original." },
+      { tipo: "implementacion", texto: "Guía docs/FOTOS_CLOUDINARY.md con los pasos y los límites del plan gratis." },
+    ],
+  },
+  {
     version: "2.9.1",
     fecha: "2026-11-10",
     titulo: "Scraper automático en la nube",
