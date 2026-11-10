@@ -10,30 +10,32 @@
 
 :root {
   /* Superficies (de más profunda a más elevada) */
-  --app: #0b0d11;
-  --surface-1: #11141a;
-  --surface-2: #171b22;
-  --surface-3: #1f242d;
-  --surface-4: #29303b;
+  --app: #0a0912;
+  --surface-1: #0f0e19;
+  --surface-2: #14131f;
+  --surface-3: #1b1a29;
+  --surface-4: #262537;
 
   /* Líneas */
   --line: rgb(255 255 255 / 0.07);
   --line-strong: rgb(255 255 255 / 0.13);
 
   /* Texto */
-  --text: #ece8e1;
-  --text-muted: #98a0ac;
-  --text-faint: #8a919e;
+  --text: #ecebf5;
+  --text-muted: #9b99b0;
+  --text-faint: #8c8aa3;
 
   /* Marca */
-  --gold: #dfbf88;
-  --gold-strong: #f0d9a8;
-  --gold-dim: #b08d58;
-  --gold-soft: rgb(223 191 136 / 0.13);
-  --on-gold: #17130a;
+  /* Acento (el nombre «gold» es histórico): violeta por defecto; Cuenta → Personalización ofrece otros */
+  --gold: #8b5cf6;
+  --gold-strong: #a78bfa;
+  --gold-dim: #6d42d6;
+  --gold-soft: rgb(139 92 246 / 0.14);
+  --on-gold: #ffffff;
+  --cyan: #22d3ee;
 
   /* Semánticos y de datos */
-  --teal: #4fd1b5;
+  --teal: #22d3ee;
   --blue: #6ea8fe;
   --violet: #a78bfa;
   --amber: #f5b454;
@@ -46,18 +48,18 @@
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
 
   /* Canales RGB para componer transparencias que dependen del tema */
-  --app-rgb: 11 13 17;
-  --gold-rgb: 223 191 136;
+  --app-rgb: 10 9 18;
+  --gold-rgb: 139 92 246;
   --ink-rgb: 255 255 255;
   --shadow-card: inset 0 1px 0 rgb(255 255 255 / 0.05), 0 1px 2px rgb(0 0 0 / 0.4), 0 22px 44px -26px rgb(0 0 0 / 0.75);
   --shadow-card-hover:
     inset 0 1px 0 rgb(255 255 255 / 0.04), 0 24px 48px -22px rgb(0 0 0 / 0.8),
-    0 0 0 1px rgb(212 183 130 / 0.08);
-  --glow-1: rgb(212 183 130 / 0.06);
-  --glow-2: rgb(110 168 254 / 0.04);
-  --grad-a: #f0d9a8;
-  --grad-b: #dfbf88;
-  --grad-c: #b8935f;
+    0 0 0 1px rgb(139 92 246 / 0.1);
+  --glow-1: rgb(139 92 246 / 0.10);
+  --glow-2: rgb(34 211 238 / 0.05);
+  --grad-a: #c4b0fc;
+  --grad-b: #8b5cf6;
+  --grad-c: #6d42d6;
 
   /* Variables que consumen los componentes shadcn */
   --background: var(--app);
@@ -80,7 +82,7 @@
   --input: var(--line-strong);
   --ring: var(--gold);
   --chart-1: var(--gold);
-  --chart-2: var(--teal);
+  --chart-2: var(--cyan);
   --chart-3: var(--blue);
   --chart-4: var(--violet);
   --chart-5: var(--amber);
@@ -101,25 +103,26 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 
 :root.light {
-  --app: #f4f1ea;
-  --surface-1: #fbfaf7;
+  --app: #f5f4fa;
+  --surface-1: #fbfbfe;
   --surface-2: #ffffff;
-  --surface-3: #f1ede4;
-  --surface-4: #e3ddd0;
+  --surface-3: #f0eef8;
+  --surface-4: #e2dff0;
   --card-sheen: rgb(255 255 255 / 0.8);
 
   --line: rgb(20 24 31 / 0.1);
   --line-strong: rgb(20 24 31 / 0.18);
 
-  --text: #1c1f26;
-  --text-muted: #525a68;
-  --text-faint: #6b7381;
+  --text: #1b1a26;
+  --text-muted: #55536a;
+  --text-faint: #6c6a82;
 
-  --gold: #85601c;
-  --gold-strong: #6b4c12;
-  --gold-dim: #a98440;
-  --gold-soft: rgb(133 96 28 / 0.1);
+  --gold: #6d3fd1;
+  --gold-strong: #5530a8;
+  --gold-dim: #8a63e0;
+  --gold-soft: rgb(109 63 209 / 0.1);
   --on-gold: #ffffff;
+  --cyan: #0e7490;
 
   --teal: #0f766e;
   --blue: #1d5fd1;
@@ -130,13 +133,16 @@
 
   --destructive-foreground: #ffffff;
 
-  --app-rgb: 244 241 234;
-  --gold-rgb: 133 96 28;
+  --app-rgb: 245 244 250;
+  --gold-rgb: 109 63 209;
   --ink-rgb: 20 24 31;
-  --shadow-card: 0 1px 2px rgb(40 30 10 / 0.06), 0 14px 32px -20px rgb(40 30 10 / 0.25);
-  --shadow-card-hover: 0 2px 4px rgb(40 30 10 / 0.08), 0 22px 40px -20px rgb(40 30 10 / 0.3);
-  --glow-1: rgb(133 96 28 / 0.07);
-  --glow-2: rgb(29 95 209 / 0.04);
+  --shadow-card: 0 1px 2px rgb(30 20 60 / 0.06), 0 14px 32px -20px rgb(30 20 60 / 0.25);
+  --shadow-card-hover: 0 2px 4px rgb(30 20 60 / 0.08), 0 22px 40px -20px rgb(30 20 60 / 0.3);
+  --glow-1: rgb(109 63 209 / 0.07);
+  --glow-2: rgb(14 116 144 / 0.05);
+  --grad-a: #a78bfa;
+  --grad-b: #8b5cf6;
+  --grad-c: #6d3fd1;
 }
 
 :root.light ::selection {
@@ -154,7 +160,7 @@
   --radius-xl: calc(var(--radius) + 4px);
 
   --font-sans: "Plus Jakarta Sans", system-ui, sans-serif;
-  --font-display: "Fraunces", Georgia, serif;
+  --font-display: "Plus Jakarta Sans", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
   --color-app: var(--app);
@@ -267,29 +273,30 @@
   --grad-c: #4a7fd1;
   --glow-1: rgb(29 95 209 / 0.07);
 }
-:root[data-accent="violet"]:not(.light) {
-  --gold: #a78bfa;
-  --gold-strong: #c4b0fc;
-  --gold-dim: #7c5fd6;
-  --gold-rgb: 167 139 250;
-  --gold-soft: rgb(167 139 250 / 0.12);
-  --on-gold: #150c33;
-  --grad-a: #c4b0fc;
-  --grad-b: #a78bfa;
-  --grad-c: #7c5fd6;
-  --glow-1: rgb(167 139 250 / 0.07);
+/* Dorado: el acento de la marca original */
+:root[data-accent="gold"]:not(.light) {
+  --gold: #dfbf88;
+  --gold-strong: #f0d9a8;
+  --gold-dim: #b08d58;
+  --gold-rgb: 223 191 136;
+  --gold-soft: rgb(223 191 136 / 0.13);
+  --on-gold: #17130a;
+  --grad-a: #f0d9a8;
+  --grad-b: #dfbf88;
+  --grad-c: #b8935f;
+  --glow-1: rgb(212 183 130 / 0.07);
 }
-:root.light[data-accent="violet"] {
-  --gold: #6d3fd1;
-  --gold-strong: #5530a8;
-  --gold-dim: #8a63e0;
-  --gold-rgb: 109 63 209;
-  --gold-soft: rgb(109 63 209 / 0.12);
+:root.light[data-accent="gold"] {
+  --gold: #85601c;
+  --gold-strong: #6b4c12;
+  --gold-dim: #a98440;
+  --gold-rgb: 133 96 28;
+  --gold-soft: rgb(133 96 28 / 0.1);
   --on-gold: #ffffff;
-  --grad-a: #a78bfa;
-  --grad-b: #c4b0fc;
-  --grad-c: #7c5fd6;
-  --glow-1: rgb(109 63 209 / 0.07);
+  --grad-a: #dfbf88;
+  --grad-b: #f0d9a8;
+  --grad-c: #b8935f;
+  --glow-1: rgb(133 96 28 / 0.07);
 }
 :root[data-accent="green"]:not(.light) {
   --gold: #4ade80;
@@ -1580,3 +1587,254 @@
 :root[data-motion="reduced"] .tilt,
 :root[data-motion="reduced"] .tilt-icon,
 :root[data-motion="reduced"] .tilt-text { transform: none; }
+
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   UI 2D v3 — remasterización
+   Superficies planas con borde fino, acento violeta con cian de apoyo, etiquetas de
+   sección en monoespaciada y efectos de luz 2D (resplandores, retícula de puntos,
+   filo luminoso). Sustituye el relieve 3D anterior; va al final para imponerse.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@layer base {
+  /* Fondo: negro azulado con dos resplandores fijos y una retícula de puntos que se desvanece */
+  body {
+    background-image:
+      radial-gradient(720px 420px at 88% -8%, var(--glow-1), transparent 62%),
+      radial-gradient(640px 380px at -8% 108%, var(--glow-2), transparent 62%);
+  }
+  body::before {
+    inset: 0;
+    background: radial-gradient(rgb(var(--ink-rgb) / 0.09) 1px, transparent 1.2px) 0 0 / 26px 26px;
+    -webkit-mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 0%, transparent 75%);
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 0%, transparent 75%);
+    animation: none;
+  }
+  body::after { display: none; }
+
+  h1, h2, h3, h4, h5, h6 { font-weight: 700; letter-spacing: -0.025em; }
+  .font-display { font-variation-settings: normal; letter-spacing: -0.03em; }
+}
+
+@layer components {
+  /* ── Superficies planas ─────────────────────────────────────────────── */
+  .card {
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: 1.125rem;
+    box-shadow: inset 0 1px 0 rgb(var(--ink-rgb) / 0.04), 0 14px 30px -22px rgb(0 0 0 / 0.7);
+  }
+  .card-interactive:hover {
+    transform: translateY(-2px);
+    border-color: rgb(var(--gold-rgb) / 0.45);
+    box-shadow: inset 0 1px 0 rgb(var(--ink-rgb) / 0.05), 0 18px 36px -22px rgb(var(--gold-rgb) / 0.35), 0 0 0 1px rgb(var(--gold-rgb) / 0.12);
+  }
+  .card-interactive:active { transform: translateY(-1px); }
+  .card-interactive::after { background: radial-gradient(360px circle at var(--mx, 50%) var(--my, 50%), rgb(var(--gold-rgb) / 0.1), transparent 46%); }
+  .card-texture::before { display: none; }
+
+  /* Tarjeta con filo luminoso arriba: destaca sin sombras pesadas */
+  .card-edge { position: relative; }
+  .card-edge::before {
+    content: "";
+    position: absolute;
+    inset: 0 12% auto 12%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgb(var(--gold-rgb) / 0.7), transparent);
+    pointer-events: none;
+  }
+
+  /* ── Botones planos con resplandor ──────────────────────────────────── */
+  .btn { height: 2.5rem; border-radius: 0.75rem; font-weight: 600; letter-spacing: 0; }
+  .btn:hover:not(:disabled) { transform: none; }
+  .btn-primary::after { display: none; }
+  .btn-primary {
+    background: var(--gold);
+    color: var(--on-gold);
+    box-shadow: 0 0 0 1px rgb(var(--gold-rgb) / 0.6), 0 8px 22px -8px rgb(var(--gold-rgb) / 0.65);
+  }
+  .btn-primary:hover:not(:disabled) {
+    background: var(--gold-strong);
+    filter: none;
+    box-shadow: 0 0 0 1px rgb(var(--gold-rgb) / 0.8), 0 10px 28px -8px rgb(var(--gold-rgb) / 0.85);
+  }
+  :root.light .btn-primary:hover:not(:disabled) { background: var(--gold-dim); }
+  .btn-secondary {
+    background: var(--surface-3);
+    border-color: var(--line-strong);
+    box-shadow: none;
+  }
+  .btn-secondary:hover:not(:disabled) {
+    background: var(--surface-4);
+    border-color: rgb(var(--gold-rgb) / 0.4);
+  }
+  .btn-outline { border-color: rgb(var(--gold-rgb) / 0.5); color: var(--gold-strong); }
+  :root.light .btn-outline { color: var(--gold); }
+  .btn-sm { height: 2.125rem; border-radius: 0.625rem; }
+  .btn-lg { height: 3rem; border-radius: 0.875rem; }
+  .btn-icon { width: 2.5rem; }
+  .btn-icon.btn-sm { width: 2.125rem; }
+  .btn-icon.btn-lg { width: 3rem; }
+
+  /* ── Campos ─────────────────────────────────────────────────────────── */
+  .field {
+    height: 2.5rem;
+    border-radius: 0.75rem;
+    background-color: var(--surface-1);
+    border-color: var(--line-strong);
+    box-shadow: none;
+  }
+  .field:focus {
+    background-color: var(--surface-1);
+    border-color: rgb(var(--gold-rgb) / 0.85);
+    box-shadow: 0 0 0 3px rgb(var(--gold-rgb) / 0.18);
+    transform: none;
+  }
+  .field-label { font-family: var(--font-mono); font-size: 0.625rem; letter-spacing: 0.14em; }
+
+  /* ── Segmentos y pestañas ───────────────────────────────────────────── */
+  .segmented { border-radius: 0.875rem; background: var(--surface-1); border-color: var(--line); box-shadow: none; padding: 0.1875rem; }
+  .segmented-option { border-radius: 0.6875rem; height: 2.125rem; }
+  .segmented-option[aria-pressed="true"],
+  .segmented-option[aria-selected="true"] {
+    background: var(--gold-soft);
+    color: var(--gold-strong);
+    box-shadow: inset 0 0 0 1px rgb(var(--gold-rgb) / 0.45);
+    font-weight: 600;
+  }
+  :root.light .segmented-option[aria-pressed="true"],
+  :root.light .segmented-option[aria-selected="true"] { color: var(--gold); }
+
+  /* ── Insignias planas ───────────────────────────────────────────────── */
+  .badge { backdrop-filter: none; padding: 0.25rem 0.625rem; font-weight: 600; box-shadow: none !important; }
+  .badge-gold { color: var(--gold-strong); }
+  :root.light .badge-gold { color: var(--gold); }
+
+  /* ── Interruptor plano ──────────────────────────────────────────────── */
+  .switch { box-shadow: none; }
+  .switch[aria-checked="true"] { background: var(--gold); border-color: var(--gold); box-shadow: 0 0 14px -2px rgb(var(--gold-rgb) / 0.6); }
+  .switch::after { box-shadow: none; }
+
+  /* ── Navegación lateral (activo con fondo tintado y borde fino) ─────── */
+  .nav-item {
+    height: 2.5rem;
+    padding: 0 0.75rem;
+    border-radius: 0.75rem;
+    border: 1px solid transparent;
+    font-weight: 500;
+  }
+  .nav-item:hover { background-color: rgb(var(--ink-rgb) / 0.05); transform: none; }
+  .nav-item[aria-current="page"] {
+    background: var(--gold-soft);
+    border-color: rgb(var(--gold-rgb) / 0.35);
+    color: var(--text);
+  }
+  .nav-item[aria-current="page"]::before { display: none; }
+  .nav-item[aria-current="page"] svg { color: var(--gold-strong); filter: none; }
+  :root.light .nav-item[aria-current="page"] svg { color: var(--gold); }
+  .nav-label {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    color: var(--text-faint);
+  }
+
+  /* ── Tablas ─────────────────────────────────────────────────────────── */
+  .table-modern thead th {
+    background: var(--surface-1);
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+  }
+  .table-modern tbody tr:hover { background-color: rgb(var(--gold-rgb) / 0.06); }
+
+  /* ── Etiquetas de sección en monoespaciada ──────────────────────────── */
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    color: var(--gold-strong);
+    gap: 0.5rem;
+  }
+  :root.light .eyebrow { color: var(--gold); }
+  .eyebrow::before {
+    width: 0.375rem;
+    height: 0.375rem;
+    border-radius: 999px;
+    background: currentColor;
+    box-shadow: 0 0 10px 1px rgb(var(--gold-rgb) / 0.8);
+    opacity: 1;
+  }
+  .label-mono {
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+
+  /* ── Iconos 2D: cuadrado tintado con borde fino (sin volumen) ───────── */
+  .icon-3d {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.75rem;
+    background: color-mix(in srgb, var(--tone, var(--gold)) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--tone, var(--gold)) 30%, transparent);
+    box-shadow: none;
+  }
+  .icon-3d svg { filter: none; }
+  .icon-3d-sm { width: 2.125rem; height: 2.125rem; border-radius: 0.625rem; }
+  .icon-3d-lg { width: 3.25rem; height: 3.25rem; border-radius: 1rem; }
+  .tilt:hover .icon-3d, .icon-3d:hover { transform: none; }
+
+  /* Fichas que antes se inclinaban en 3D: ahora planas, con realce de borde al pasar el cursor */
+  .tilt { transform: none !important; will-change: auto; }
+  .tilt-icon, .tilt-text { transform: none !important; }
+  .tilt:hover {
+    border-color: color-mix(in srgb, var(--tone, var(--gold)) 50%, transparent);
+    box-shadow: 0 14px 28px -20px color-mix(in srgb, var(--tone, var(--gold)) 70%, transparent);
+  }
+
+  /* ── Cristal de la cabecera ─────────────────────────────────────────── */
+  .glass { background: rgb(var(--app-rgb) / 0.82); backdrop-filter: blur(18px) saturate(1.3); }
+
+  /* ── Degradado de marca ─────────────────────────────────────────────── */
+  .gold-gradient {
+    background: linear-gradient(135deg, var(--grad-a) 0%, var(--grad-b) 50%, var(--grad-c) 100%);
+    box-shadow: 0 14px 34px -16px rgb(var(--gold-rgb) / 0.7);
+  }
+
+  /* ── Piezas nuevas: métricas, barras de progreso ────────────────────── */
+  .stat-label { font-size: 0.75rem; font-weight: 500; color: var(--text-muted); }
+  .stat-value { font-size: 1.75rem; font-weight: 700; letter-spacing: -0.03em; line-height: 1.1; color: var(--text); }
+  .stat-delta { font-size: 0.6875rem; font-weight: 500; color: var(--green); }
+
+  .bar { height: 0.375rem; border-radius: 999px; background: rgb(var(--ink-rgb) / 0.08); overflow: hidden; }
+  .bar > span {
+    display: block;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, var(--gold-dim), var(--gold-strong));
+    box-shadow: 0 0 10px -1px rgb(var(--gold-rgb) / 0.7);
+  }
+  .bar-cyan > span { background: linear-gradient(90deg, #0e8aa3, var(--cyan)); box-shadow: 0 0 10px -1px rgb(34 211 238 / 0.6); }
+
+  /* Resplandor decorativo detrás de un bloque destacado */
+  .halo { position: relative; isolation: isolate; }
+  .halo::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    z-index: -1;
+    border-radius: inherit;
+    background: radial-gradient(60% 80% at 100% 0%, rgb(var(--gold-rgb) / 0.22), transparent 70%), radial-gradient(50% 70% at 0% 100%, rgb(34 211 238 / 0.1), transparent 70%);
+  }
+}
+
+@layer utilities {
+  .text-gradient-gold { background: linear-gradient(135deg, var(--gold-strong), var(--gold) 70%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+}

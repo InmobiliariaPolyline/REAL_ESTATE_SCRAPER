@@ -2,29 +2,59 @@
 import { render, screen } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { describe, expect, it, vi } from "vitest"
+import PortalSidebar, { diasHasta } from "./PortalSidebar"
 import PortalTabs from "./PortalTabs"
 
-describe("PortalTabs", () => {
-  it("la barra superior y la fila de pantallas chicas tienen las mismas cinco secciones", () => {
-    render(
-      <>
-        <PortalTabs view="catalogo" onChange={() => {}} variant="barra" />
-        <PortalTabs view="catalogo" onChange={() => {}} />
-      </>
-    )
-    const barras = screen.getAllByRole("tablist")
-    expect(barras).toHaveLength(2)
-    for (const b of barras) {
-      expect(Array.from(b.querySelectorAll('[role="tab"]')).map(t => t.textContent)).toEqual(["Inicio", "Catálogo", "Estadísticas", "Calculadora", "Cuenta"])
-    }
-    // La sección activa se marca en ambas.
-    expect(screen.getAllByRole("tab", { selected: true }).map(t => t.textContent)).toEqual(["Catálogo", "Catálogo"])
+const SECCIONES = ["Inicio", "Catálogo", "Estadísticas", "Calculadora", "Cuenta"]
+
+describe("PortalTabs (pantallas chicas)", () => {
+  it("lista las cinco secciones y marca la activa", () => {
+    render(<PortalTabs view="catalogo" onChange={() => {}} />)
+    const tabs = screen.getAllByRole("tab")
+    expect(tabs.map(t => t.textContent)).toEqual(SECCIONES)
+    expect(screen.getByRole("tab", { selected: true })).toHaveTextContent("Catálogo")
+  })
+})
+
+describe("PortalSidebar", () => {
+  const base = { view: "inicio" as const, onChange: () => {}, planType: "PREMIUM" as const, fechaVencimiento: "18/12/2026", onLogout: () => {} }
+
+  it("tiene las mismas secciones, marca la activa con aria-current y avisa cuál se elige", async () => {
+    const onChange = vi.fn()
+    render(<PortalSidebar {...base} view="estadisticas" onChange={onChange} />)
+    const tabs = screen.getAllByRole("tab")
+    expect(tabs.map(t => t.textContent)).toEqual(SECCIONES)
+    expect(screen.getByRole("tab", { name: "Estadísticas" })).toHaveAttribute("aria-current", "page")
+    expect(screen.getByRole("tab", { name: "Inicio" })).not.toHaveAttribute("aria-current")
+    await userEvent.setup().click(screen.getByRole("tab", { name: "Calculadora" }))
+    expect(onChange).toHaveBeenCalledWith("calculadora")
   })
 
-  it("al elegir una sección avisa cuál", async () => {
-    const onChange = vi.fn()
-    render(<PortalTabs view="inicio" onChange={onChange} variant="barra" />)
-    await userEvent.setup().click(screen.getByRole("tab", { name: "Estadísticas" }))
-    expect(onChange).toHaveBeenCalledWith("estadisticas")
+  it("muestra el plan con los días que quedan, y cerrar sesión", async () => {
+    const onLogout = vi.fn()
+    const en10 = new Date(Date.now() + 10 * 86_400_000).toISOString().slice(0, 10)
+    render(<PortalSidebar {...base} venceEn={en10} onLogout={onLogout} />)
+    expect(screen.getByText("Plan Premium")).toBeInTheDocument()
+    expect(screen.getByText(/días restantes/)).toBeInTheDocument()
+    expect(screen.getByRole("img", { name: /días restantes del plan/ })).toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole("button", { name: /Cerrar sesión/ }))
+    expect(onLogout).toHaveBeenCalled()
+  })
+
+  it("sin fecha de vencimiento válida muestra solo la fecha, y el plan gratuito lo dice", () => {
+    render(<PortalSidebar {...base} planType="GRATIS" venceEn={undefined} />)
+    expect(screen.getByText("Plan gratuito")).toBeInTheDocument()
+    expect(screen.queryByRole("img", { name: /días restantes/ })).toBeNull()
+  })
+})
+
+describe("diasHasta", () => {
+  it("cuenta los días que faltan, nunca negativos", () => {
+    const ahora = Date.parse("2026-11-10T12:00:00")
+    expect(diasHasta("2026-11-20", ahora)).toBe(11)
+    expect(diasHasta("2026-11-10", ahora)).toBe(1)
+    expect(diasHasta("2026-10-01", ahora)).toBe(0)
+    expect(diasHasta(undefined, ahora)).toBeNull()
+    expect(diasHasta("no es fecha", ahora)).toBeNull()
   })
 })

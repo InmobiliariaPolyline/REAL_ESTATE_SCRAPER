@@ -1,10 +1,10 @@
 /** Preferencias de personalización de la interfaz (se guardan solo en este navegador). */
 
 export const ACCENTS = [
+  { id: "violet", label: "Violeta", swatch: "#8b5cf6" },
   { id: "gold", label: "Dorado", swatch: "#d4b782" },
   { id: "teal", label: "Turquesa", swatch: "#4fd1b5" },
   { id: "blue", label: "Azul", swatch: "#6ea8fe" },
-  { id: "violet", label: "Violeta", swatch: "#a78bfa" },
   { id: "green", label: "Verde", swatch: "#4ade80" },
   { id: "amber", label: "Ámbar", swatch: "#f5b454" },
 ] as const
@@ -27,7 +27,7 @@ export interface Preferences {
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
-  accent: "gold",
+  accent: "violet",
   scale: "normal",
   motion: "auto",
   ambient: true,
@@ -70,7 +70,7 @@ export function savePreferences(prefs: Preferences): void {
 export function applyPreferences(prefs: Preferences, root: HTMLElement = document.documentElement): void {
   const set = (name: string, value: string | null) =>
     value === null ? root.removeAttribute(name) : root.setAttribute(name, value)
-  set("data-accent", prefs.accent === "gold" ? null : prefs.accent)
+  set("data-accent", prefs.accent === "violet" ? null : prefs.accent)
   set("data-scale", prefs.scale === "normal" ? null : prefs.scale)
   set("data-motion", prefs.motion === "reduced" ? "reduced" : null)
   set("data-ambient", prefs.ambient ? null : "off")

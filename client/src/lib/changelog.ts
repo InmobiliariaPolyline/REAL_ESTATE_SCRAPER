@@ -23,6 +23,17 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "3.0.0",
+    fecha: "2026-11-10",
+    titulo: "Nueva interfaz 2D: violeta y cian",
+    cambios: [
+      { tipo: "implementacion", texto: "Interfaz remasterizada con un sistema de diseño 2D: superficies planas con borde fino, acento violeta con cian de apoyo, tipografía sans más firme y etiquetas de sección en monoespaciada. Se sustituyen los volúmenes y la inclinación 3D por cuadrados de icono tintados, y se suman efectos de luz 2D: resplandores de fondo, retícula de puntos que se desvanece, filo luminoso en tarjetas destacadas y barras de progreso con brillo." },
+      { tipo: "mejora", texto: "El portal pasa a una barra lateral izquierda con la marca, las secciones (la activa con fondo tintado y borde) y una tarjeta del plan con los días restantes y una barra de tiempo. La cabecera muestra dónde estás, un buscador global tipo campo y tu cuenta. En pantallas chicas las secciones siguen en una fila desplazable." },
+      { tipo: "mejora", texto: "El violeta es ahora el acento por defecto; el dorado original pasa a ser una opción más en Cuenta → Personalización, junto con turquesa, azul, verde y ámbar. Quien ya había guardado su preferencia la conserva. Tema claro y oscuro actualizados." },
+      { tipo: "mejora", texto: "Catálogo ajustado a la barra lateral: filtros más angostos y tarjetas en dos columnas hasta pantallas muy anchas, para que no se aprieten." },
+    ],
+  },
+  {
     version: "2.15.0",
     fecha: "2026-11-10",
     titulo: "Nueva jerarquía visual del portal",

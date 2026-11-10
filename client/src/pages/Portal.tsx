@@ -25,6 +25,7 @@ import PortalFilters from "@/components/portal/PortalFilters"
 import PortalCalculadora from "@/components/portal/PortalCalculadora"
 import PortalEstadisticas from "@/components/portal/PortalEstadisticas"
 import PortalHeader from "@/components/portal/PortalHeader"
+import PortalSidebar from "@/components/portal/PortalSidebar"
 import PortalInicio from "@/components/portal/PortalInicio"
 import PortalTabs, { type PortalView } from "@/components/portal/PortalTabs"
 import { sectionsFor, type SistemaSection } from "@/components/sistema/SistemaModule"
@@ -64,6 +65,8 @@ const SavedSearchesModal = lazy(() => import("@/components/portal/SavedSearchesM
 interface PortalProps {
   usuario: string
   fechaVencimiento: string
+  /** Fecha de vencimiento original (AAAA-MM-DD), para contar los días que quedan. */
+  venceEn?: string
   planType: PlanType
   onLogout: () => void
 }
@@ -76,6 +79,7 @@ const freshFilters = (): FilterState => ({ ...DEFAULT_FILTERS, portales: [] })
 export default function Portal({
   usuario,
   fechaVencimiento,
+  venceEn,
   planType,
   onLogout,
 }: PortalProps) {
@@ -297,12 +301,19 @@ export default function Portal({
   ]
 
   return (
-    <div className="min-h-screen pt-16">
+    <div className="min-h-screen pt-16 lg:pl-64">
       <a href="#contenido" className="skip-link">Saltar al contenido</a>
       <CommandPalette actions={paletteActions} />
+      <PortalSidebar
+        view={view}
+        onChange={setView}
+        planType={planType}
+        fechaVencimiento={fechaVencimiento}
+        venceEn={venceEn}
+        onLogout={onLogout}
+      />
       <PortalHeader
         view={view}
-        onViewChange={setView}
         usuario={usuario}
         planType={planType}
         fechaVencimiento={fechaVencimiento}
@@ -383,7 +394,7 @@ export default function Portal({
         />
 
         {/* En pantallas anchas la ventana de filtros va a la izquierda y se queda visible al desplazarse */}
-        <div className="xl:grid xl:grid-cols-[24rem_minmax(0,1fr)] xl:items-start xl:gap-8">
+        <div className="xl:grid xl:grid-cols-[21rem_minmax(0,1fr)] xl:items-start xl:gap-8">
         {/* Filtros (escritorio) */}
         <div className="relative z-20 hidden md:block xl:sticky xl:top-20">{filtersPanel(false)}</div>
 
@@ -503,7 +514,7 @@ export default function Portal({
         </div>
 
         {loading && !soloFavoritos && (
-          <div className="stagger grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          <div className="stagger grid grid-cols-1 gap-6 sm:grid-cols-2 2xl:grid-cols-3 min-[1900px]:grid-cols-4">
             {Array.from({ length: 8 }, (_, i) => (
               <div key={i} className="skeleton h-[26rem]" />
             ))}
@@ -539,7 +550,7 @@ export default function Portal({
         )}
 
         {(!loading || soloFavoritos) && list.length > 0 && viewMode === "grid" && (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 2xl:grid-cols-3 min-[1900px]:grid-cols-4">
             {list.map((prop, idx) => (
               <PropertyCard
                 key={prop.id}

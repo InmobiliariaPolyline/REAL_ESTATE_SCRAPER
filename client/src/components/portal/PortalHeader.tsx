@@ -12,11 +12,10 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet"
 import type { PlanType } from "@/types"
-import PortalTabs, { BuscadorBoton, type PortalView } from "./PortalTabs"
+import { BuscadorCampo, PORTAL_TABS, type PortalView } from "./PortalTabs"
 
 interface PortalHeaderProps {
   view: PortalView
-  onViewChange: (view: PortalView) => void
   usuario: string
   planType: PlanType
   fechaVencimiento: string
@@ -33,15 +32,10 @@ function PlanBadge({ planType }: { planType: PlanType }) {
   )
 }
 
-export default function PortalHeader({
-  view,
-  onViewChange,
-  usuario,
-  planType,
-  fechaVencimiento,
-  onLogout,
-}: PortalHeaderProps) {
+/** Cabecera del portal: dónde estás y el buscador a la izquierda; tema y cuenta a la derecha. La navegación vive en la barra lateral. */
+export default function PortalHeader({ view, usuario, planType, fechaVencimiento, onLogout }: PortalHeaderProps) {
   const [showPassword, setShowPassword] = useState(false)
+  const seccion = PORTAL_TABS.find(t => t.id === view)?.label ?? ""
 
   // El buscador global (Ctrl+K) abre "Mi cuenta" mediante este evento.
   useEffect(() => {
@@ -52,105 +46,98 @@ export default function PortalHeader({
 
   return (
     <>
-    <header className="glass fixed inset-x-0 top-0 z-40 border-b border-line shadow-[0_1px_0_rgb(var(--gold-rgb)/0.12),0_12px_30px_-24px_rgb(0_0_0/0.8)]">
-      <div className="mx-auto flex h-16 max-w-[1500px] items-center gap-6 px-4 sm:px-8">
-        <Logo />
+      <header className="glass fixed inset-x-0 top-0 z-30 border-b border-line lg:left-64">
+        <div className="mx-auto flex h-16 max-w-[1500px] items-center gap-4 px-4 sm:px-8">
+          {/* Pantallas chicas: la marca (no hay barra lateral) */}
+          <div className="lg:hidden">
+            <Logo />
+          </div>
 
-        {/* Escritorio ancho: las secciones del portal en la propia barra */}
-        <PortalTabs view={view} onChange={onViewChange} variant="barra" />
+          {/* Escritorio: dónde estás */}
+          <p className="label-mono hidden shrink-0 lg:block" aria-hidden="true">
+            Portal <span className="mx-1.5 text-text-faint/60">/</span> <span className="text-text-muted">{seccion}</span>
+          </p>
 
-        {/* Escritorio: buscador, plan, cuenta y salida, del más usado al menos usado */}
-        <div className="ml-auto hidden items-center gap-3 md:flex">
-          <BuscadorBoton />
+          <div className="ml-auto hidden min-w-0 flex-1 justify-end md:flex">
+            <BuscadorCampo />
+          </div>
 
-          <span className="h-6 w-px bg-line" />
-
-          <span className="flex items-center gap-2" title={`Tu plan vence el ${fechaVencimiento}`}>
-            <PlanBadge planType={planType} />
-            <span className="hidden items-center gap-1.5 text-xs text-text-muted 2xl:flex">
-              <CalendarClock className="size-3.5 text-text-faint" aria-hidden="true" />
-              Vence <strong className="mono font-medium text-text">{fechaVencimiento}</strong>
-            </span>
-          </span>
-
-          <button
-            onClick={() => setShowPassword(true)}
-            className="flex items-center gap-2.5 rounded-xl px-2 py-1 transition hover:bg-surface-3"
-            title="Mi cuenta: contraseña y sesiones"
-          >
-            <Avatar name={usuario} size="sm" />
-            <span className="hidden text-sm font-medium text-text xl:inline">{usuario}</span>
-          </button>
-
-          <ThemeToggle className="btn-sm" />
-
-          <button onClick={onLogout} className="btn btn-secondary btn-sm btn-icon" aria-label="Cerrar sesión" title="Cerrar sesión">
-            <LogOut className="size-4" aria-hidden="true" />
-          </button>
-        </div>
-
-        {/* Móvil */}
-        <div className="ml-auto flex items-center gap-2 md:hidden">
-          <PlanBadge planType={planType} />
-          <Sheet>
-            <SheetTrigger asChild>
-              <button aria-label="Abrir menú" className="btn btn-secondary btn-icon">
-                <Menu className="size-5" />
-              </button>
-            </SheetTrigger>
-            <SheetContent
-              side="right"
-              className="flex w-[300px] flex-col justify-between border-l border-line bg-surface-1 p-6"
+          {/* Escritorio: tema y cuenta */}
+          <div className="hidden items-center gap-3 md:flex">
+            <ThemeToggle className="btn-sm" />
+            <span className="h-6 w-px bg-line" />
+            <button
+              onClick={() => setShowPassword(true)}
+              className="flex items-center gap-2.5 rounded-xl px-2 py-1 transition hover:bg-surface-3"
+              title="Mi cuenta: contraseña y sesiones"
             >
-              <div className="space-y-6">
-                <SheetHeader className="p-0 text-left">
-                  <SheetTitle asChild>
-                    <div>
-                      <Logo />
-                    </div>
-                  </SheetTitle>
-                </SheetHeader>
+              <Avatar name={usuario} size="sm" />
+              <span className="hidden text-sm font-medium text-text xl:inline">{usuario}</span>
+              <KeyRound className="hidden size-3.5 text-text-faint xl:block" aria-hidden="true" />
+            </button>
+          </div>
 
-                <div className="space-y-4 border-t border-line pt-6">
-                  <div className="flex items-center gap-3">
-                    <Avatar name={usuario} />
-                    <div className="min-w-0">
+          {/* Móvil */}
+          <div className="ml-auto flex items-center gap-2 md:hidden">
+            <PlanBadge planType={planType} />
+            <Sheet>
+              <SheetTrigger asChild>
+                <button aria-label="Abrir menú" className="btn btn-secondary btn-icon">
+                  <Menu className="size-5" />
+                </button>
+              </SheetTrigger>
+              <SheetContent
+                side="right"
+                className="flex w-[300px] flex-col justify-between border-l border-line bg-surface-1 p-6"
+              >
+                <div className="space-y-6">
+                  <SheetHeader className="p-0 text-left">
+                    <SheetTitle asChild>
+                      <div>
+                        <Logo />
+                      </div>
+                    </SheetTitle>
+                  </SheetHeader>
+
+                  <div className="space-y-4 border-t border-line pt-6">
+                    <div className="flex items-center gap-3">
+                      <Avatar name={usuario} />
+                      <div className="min-w-0">
+                        <p className="flex items-center gap-1.5 text-xs text-text-muted">
+                          <User className="size-3.5" /> Usuario
+                        </p>
+                        <p className="truncate text-base font-semibold text-text">{usuario}</p>
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-line bg-surface-2 p-4">
                       <p className="flex items-center gap-1.5 text-xs text-text-muted">
-                        <User className="size-3.5" /> Usuario
+                        <CalendarClock className="size-3.5" /> Vence el plan
                       </p>
-                      <p className="truncate text-base font-semibold text-text">{usuario}</p>
+                      <p className="mono mt-1 text-base font-semibold text-gold">{fechaVencimiento}</p>
                     </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-line bg-surface-2 p-4">
-                    <p className="text-xs text-text-muted">Vence el plan</p>
-                    <p className="mono mt-1 text-base font-semibold text-gold">{fechaVencimiento}</p>
                   </div>
                 </div>
-              </div>
 
-              <div className="space-y-3">
-                <button
-                  onClick={() => setShowPassword(true)}
-                  className="btn btn-secondary btn-lg btn-block"
-                >
-                  <KeyRound className="size-4" />
-                  Mi cuenta
-                </button>
-                <ThemeToggle withLabel className="btn-secondary btn-lg btn-block justify-center" />
-                <button onClick={onLogout} className="btn btn-secondary btn-lg btn-block">
-                  <LogOut className="size-4" />
-                  Cerrar sesión
-                </button>
-              </div>
-            </SheetContent>
-          </Sheet>
+                <div className="space-y-3">
+                  <button onClick={() => setShowPassword(true)} className="btn btn-secondary btn-lg btn-block">
+                    <KeyRound className="size-4" />
+                    Mi cuenta
+                  </button>
+                  <ThemeToggle withLabel className="btn-secondary btn-lg btn-block justify-center" />
+                  <button onClick={onLogout} className="btn btn-secondary btn-lg btn-block">
+                    <LogOut className="size-4" />
+                    Cerrar sesión
+                  </button>
+                </div>
+              </SheetContent>
+            </Sheet>
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
 
-    {/* Fuera del <header>: su backdrop-filter rompería el posicionamiento `fixed` del modal. */}
-    {showPassword && <AccountModal usuario={usuario} onClose={() => setShowPassword(false)} />}
+      {/* Fuera del <header>: su backdrop-filter rompería el posicionamiento `fixed` del modal. */}
+      {showPassword && <AccountModal usuario={usuario} onClose={() => setShowPassword(false)} />}
     </>
   )
 }

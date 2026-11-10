@@ -123,6 +123,7 @@ function Router() {
           fechaVencimiento={
             auth.suscripcion ? formatDate(auth.suscripcion.fecha_vencimiento) : "—"
           }
+          venceEn={auth.suscripcion?.fecha_vencimiento}
           planType={auth.suscripcion ? "PREMIUM" : "GRATIS"}
           onLogout={() => handleLogout()}
         />
