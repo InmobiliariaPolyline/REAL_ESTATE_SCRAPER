@@ -44,39 +44,33 @@ export default function StatCard({
 }: StatCardProps) {
   const t = TONES[tone]
   return (
-    <div className="card card-texture card-interactive flex flex-col">
+    <div className="card card-interactive flex flex-col">
       <div className="flex items-start justify-between gap-3 p-5 pb-4">
-        <div className="min-w-0 pl-1">
-          <p className="text-sm text-text-muted">{label}</p>
+        <div className="min-w-0">
+          <p className="stat-label">{label}</p>
           {loading ? (
             <div className="skeleton mt-3 h-9 w-24" />
           ) : (
-            <p className="mono mt-2 text-[2rem] font-semibold leading-none tracking-tight text-text">
-              {value}
-            </p>
+            <p className="stat-value mt-2 tabular-nums">{value}</p>
           )}
           {hint && <p className="mt-2 text-xs text-text-muted">{hint}</p>}
         </div>
-        <div className="flex flex-col items-end gap-3">
-          <span
-            className={cn(
-              "animate-float inline-flex size-12 shrink-0 items-center justify-center rounded-2xl ring-1 shadow-[0_10px_24px_-12px_currentColor]",
-              t.ring
-            )}
-          >
-            <Icon className={cn("size-[1.35rem]", t.icon)} strokeWidth={1.75} aria-hidden="true" />
-          </span>
-          {!loading && spark && spark.length > 1 && (
-            <Sparkline values={spark} className={cn("h-8 w-24", t.icon)} />
-          )}
-        </div>
+        <span className={cn("inline-flex size-10 shrink-0 items-center justify-center rounded-xl ring-1", t.ring)}>
+          <Icon className={cn("size-5", t.icon)} strokeWidth={1.75} aria-hidden="true" />
+        </span>
       </div>
+
+      {!loading && spark && spark.length > 1 && (
+        <div className="px-5 pb-4">
+          <Sparkline values={spark} className={cn("h-8 w-full", t.icon)} />
+        </div>
+      )}
 
       {footerLabel && (
         <button
           type="button"
           onClick={onFooterClick}
-          className="mt-auto flex items-center justify-between border-t border-line px-6 py-3 text-xs font-medium text-text-muted transition hover:text-gold"
+          className="mt-auto flex items-center justify-between border-t border-line px-5 py-3 text-xs font-medium text-text-muted transition hover:text-gold"
         >
           {footerLabel}
           <ArrowRight className="size-4" />

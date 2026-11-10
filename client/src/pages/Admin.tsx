@@ -5,7 +5,10 @@ import { ADMIN_TABS, type AdminTab } from "@/components/admin/tabs"
 import { sectionsFor, type SistemaSection } from "@/components/sistema/SistemaModule"
 import { useTheme } from "@/contexts/ThemeContext"
 import CommandPalette, { type CommandAction } from "@/components/common/CommandPalette"
+import Avatar from "@/components/common/Avatar"
 import PageHeader from "@/components/common/PageHeader"
+import ThemeToggle from "@/components/common/ThemeToggle"
+import { BuscadorCampo } from "@/components/portal/PortalTabs"
 
 const AdminDashboard = lazy(() => import("@/components/admin/AdminDashboard"))
 const AdminEnlaces = lazy(() => import("@/components/admin/AdminEnlaces"))
@@ -88,7 +91,27 @@ export default function Admin({ usuario, onLogout }: AdminProps) {
       />
 
       <main id="contenido" tabIndex={-1} className="min-w-0 flex-1">
-        <div className="mx-auto w-full max-w-[1400px] px-4 pb-12 pt-16 sm:px-8 md:pt-10">
+        {/* Cabecera (escritorio): dónde estás, buscador, tema y cuenta */}
+        <header className="glass fixed right-0 top-0 z-30 hidden h-16 items-center gap-4 border-b border-line px-8 md:left-64 md:flex">
+          <p className="label-mono shrink-0" aria-hidden="true">
+            Administración <span className="mx-1.5 text-text-faint/60">/</span> <span className="text-text-muted">{current.label}</span>
+          </p>
+          <div className="ml-auto flex min-w-0 flex-1 justify-end">
+            <BuscadorCampo />
+          </div>
+          <ThemeToggle className="btn-sm" />
+          <span className="h-6 w-px bg-line" />
+          <button
+            onClick={() => window.dispatchEvent(new Event("open-account"))}
+            className="flex items-center gap-2.5 rounded-xl px-2 py-1 transition hover:bg-surface-3"
+            title="Mi cuenta: contraseña y sesiones"
+          >
+            <Avatar name={usuario} size="sm" />
+            <span className="hidden text-sm font-medium text-text xl:inline">{usuario}</span>
+          </button>
+        </header>
+
+        <div className="mx-auto w-full max-w-[1400px] px-4 pb-12 pt-16 sm:px-8 md:pt-28">
           <PageHeader
             eyebrow={isDashboard ? "Panel de administración" : current.section}
             title={

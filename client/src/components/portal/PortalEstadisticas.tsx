@@ -64,7 +64,7 @@ export default function PortalEstadisticas({ onSelectDistrito }: PortalEstadisti
         <StatCard
           label="Alquiler: mediana por m²"
           icon={Ruler}
-          tone="green"
+          tone="blue"
           loading={loading}
           value={
             resumen("ALQUILER")?.precioM2Mediano ? (
@@ -112,33 +112,29 @@ export default function PortalEstadisticas({ onSelectDistrito }: PortalEstadisti
           />
         ) : (
           <ul className="space-y-1">
-            {filas.map(f => (
+            {filas.map((f, i) => (
               <li key={`${f.operacion}-${f.distrito}`}>
                 <button
                   type="button"
                   onClick={() => onSelectDistrito(f.distrito, f.operacion)}
-                  className="group grid w-full grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3 rounded-xl px-2 py-2 text-left transition hover:bg-surface-3 sm:grid-cols-[minmax(0,12rem)_1fr_auto]"
+                  className="group grid w-full grid-cols-[1.5rem_minmax(0,8rem)_1fr_auto] items-center gap-3 rounded-xl px-2 py-2.5 text-left transition hover:bg-surface-3 sm:grid-cols-[1.5rem_minmax(0,11rem)_1fr_auto]"
                 >
-                  <span className="truncate text-sm font-medium text-text">{f.distrito}</span>
-                  <span className="h-2 overflow-hidden rounded-full bg-surface-3 group-hover:bg-surface-4">
+                  <span className="mono text-xs text-text-faint">{String(i + 1).padStart(2, "0")}</span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium text-text">{f.distrito}</span>
+                    <span className="block truncate text-[0.6875rem] text-text-faint">{f.avisos} avisos · mediana {usd(f.precioMediano)}</span>
+                  </span>
+                  <span className={cn("bar", operacion === "ALQUILER" && "bar-cyan")}>
                     {f.precioM2Mediano !== null && (
                       <span
                         key={`${operacion}-${f.distrito}-${f.precioM2Mediano}`}
-                        className={cn(
-                          "bar-grow block h-full rounded-full",
-                          operacion === "VENTA" ? "bg-gold" : "bg-green"
-                        )}
+                        className="bar-grow"
                         style={{ width: `${(f.precioM2Mediano / maxM2) * 100}%` }}
                       />
                     )}
                   </span>
-                  <span className="text-right">
-                    <span className="mono block text-sm font-semibold text-text">
-                      {f.precioM2Mediano !== null ? `${usdDec(f.precioM2Mediano)}/m²` : "sin áreas"}
-                    </span>
-                    <span className="block text-[0.6875rem] text-text-faint">
-                      {f.avisos} avisos · mediana {usd(f.precioMediano)}
-                    </span>
+                  <span className="mono text-right text-sm font-semibold text-text">
+                    {f.precioM2Mediano !== null ? `${usdDec(f.precioM2Mediano)}/m²` : "sin áreas"}
                   </span>
                 </button>
               </li>

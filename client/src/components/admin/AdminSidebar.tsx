@@ -84,7 +84,7 @@ export default function AdminSidebar({
         <button
           type="button"
           onClick={openCommandPalette}
-          className="btn btn-secondary btn-sm mx-1 mb-1 justify-between"
+          className="btn btn-secondary btn-sm mx-1 mb-1 justify-between md:hidden"
           aria-label="Abrir el buscador global"
         >
           <span className="flex items-center gap-2">

@@ -7,6 +7,7 @@ import { useToast } from "@/contexts/ToastContext"
 import { timeAgo } from "@/lib/account"
 import { fetchInicio, type Inicio } from "@/lib/insights"
 import { getDisplayPrice, formatDisplayPrice } from "@/lib/prices"
+import { esAlquiler, tipoVisual } from "@/lib/propertyTags"
 import { safeHttpUrl } from "@/lib/url"
 import type { FilterState, Propiedad } from "@/types"
 
@@ -19,22 +20,31 @@ interface PortalInicioProps {
 function MiniAviso({ p, onOpen, extra }: { p: Propiedad; onOpen: () => void; extra?: React.ReactNode }) {
   const img = safeHttpUrl(p.imagen)
   const price = formatDisplayPrice(getDisplayPrice(p.precio, p.precio_usd, "PEN", p.moneda))
+  const tipo = tipoVisual(p.inmueble)
+  const TipoIcono = tipo.icono
+  const alquiler = esAlquiler(p.operacion)
   return (
     <li>
       <button
         type="button"
         onClick={onOpen}
-        className="flex w-full items-center gap-3 rounded-2xl p-2.5 text-left transition hover:bg-surface-3"
+        className="flex w-full items-center gap-3 rounded-2xl border border-transparent p-2.5 text-left transition hover:border-line hover:bg-surface-3"
       >
-        <span className="size-14 shrink-0 overflow-hidden rounded-xl bg-surface-3 ring-1 ring-line">
-          {img && <img src={img} alt="" loading="lazy" className="size-full object-cover" />}
+        <span className="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-surface-3 ring-1 ring-line">
+          {img ? <img src={img} alt="" loading="lazy" className="size-full object-cover" /> : <TipoIcono className="size-6 text-text-faint" strokeWidth={1.5} aria-hidden="true" />}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm font-medium text-text">{p.titulo || "Sin título"}</span>
-          <span className="block truncate text-xs text-text-muted">{p.distrito || "Sin distrito"}</span>
+          <span className="mt-0.5 flex items-center gap-1.5 text-xs text-text-muted">
+            <TipoIcono className="size-3.5 shrink-0" strokeWidth={1.75} aria-hidden="true" />
+            <span className="truncate">{tipo.label}{p.distrito ? ` · ${p.distrito}` : ""}</span>
+          </span>
         </span>
         <span className="flex shrink-0 flex-col items-end gap-1">
-          <span className="mono text-sm font-semibold text-text">{price}</span>
+          <span className="mono text-sm font-semibold text-text">
+            {price}
+            {alquiler && price !== "Sin precio" && <span className="ml-1 text-[0.6875rem] font-normal text-text-muted">/mes</span>}
+          </span>
           {extra}
         </span>
       </button>

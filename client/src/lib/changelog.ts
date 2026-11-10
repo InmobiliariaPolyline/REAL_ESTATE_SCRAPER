@@ -23,6 +23,17 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "3.1.0",
+    fecha: "2026-11-10",
+    titulo: "Remasterización: administración, métricas y estadísticas",
+    cambios: [
+      { tipo: "mejora", texto: "Tarjetas de métricas rediseñadas al estilo de la nueva interfaz: etiqueta pequeña, cifra grande en sans con números tabulares, icono en cuadrado tintado, nota de variación y minigráfica a todo el ancho; sin animaciones flotantes ni texturas." },
+      { tipo: "mejora", texto: "Estadísticas por distrito en filas con número de posición, nombre con su detalle (avisos y mediana), barra de progreso con brillo (violeta en venta, cian en alquiler) y valor a la derecha." },
+      { tipo: "mejora", texto: "Inicio: los avisos de las listas llevan el icono y nombre del tipo de inmueble junto al distrito, «/mes» en los alquileres y el icono del tipo cuando no hay foto." },
+      { tipo: "mejora", texto: "Panel de administración con la misma estructura que el portal: cabecera con dónde estás, buscador global tipo campo, tema y cuenta, y la barra lateral con etiquetas de sección en monoespaciada." },
+    ],
+  },
+  {
     version: "3.0.0",
     fecha: "2026-11-10",
     titulo: "Nueva interfaz 2D: violeta y cian",
