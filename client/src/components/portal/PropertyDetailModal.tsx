@@ -219,8 +219,8 @@ export default function PropertyDetailModal({
           ) : (
             <div className="overflow-y-auto">
               {/* ── Portada: fotos + resumen ─────────────────────────────── */}
-              <div className="grid gap-0 lg:grid-cols-[1.3fr_1fr]">
-                <ImageGallery images={fotos} alt={p.titulo} className="lg:min-h-[30rem]">
+              <div className="grid gap-0 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
+                <ImageGallery images={fotos} alt={p.titulo} className="min-w-0 lg:min-h-[30rem]">
                   <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-black/60 px-2.5 py-1 text-xs font-medium capitalize text-white backdrop-blur-md">
                     <span className="dot" style={{ color: getPortalColor(p.portal) }} />
                     {p.portal}
@@ -233,7 +233,7 @@ export default function PropertyDetailModal({
                   </span>
                 </ImageGallery>
 
-                <div className="flex flex-col gap-5 p-5 sm:p-6">
+                <div className="flex min-w-0 flex-col gap-5 p-5 sm:p-6">
                   <div className="space-y-2">
                     <div className="flex flex-wrap gap-2">
                       <Etiqueta visual={tipo} />

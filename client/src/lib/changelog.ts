@@ -23,6 +23,14 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "2.14.1",
+    fecha: "2026-11-10",
+    titulo: "Corrección de la vista previa con muchas fotos",
+    cambios: [
+      { tipo: "correccion", texto: "En avisos con muchas fotos, la tira de miniaturas ensanchaba la columna de la galería y aplastaba los datos de la derecha (etiquetas, precio y fichas cortados). Las columnas ahora tienen un ancho mínimo cero y la galería se ajusta a su espacio." },
+    ],
+  },
+  {
     version: "2.14.0",
     fecha: "2026-11-10",
     titulo: "Tarjetas y vista previa renovadas",

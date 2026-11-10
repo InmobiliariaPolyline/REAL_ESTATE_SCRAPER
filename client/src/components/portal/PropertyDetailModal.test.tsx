@@ -78,4 +78,16 @@ describe('PropertyDetailModal', () => {
     expect(await screen.findByText('USD 100,000')).toBeInTheDocument()
     expect(screen.queryByText('Sin precio')).toBeNull()
   })
+
+  it('con muchas fotos la galería no ensancha su columna (las columnas llevan minmax(0, …))', async () => {
+    const muchas = Array.from({ length: 12 }, (_, i) => `https://img.test/${i}.jpg`)
+    fetchPropertyDetail.mockResolvedValue({ ...detalle, propiedad: { ...detalle.propiedad, imagenes: muchas } })
+    abrir()
+    const dialogo = await screen.findByRole('dialog')
+    expect(await screen.findAllByRole('tab')).toHaveLength(12)
+    const rejilla = dialogo.querySelector('[class*="lg:grid-cols-"]') as HTMLElement
+    // Sin minmax(0, …) la tira de miniaturas fuerza el ancho de la columna y aplasta los datos de la derecha.
+    expect(rejilla.className).toContain('minmax(0,1.3fr)')
+    expect(rejilla.className).toContain('minmax(0,1fr)')
+  })
 })
