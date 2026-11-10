@@ -6,6 +6,7 @@ import {
   getDisplayPrice,
   type Currency,
 } from '@/lib/prices'
+import { cn } from '@/lib/utils'
 import { safeHttpUrl } from '@/lib/url'
 import type { Propiedad } from '@/types'
 
@@ -76,7 +77,7 @@ export default function PropertyTable({ properties, moneda }: PropertyTableProps
                       {prop.operacion}
                     </span>
                   </td>
-                  <td className="mono whitespace-nowrap font-semibold text-gold">
+                  <td className={cn('mono whitespace-nowrap font-semibold', price.amount > 0 ? 'text-gold' : 'text-text-faint')}>
                     {formatDisplayPrice(price)}
                   </td>
                   <td className="text-text-muted">{prop.distrito}</td>

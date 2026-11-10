@@ -252,6 +252,8 @@ describe("tipo de inmueble", () => {
     expect(tipoCanonico("Habitaciones")).toBe("Habitación")
     expect(tipoCanonico("Otro")).toBe("Otros")
     expect(tipoCanonico("  Penthouse ")).toBe("Penthouse") // lo desconocido se conserva
-    expect(normalizarAviso({ ...base, inmueble: "Local Comercial" })!.inmueble).toBe("Local comercial")
+    expect(normalizarAviso({ ...base, inmueble: "Local Comercial", titulo: "Local en Surco" })!.inmueble).toBe("Local comercial")
+    // El título corrige un tipo mal publicado por el portal.
+    expect(normalizarAviso({ ...base, inmueble: "Casa", titulo: "Terreno - La Molina" })!.inmueble).toBe("Terreno")
   })
 })

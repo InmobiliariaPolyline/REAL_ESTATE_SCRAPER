@@ -1,6 +1,7 @@
 import { DEFAULT_USD_TO_PEN_RATE } from "../shared/constants"
 import { safeHttpUrl } from "../shared/url"
-import { distritoCanonico, nombreDeLugar, tipoCanonico, ubicacionDeDistrito } from "../shared/ubicacion"
+import { razonarTipo } from "../shared/tipoInmueble"
+import { distritoCanonico, nombreDeLugar, ubicacionDeDistrito } from "../shared/ubicacion"
 
 export const PORTALES = ["properati", "infocasas", "babilonia", "urbania", "adondevivir"] as const
 export type Portal = (typeof PORTALES)[number]
@@ -194,7 +195,7 @@ export function normalizarAviso(
     id: `${aviso.portal}:${codigo}`,
     portal: aviso.portal,
     operacion: aviso.operacion,
-    inmueble: aviso.inmueble.trim() ? tipoCanonico(aviso.inmueble) : "Departamento",
+    inmueble: razonarTipo(aviso.inmueble, aviso.titulo),
     titulo: clean(aviso.titulo),
     precio: precioFinal,
     precio_usd: Math.round(precioUsd * 100) / 100,

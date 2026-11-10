@@ -117,6 +117,7 @@ export default function PropertyDetailModal({
   const precios = useMemo(() => (p ? preciosDelAviso(p) : null), [p])
   const enMoneda = mon === 'USD' ? precios?.usd ?? 0 : precios?.pen ?? 0
   const otra = mon === 'USD' ? precios?.pen ?? 0 : precios?.usd ?? 0
+  const sinPrecio = !!price && price.amount <= 0
   const m2 = useMemo(() => (p ? precioPorM2(p) : null), [p])
   const m2Moneda = mon === 'USD' ? m2?.usd : m2?.pen
   const m2Otra = mon === 'USD' ? m2?.pen : m2?.usd
@@ -241,11 +242,20 @@ export default function PropertyDetailModal({
                   </div>
 
                   <div className="rounded-3xl border border-line bg-surface-3/50 p-4">
-                    <p className="mono text-gradient-gold text-[2.1rem] font-semibold leading-none tracking-tight">{formatDisplayPrice(price)}</p>
-                    <p className="mt-2 text-sm text-text-muted">
-                      {otra > 0 ? `≈ ${currencyLabel(mon === 'USD' ? 'PEN' : 'USD')} ${fmt(otra)}` : 'Sin precio publicado'}
-                      {price.approximate && ' · conversión aproximada'}
-                    </p>
+                    {sinPrecio ? (
+                      <>
+                        <p className="text-2xl font-semibold leading-none tracking-tight text-text-muted">{formatDisplayPrice(price)}</p>
+                        <p className="mt-2 text-sm text-text-muted">El anunciante no publicó un precio. Consulta en el aviso original.</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="mono text-gradient-gold text-[2.1rem] font-semibold leading-none tracking-tight">{formatDisplayPrice(price)}</p>
+                        <p className="mt-2 text-sm text-text-muted">
+                          {otra > 0 && `≈ ${currencyLabel(mon === 'USD' ? 'PEN' : 'USD')} ${fmt(otra)}`}
+                          {price.approximate && `${otra > 0 ? ' · ' : ''}conversión aproximada`}
+                        </p>
+                      </>
+                    )}
                     {posicion && (
                       <p
                         className={cn(
@@ -335,6 +345,12 @@ export default function PropertyDetailModal({
                         : `Estimación con ${MESES_GARANTIA} meses de garantía`
                     }
                   >
+                    {sinPrecio ? (
+                      <p className="rounded-2xl border border-dashed border-line-strong px-4 py-6 text-center text-sm text-text-muted">
+                        Este aviso no publica precio, así que no se puede estimar {esVenta ? 'la cuota ni el financiamiento' : 'el costo del alquiler'}.
+                        {mantenimientoMon ? ` El mantenimiento publicado es ${money(mantenimientoMon)} al mes.` : ''}
+                      </p>
+                    ) : (
                     <dl className="grid gap-3 sm:grid-cols-2">
                       <Dato icon={Wallet} tono="gold" label="Precio por m²" value={money(m2Moneda)} hint={m2Otra ? `≈ ${currencyLabel(mon === 'USD' ? 'PEN' : 'USD')} ${fmt(m2Otra)}` : undefined} />
                       {fin ? (
@@ -360,6 +376,7 @@ export default function PropertyDetailModal({
                         <Dato icon={Wallet} tono="gold" label="Costo mensual total" value={money((fin ? fin.cuota : enMoneda) + mantenimientoMon)} hint={fin ? 'Cuota más mantenimiento' : 'Alquiler más mantenimiento'} />
                       )}
                     </dl>
+                    )}
                   </Seccion>
 
                   <Seccion icon={Gauge} tono="blue" title={`Mercado en ${p.distrito || 'la zona'}`} subtitle={mercado ? `${mercado.avisos} avisos de ${p.operacion.toLowerCase()} con precio` : 'Aún no hay avisos para comparar'}>

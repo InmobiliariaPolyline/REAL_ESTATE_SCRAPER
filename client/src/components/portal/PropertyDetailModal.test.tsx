@@ -61,4 +61,21 @@ describe('PropertyDetailModal', () => {
     unmount()
     expect(document.body.style.overflow).not.toBe('hidden')
   })
+
+  it('un aviso sin precio no muestra ningún símbolo de moneda ni «0»', async () => {
+    fetchPropertyDetail.mockResolvedValue({ ...detalle, propiedad: { ...detalle.propiedad, precio: 0, precio_usd: 0 } })
+    abrir()
+    const dialogo = await screen.findByRole('dialog')
+    expect(await screen.findByText('Sin precio')).toBeInTheDocument()
+    expect(screen.getByText(/no publicó un precio/)).toBeInTheDocument()
+    // Nada de «S/ 0», «USD 0» ni de conversiones: no hay monto que mostrar.
+    expect(dialogo.textContent).not.toMatch(/(S\/|USD)\s?~?0/)
+    expect(screen.getByText(/no se puede estimar la cuota/)).toBeInTheDocument()
+  })
+
+  it('con precio muestra el monto con su moneda', async () => {
+    abrir()
+    expect(await screen.findByText('USD 100,000')).toBeInTheDocument()
+    expect(screen.queryByText('Sin precio')).toBeNull()
+  })
 })

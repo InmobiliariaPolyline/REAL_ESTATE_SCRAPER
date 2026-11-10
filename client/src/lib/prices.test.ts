@@ -24,7 +24,9 @@ describe("getDisplayPrice", () => {
 
   it("devuelve 0 sin precio", () => {
     expect(getDisplayPrice(null, undefined, "PEN").amount).toBe(0)
-    expect(formatDisplayPrice(getDisplayPrice(0, 0, "USD"))).toBe("USD 0")
+    // Sin precio no se muestra ningún símbolo de moneda ni «0».
+    expect(formatDisplayPrice(getDisplayPrice(0, 0, "USD"))).toBe("Sin precio")
+    expect(formatDisplayPrice(getDisplayPrice(null, null, "PEN"))).toBe("Sin precio")
   })
 })
 

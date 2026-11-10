@@ -54,8 +54,9 @@ export function getDisplayPrice(
   return { amount: 0, approximate: false, label }
 }
 
+/** Texto cuando el aviso no publicó precio: sin símbolo de moneda ni «0», porque no hay ningún monto. */
+export const SIN_PRECIO = "Sin precio"
+
 export function formatDisplayPrice(price: DisplayPrice): string {
-  return price.amount > 0
-    ? `${price.label} ${price.approximate ? "~" : ""}${price.amount.toLocaleString("es-PE")}`
-    : `${price.label} 0`
+  return price.amount > 0 ? `${price.label} ${price.approximate ? "~" : ""}${price.amount.toLocaleString("es-PE")}` : SIN_PRECIO
 }

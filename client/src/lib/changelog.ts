@@ -23,6 +23,16 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "2.13.0",
+    fecha: "2026-11-10",
+    titulo: "Tipo de inmueble razonado y avisos sin precio",
+    cambios: [
+      { tipo: "implementacion", texto: "El sistema ahora razona el tipo de inmueble leyendo el título: corrige avisos mal clasificados por el portal («Terreno - La Molina» publicado como Casa, «Casa de playa» como Departamento, «Edificio comercial» como Local) y solo cambia el tipo cuando el título lo contradice con claridad; ante la duda respeta al portal. Aplica a todas las fuentes." },
+      { tipo: "mejora", texto: "No cuenta como tipo lo que es un lugar, un uso o un extra: «local en edificio», «casa para oficina», «casa como terreno», «3 dormitorios y cochera» o «casa club»." },
+      { tipo: "correccion", texto: "Un aviso sin precio ya no muestra «S/ 0» ni «USD 0»: la tarjeta, la tabla y la vista previa dicen «Sin precio», sin símbolo de moneda. En la vista previa se explica que el anunciante no publicó un precio y se reemplaza el bloque de cuota y financiamiento por esa aclaración en lugar de una lista de guiones." },
+    ],
+  },
+  {
     version: "2.12.0",
     fecha: "2026-11-10",
     titulo: "Botón del scraper propio en Carga de datos",
