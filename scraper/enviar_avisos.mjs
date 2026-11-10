@@ -6,6 +6,7 @@
 //
 // El archivo es un arreglo JSON de avisos o un objeto {"avisos": [...]}. Ver docs/SCRAPER_PROPIO.md.
 import { readFileSync } from "node:fs"
+import { pathToFileURL } from "node:url"
 
 const LOTE = 200
 
@@ -25,7 +26,8 @@ export async function enviarAvisos(avisos, url, token) {
   return total
 }
 
-const archivo = process.argv[2]
+const comoPrograma = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+const archivo = comoPrograma ? process.argv[2] : undefined
 if (archivo) {
   const token = process.env.INGESTA_TOKEN
   if (!token) {

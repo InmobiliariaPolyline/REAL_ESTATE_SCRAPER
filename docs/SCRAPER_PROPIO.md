@@ -72,6 +72,40 @@ curl -X POST https://realestatescrapeer.netlify.app/api/ingesta \
   --data @scraper/ejemplo-avisos.json
 ```
 
+## 3b. El scraper incluido (InfoCasas Perú)
+
+La carpeta `scraper/` trae un scraper listo, escrito en Node (no necesita XAMPP, aunque puede convivir con él), que
+lee los listados públicos de **InfoCasas Perú** y los envía a `POST /api/ingesta`. Cada página trae 21 avisos con
+precio, fotos, descripción, dirección, coordenadas, anunciante y ubicación.
+
+```bash
+# 1) Probar sin enviar nada: muestra lo que leería
+node scraper/scraper.mjs --probar --portal infocasas --paginas 1
+
+# 2) Leer y enviar (5 páginas de cada búsqueda por defecto: departamentos y casas, venta y alquiler en Lima)
+$env:INGESTA_TOKEN = "tu-clave-larga"            # PowerShell
+node scraper/scraper.mjs --portal infocasas --paginas 5
+
+# Un distrito concreto (la ruta sale de la dirección de InfoCasas)
+node scraper/scraper.mjs --busqueda venta/departamentos/lima/miraflores --paginas 10
+```
+
+Opciones: `--paginas N` (hasta 25 por búsqueda), `--busqueda RUTA` (se puede repetir), `--max N` (tope de avisos,
+2000 por defecto), `--pausa S` (segundos entre peticiones, 5 por defecto, mínimo 3) y `--probar`.
+
+**Cómo se porta:** un solo hilo, 5 segundos o más entre peticiones, se identifica como `ScraperPropio/1.0`, consulta
+el `robots.txt` del portal antes de pedir cada página, y **se detiene** si el portal responde 403, 429 o un error del
+servidor (no reintenta ni intenta esquivar nada). Cada página se envía apenas se lee.
+
+**Programarlo en Windows:** Programador de tareas → Crear tarea básica → acción «Iniciar un programa» con
+`node` como programa y `scraper\scraper.mjs --portal infocasas --paginas 5` como argumentos, y «Iniciar en» la carpeta
+del proyecto. La variable `INGESTA_TOKEN` debe estar definida para el usuario que ejecuta la tarea.
+
+**Otros portales:** Urbania, Adondevivir y Properati bloquean (403) las peticiones automáticas, y este scraper no
+las fuerza. Esas fuentes siguen entrando por Apify (Sistema → Carga de datos). Agregar otro portal que sí lo
+permita es escribir su lector en `scraper/lib/portales.mjs` (ver `infocasas` como modelo, con pruebas en
+`scraper/scraper.test.ts`).
+
 ## 4. Enviar desde PHP (XAMPP)
 
 `scraper/enviar_avisos.php` toma un archivo JSON con avisos y lo envía en lotes. En tu scraper PHP, cuando

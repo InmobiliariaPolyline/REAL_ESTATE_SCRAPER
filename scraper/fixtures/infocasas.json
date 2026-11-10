@@ -1,0 +1,798 @@
+{
+ "searchFast": {
+  "data": [
+   {
+    "id": 193636298,
+    "title": "Se Vende Departamento - Miraflores",
+    "address": "Av. P.º de la República 6349, Miraflores, Perú",
+    "showAddress": true,
+    "description": "<p>¿Buscas el metraje de un departamento familiar con el acabado de un estreno de lujo? Este piso 12 es una pieza única en el mercado por su estado y ubicación estratégica.</p><ul><li>Inversión: $249000 | Área: 127 m2 | INFO: ***</li><li>Es",
+    "code": "HDB1D4",
+    "img": "https://cdn1.infocasas.com.uy/repo/img/b516a8790b1cd81aa9fa6035130300dd09afc24e.jpg",
+    "price": {
+     "amount": 249000,
+     "admin_included": 249300,
+     "hidePrice": false,
+     "currency": {
+      "id": 1,
+      "name": "U$S",
+      "rate": 1
+     }
+    },
+    "price_amount_usd": 249000,
+    "price_admin_usd": 249300,
+    "owner": {
+     "id": 175599174,
+     "name": "Century 21 Seven",
+     "type": "inmobiliaria"
+    },
+    "locations": {
+     "location_point": "POINT (-77.0215079 -12.132292)",
+     "state": [
+      {
+       "id": "b195dd15-23f6-423a-9fe2-ead199eb261e",
+       "name": "Lima",
+       "slug": [
+        "state-perú-lima"
+       ],
+       "indicative": null
+      }
+     ],
+     "city": [],
+     "neighbourhood": [
+      {
+       "id": "d1b38b12-6462-4382-9e34-bd0098d7e530",
+       "name": "Miraflores",
+       "slug": [
+        "neighbourhood-lima-miraflores"
+       ]
+      }
+     ],
+     "commune": {},
+     "zone": {},
+     "locality": {}
+    },
+    "technicalSheet": [
+     {
+      "field": "bathrooms",
+      "value": "3",
+      "text": "Baños"
+     },
+     {
+      "field": "constructionYear",
+      "value": "",
+      "text": "Antigüedad"
+     },
+     {
+      "field": "bedrooms",
+      "value": "3",
+      "text": "Dormitorios"
+     },
+     {
+      "field": "garage",
+      "value": "2",
+      "text": "Garajes"
+     },
+     {
+      "field": "m2Built",
+      "value": "127 m2",
+      "text": "M² edificados"
+     },
+     {
+      "field": "code",
+      "value": "HDB1D4",
+      "text": "Referencia"
+     },
+     {
+      "field": "commonExpenses",
+      "value": "S/ 300",
+      "text": "Gastos Comunes"
+     }
+    ],
+    "image_count": 5,
+    "link": "/se-vende-departamento-miraflores/193636298",
+    "property_type": {
+     "id": 2,
+     "name": "Departamento"
+    },
+    "operation_type": {
+     "id": 1,
+     "name": "Venta"
+    },
+    "m2": 127,
+    "m2Built": 127,
+    "m2apto": null,
+    "m2Terrain": 0,
+    "m2Terrace": 0,
+    "hectares": null,
+    "created_at": "2026-04-15",
+    "updated_at": "2026-04-22",
+    "latitude": -12.132292,
+    "longitude": -77.0215079,
+    "images": [
+     {
+      "id": 282993145,
+      "image": "https://cdn1.infocasas.com.uy/repo/img/b516a8790b1cd81aa9fa6035130300dd09afc24e.jpg",
+      "tag": null
+     },
+     {
+      "id": 282993152,
+      "image": "https://cdn1.infocasas.com.uy/repo/img/4e7013f600d0756a2109db535f62b04aa232f928.jpg",
+      "tag": null
+     },
+     {
+      "id": 282993163,
+      "image": "https://cdn1.infocasas.com.uy/repo/img/c99a3d90a18ebb83f03bb0b5281bd217ed7fee47.jpg",
+      "tag": null
+     }
+    ],
+    "files": [],
+    "source": 0,
+    "color": 3,
+    "project_group_md5": "property_193636298",
+    "project": [],
+    "pausd": false,
+    "pointType": false,
+    "zoom": 15,
+    "youtube": "",
+    "highlight": 10,
+    "hide_pct": 0,
+    "active": true,
+    "deleted": false,
+    "relevance": 94.9074,
+    "antiquity": null,
+    "construction_year": 2019,
+    "notes": "",
+    "sold": false,
+    "soldDate": null,
+    "discount": null,
+    "draft": false,
+    "sign": null,
+    "guarantee": "",
+    "facilitiesNotApply": false,
+    "commonExpenses": {
+     "amount": 300,
+     "hidePrice": false,
+     "currency": {
+      "id": 6,
+      "name": "S/"
+     }
+    },
+    "price_variation": {},
+    "ceCurrencyID": 6,
+    "highlightDate": null,
+    "socialMediaLinks": [
+     {
+      "slug": "facebook",
+      "name": "facebook",
+      "url": "https://www.facebook.com/sharer/sharer.php?u=https://www.infocasas.com.pe/se-vende-departamento-miraflores/193636298",
+      "icon": "icon-facebook-1",
+      "order": null
+     },
+     {
+      "slug": "linkedin",
+      "name": "linkedin",
+      "url": "https://www.linkedin.com/shareArticle?mini=true&url=https://www.infocasas.com.pe/se-vende-departamento-miraflores/193636298",
+      "icon": "icon-linkedin",
+      "order": null
+     },
+     {
+      "slug": "twitter",
+      "name": "twitter",
+      "url": "https://twitter.com/intent/tweet?url=https://www.infocasas.com.pe/se-vende-departamento-miraflores/193636298",
+      "icon": "icon-twitter",
+      "order": null
+     },
+     {
+      "slug": "email",
+      "name": "email",
+      "url": "mailto:?subject=Propiedad Recomendada - InfoCasas&body=Link de la Propiedad: https://www.infocasas.com.pe/se-vende-departamento-miraflores/193636298",
+      "icon": "icon-mail",
+      "order": null
+     }
+    ],
+    "garage": 2,
+    "office": false,
+    "dispositionID": 4,
+    "bathrooms": 3,
+    "rooms": 4,
+    "seaview": false,
+    "livingPlace": false,
+    "condominium": false,
+    "frontLength": null,
+    "floorsCount": 15,
+    "apartmentsPerFloor": 8,
+    "floor": 0,
+    "neighborhood_id": 2039,
+    "estate_id": 117,
+    "farmhouse": false,
+    "allowedHeight": "",
+    "isFavorite": false,
+    "isExternal": false,
+    "guests": null,
+    "seasons": [],
+    "price_season": {},
+    "occupancies": [],
+    "temporal_price": null,
+    "temporal_currency": {},
+    "seaDistanceName": null,
+    "tour3d": "",
+    "legacy_propID": 193636298,
+    "isProject": false,
+    "isProjectUnit": false,
+    "operation_type_id": 1,
+    "property_type_id": 2,
+    "currency": "U$S",
+    "currency_id": 1,
+    "hidePrice": false,
+    "stratum": null,
+    "commonExpenses_currency": "S/",
+    "constStatesID": 3,
+    "bedrooms": 3,
+    "event": {
+     "show": false,
+     "fecha_inicio_evento": null,
+     "link": null,
+     "logo": null,
+     "tag": null
+    },
+    "turbo_product": {
+     "start_date": null,
+     "end_date": null,
+     "duration": null,
+     "start_hour": null,
+     "end_datetime": null
+    },
+    "tag": {},
+    "commercial_units": {},
+    "modify_score": 0,
+    "modify_score_client": 0,
+    "description_count": 915,
+    "categories_count": 13,
+    "has_images": true,
+    "has_video": false,
+    "paid_quota": true,
+    "logo": null,
+    "include_administration": false,
+    "md5": 193636298,
+    "hasGarage": true,
+    "penthouse": false,
+    "idForm": null,
+    "finalization_date": null,
+    "fair": {},
+    "hasTour3d": false,
+    "duplicated": []
+   },
+   {
+    "id": 191258357,
+    "title": "De Ensueño! Con Vista Directa Al Mar, Amoblado Y Equipado",
+    "address": "Malecón La Marina 1124",
+    "showAddress": true,
+    "description": "<p>Contáctame directamente al 996*120*572</p><p><br></p><p>¡Descubre tu nuevo hogar en Miraflores con esta increíble oportunidad! Este hermoso departamento te ofrece más que una vivienda, es un estilo de vida frente al mar. Ubicado en una d",
+    "code": "O4486A",
+    "img": "https://cdn1.infocasas.com.uy/repo/img/3dc8d44ef75c447ca2e8258def11dd0ddfbded8a.jpeg",
+    "price": {
+     "amount": 545000,
+     "admin_included": 545700,
+     "hidePrice": false,
+     "currency": {
+      "id": 1,
+      "name": "U$S",
+      "rate": 1
+     }
+    },
+    "price_amount_usd": 545000,
+    "price_admin_usd": 545700,
+    "owner": {
+     "id": 175149770,
+     "name": "MV Soluciones Inmobiliarias",
+     "type": "inmobiliaria"
+    },
+    "locations": {
+     "location_point": "POINT (-77.05033779144287 -12.112214981896159)",
+     "state": [
+      {
+       "id": "b195dd15-23f6-423a-9fe2-ead199eb261e",
+       "name": "Lima",
+       "slug": [
+        "state-perú-lima"
+       ],
+       "indicative": null
+      }
+     ],
+     "city": [],
+     "neighbourhood": [
+      {
+       "id": "d1b38b12-6462-4382-9e34-bd0098d7e530",
+       "name": "Miraflores",
+       "slug": [
+        "neighbourhood-lima-miraflores"
+       ]
+      }
+     ],
+     "commune": {},
+     "zone": {},
+     "locality": {}
+    },
+    "technicalSheet": [
+     {
+      "field": "bathrooms",
+      "value": "3",
+      "text": "Baños"
+     },
+     {
+      "field": "constructionYear",
+      "value": "",
+      "text": "Antigüedad"
+     },
+     {
+      "field": "bedrooms",
+      "value": "3",
+      "text": "Dormitorios"
+     },
+     {
+      "field": "garage",
+      "value": "2",
+      "text": "Garajes"
+     },
+     {
+      "field": "m2Built",
+      "value": "180 m2",
+      "text": "M² edificados"
+     },
+     {
+      "field": "code",
+      "value": "O4486A",
+      "text": "Referencia"
+     },
+     {
+      "field": "commonExpenses",
+      "value": "S/ 700",
+      "text": "Gastos Comunes"
+     }
+    ],
+    "image_count": 14,
+    "link": "/de-ensueno-con-vista-directa-al-mar-amoblado-y-equipado/191258357",
+    "property_type": {
+     "id": 2,
+     "name": "Departamento"
+    },
+    "operation_type": {
+     "id": 1,
+     "name": "Venta"
+    },
+    "m2": 180,
+    "m2Built": 180,
+    "m2apto": null,
+    "m2Terrain": 0,
+    "m2Terrace": 12,
+    "hectares": null,
+    "created_at": "2024-08-26",
+    "updated_at": "2024-11-09",
+    "latitude": -12.112214981896159,
+    "longitude": -77.05033779144287,
+    "images": [
+     {
+      "id": 178884696,
+      "image": "https://cdn1.infocasas.com.uy/repo/img/3dc8d44ef75c447ca2e8258def11dd0ddfbded8a.jpeg",
+      "tag": null
+     },
+     {
+      "id": 178884887,
+      "image": "https://cdn1.infocasas.com.uy/repo/img/351f2c1362fa01d3b316d292c60f17938f3aec60.jpg",
+      "tag": null
+     },
+     {
+      "id": 178884899,
+      "image": "https://cdn1.infocasas.com.uy/repo/img/b83d1a10608b467122684605b6aca9d806924fef.jpg",
+      "tag": null
+     }
+    ],
+    "files": [],
+    "source": 0,
+    "color": 3,
+    "project_group_md5": "property_191258357",
+    "project": [],
+    "pausd": false,
+    "pointType": false,
+    "zoom": 15,
+    "youtube": "",
+    "highlight": 6,
+    "hide_pct": 0,
+    "active": true,
+    "deleted": false,
+    "relevance": 91.907,
+    "antiquity": null,
+    "construction_year": 2016,
+    "notes": "",
+    "sold": false,
+    "soldDate": null,
+    "discount": null,
+    "draft": false,
+    "sign": null,
+    "guarantee": "",
+    "facilitiesNotApply": false,
+    "commonExpenses": {
+     "amount": 700,
+     "hidePrice": false,
+     "currency": {
+      "id": 6,
+      "name": "S/"
+     }
+    },
+    "price_variation": {},
+    "ceCurrencyID": 6,
+    "highlightDate": null,
+    "socialMediaLinks": [
+     {
+      "slug": "facebook",
+      "name": "facebook",
+      "url": "https://www.facebook.com/sharer/sharer.php?u=https://www.infocasas.com.pe/de-ensueno-con-vista-directa-al-mar-amoblado-y-equipado/191258357",
+      "icon": "icon-facebook-1",
+      "order": null
+     },
+     {
+      "slug": "linkedin",
+      "name": "linkedin",
+      "url": "https://www.linkedin.com/shareArticle?mini=true&url=https://www.infocasas.com.pe/de-ensueno-con-vista-directa-al-mar-amoblado-y-equipado/191258357",
+      "icon": "icon-linkedin",
+      "order": null
+     },
+     {
+      "slug": "twitter",
+      "name": "twitter",
+      "url": "https://twitter.com/intent/tweet?url=https://www.infocasas.com.pe/de-ensueno-con-vista-directa-al-mar-amoblado-y-equipado/191258357",
+      "icon": "icon-twitter",
+      "order": null
+     },
+     {
+      "slug": "email",
+      "name": "email",
+      "url": "mailto:?subject=Propiedad Recomendada - InfoCasas&body=Link de la Propiedad: https://www.infocasas.com.pe/de-ensueno-con-vista-directa-al-mar-amoblado-y-equipado/191258357",
+      "icon": "icon-mail",
+      "order": null
+     }
+    ],
+    "garage": 2,
+    "office": false,
+    "dispositionID": 2,
+    "bathrooms": 3,
+    "rooms": 4,
+    "seaview": false,
+    "livingPlace": false,
+    "condominium": false,
+    "frontLength": null,
+    "floorsCount": 15,
+    "apartmentsPerFloor": 3,
+    "floor": 13,
+    "neighborhood_id": 2039,
+    "estate_id": 117,
+    "farmhouse": false,
+    "allowedHeight": "",
+    "isFavorite": false,
+    "isExternal": false,
+    "guests": null,
+    "seasons": [],
+    "price_season": {},
+    "occupancies": [],
+    "temporal_price": null,
+    "temporal_currency": {},
+    "seaDistanceName": "menos de 100 m",
+    "tour3d": "",
+    "legacy_propID": 191258357,
+    "isProject": false,
+    "isProjectUnit": false,
+    "operation_type_id": 1,
+    "property_type_id": 2,
+    "currency": "U$S",
+    "currency_id": 1,
+    "hidePrice": false,
+    "stratum": null,
+    "commonExpenses_currency": "S/",
+    "constStatesID": 3,
+    "bedrooms": 3,
+    "event": {
+     "show": false,
+     "fecha_inicio_evento": null,
+     "link": null,
+     "logo": null,
+     "tag": null
+    },
+    "turbo_product": {
+     "start_date": null,
+     "end_date": null,
+     "duration": null,
+     "start_hour": null,
+     "end_datetime": null
+    },
+    "tag": {},
+    "commercial_units": {},
+    "modify_score": 0,
+    "modify_score_client": 0,
+    "description_count": 1769,
+    "categories_count": 15,
+    "has_images": true,
+    "has_video": false,
+    "paid_quota": true,
+    "logo": null,
+    "include_administration": false,
+    "md5": 191258357,
+    "hasGarage": true,
+    "penthouse": false,
+    "idForm": null,
+    "finalization_date": null,
+    "fair": {},
+    "hasTour3d": false,
+    "duplicated": []
+   },
+   {
+    "id": 193307691,
+    "title": "Miraflores - Departamento En Venta",
+    "address": "Dalias 251, Miraflores, Perú",
+    "showAddress": true,
+    "description": "<p>MIRAFLORES: DEPARTAMENTO EN VENTA</p><p><br></p><p>Cómodo departamento de 82 m2 en venta en zona exclusiva de MIraflores. Está ubicado en el último piso de un edificio de 4 pisos. Tiene 3 dormitorios y dos baños además de lavandería</p><",
+    "code": "KFB95D",
+    "img": "https://cdn1.infocasas.com.uy/repo/img/fbcd9aa53a7a58a37f3c058bc12b252e6c31aec1.jpg",
+    "price": {
+     "amount": 198000,
+     "admin_included": 198250,
+     "hidePrice": false,
+     "currency": {
+      "id": 1,
+      "name": "U$S",
+      "rate": 1
+     }
+    },
+    "price_amount_usd": 198000,
+    "price_admin_usd": 198250,
+    "owner": {
+     "id": 173889061,
+     "name": "Inmobiliaria KRAFT",
+     "type": "inmobiliaria"
+    },
+    "locations": {
+     "location_point": "POINT (-77.0288261 -12.130716)",
+     "state": [
+      {
+       "id": "b195dd15-23f6-423a-9fe2-ead199eb261e",
+       "name": "Lima",
+       "slug": [
+        "state-perú-lima"
+       ],
+       "indicative": null
+      }
+     ],
+     "city": [],
+     "neighbourhood": [
+      {
+       "id": "d1b38b12-6462-4382-9e34-bd0098d7e530",
+       "name": "Miraflores",
+       "slug": [
+        "neighbourhood-lima-miraflores"
+       ]
+      }
+     ],
+     "commune": {},
+     "zone": {},
+     "locality": {}
+    },
+    "technicalSheet": [
+     {
+      "field": "bathrooms",
+      "value": "2",
+      "text": "Baños"
+     },
+     {
+      "field": "constructionYear",
+      "value": "",
+      "text": "Antigüedad"
+     },
+     {
+      "field": "bedrooms",
+      "value": "3",
+      "text": "Dormitorios"
+     },
+     {
+      "field": "garage",
+      "value": "",
+      "text": "Garajes"
+     },
+     {
+      "field": "m2Built",
+      "value": "82 m2",
+      "text": "M² edificados"
+     },
+     {
+      "field": "code",
+      "value": "KFB95D",
+      "text": "Referencia"
+     },
+     {
+      "field": "commonExpenses",
+      "value": "S/ 250",
+      "text": "Gastos Comunes"
+     }
+    ],
+    "image_count": 12,
+    "link": "/miraflores-departamento-en-venta/193307691",
+    "property_type": {
+     "id": 2,
+     "name": "Departamento"
+    },
+    "operation_type": {
+     "id": 1,
+     "name": "Venta"
+    },
+    "m2": 82,
+    "m2Built": 82,
+    "m2apto": null,
+    "m2Terrain": 0,
+    "m2Terrace": 0,
+    "hectares": null,
+    "created_at": "2026-01-22",
+    "updated_at": "2026-01-22",
+    "latitude": -12.130716,
+    "longitude": -77.0288261,
+    "images": [
+     {
+      "id": 270376937,
+      "image": "https://cdn1.infocasas.com.uy/repo/img/fbcd9aa53a7a58a37f3c058bc12b252e6c31aec1.jpg",
+      "tag": null
+     },
+     {
+      "id": 270376941,
+      "image": "https://cdn1.infocasas.com.uy/repo/img/0f23190d2a5f0aaebd1c596f279771aa6a18fd4d.jpg",
+      "tag": null
+     },
+     {
+      "id": 270376929,
+      "image": "https://cdn1.infocasas.com.uy/repo/img/c466ef93c664acbdb117f686467a73fc00ef0f21.jpg",
+      "tag": null
+     }
+    ],
+    "files": [],
+    "source": 0,
+    "color": 3,
+    "project_group_md5": "property_193307691",
+    "project": [],
+    "pausd": false,
+    "pointType": false,
+    "zoom": 15,
+    "youtube": "",
+    "highlight": 6,
+    "hide_pct": 0,
+    "active": true,
+    "deleted": false,
+    "relevance": 91.9091,
+    "antiquity": null,
+    "construction_year": 1987,
+    "notes": "",
+    "sold": false,
+    "soldDate": null,
+    "discount": null,
+    "draft": false,
+    "sign": null,
+    "guarantee": "",
+    "facilitiesNotApply": false,
+    "commonExpenses": {
+     "amount": 250,
+     "hidePrice": false,
+     "currency": {
+      "id": 6,
+      "name": "S/"
+     }
+    },
+    "price_variation": {},
+    "ceCurrencyID": 6,
+    "highlightDate": null,
+    "socialMediaLinks": [
+     {
+      "slug": "facebook",
+      "name": "facebook",
+      "url": "https://www.facebook.com/sharer/sharer.php?u=https://www.infocasas.com.pe/miraflores-departamento-en-venta/193307691",
+      "icon": "icon-facebook-1",
+      "order": null
+     },
+     {
+      "slug": "linkedin",
+      "name": "linkedin",
+      "url": "https://www.linkedin.com/shareArticle?mini=true&url=https://www.infocasas.com.pe/miraflores-departamento-en-venta/193307691",
+      "icon": "icon-linkedin",
+      "order": null
+     },
+     {
+      "slug": "twitter",
+      "name": "twitter",
+      "url": "https://twitter.com/intent/tweet?url=https://www.infocasas.com.pe/miraflores-departamento-en-venta/193307691",
+      "icon": "icon-twitter",
+      "order": null
+     },
+     {
+      "slug": "email",
+      "name": "email",
+      "url": "mailto:?subject=Propiedad Recomendada - InfoCasas&body=Link de la Propiedad: https://www.infocasas.com.pe/miraflores-departamento-en-venta/193307691",
+      "icon": "icon-mail",
+      "order": null
+     }
+    ],
+    "garage": 0,
+    "office": false,
+    "dispositionID": 4,
+    "bathrooms": 2,
+    "rooms": 4,
+    "seaview": false,
+    "livingPlace": false,
+    "condominium": false,
+    "frontLength": null,
+    "floorsCount": 4,
+    "apartmentsPerFloor": 4,
+    "floor": 4,
+    "neighborhood_id": 2039,
+    "estate_id": 117,
+    "farmhouse": false,
+    "allowedHeight": "",
+    "isFavorite": false,
+    "isExternal": false,
+    "guests": null,
+    "seasons": [],
+    "price_season": {},
+    "occupancies": [],
+    "temporal_price": null,
+    "temporal_currency": {},
+    "seaDistanceName": "menos de 100 m",
+    "tour3d": "",
+    "legacy_propID": 193307691,
+    "isProject": false,
+    "isProjectUnit": false,
+    "operation_type_id": 1,
+    "property_type_id": 2,
+    "currency": "U$S",
+    "currency_id": 1,
+    "hidePrice": false,
+    "stratum": null,
+    "commonExpenses_currency": "S/",
+    "constStatesID": 4,
+    "bedrooms": 3,
+    "event": {
+     "show": false,
+     "fecha_inicio_evento": null,
+     "link": null,
+     "logo": null,
+     "tag": null
+    },
+    "turbo_product": {
+     "start_date": null,
+     "end_date": null,
+     "duration": null,
+     "start_hour": null,
+     "end_datetime": null
+    },
+    "tag": {},
+    "commercial_units": {},
+    "modify_score": 0,
+    "modify_score_client": 0,
+    "description_count": 415,
+    "categories_count": 1,
+    "has_images": true,
+    "has_video": false,
+    "paid_quota": true,
+    "logo": null,
+    "include_administration": false,
+    "md5": 193307691,
+    "hasGarage": false,
+    "penthouse": false,
+    "idForm": null,
+    "finalization_date": null,
+    "fair": {},
+    "hasTour3d": false,
+    "duplicated": []
+   }
+  ],
+  "paginatorInfo": {
+   "currentPage": 1,
+   "lastPage": 203,
+   "perPage": 21,
+   "total": 4245
+  }
+ }
+}

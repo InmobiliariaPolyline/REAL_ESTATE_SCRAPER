@@ -23,6 +23,16 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "2.7.0",
+    fecha: "2026-11-10",
+    titulo: "Scraper propio de InfoCasas",
+    cambios: [
+      { tipo: "implementacion", texto: "Nuevo scraper propio (Node) que lee los listados públicos de InfoCasas Perú —21 avisos por página con precio, fotos, descripción, dirección, coordenadas y anunciante— y los envía al sistema por la entrada protegida." },
+      { tipo: "mejora", texto: "Se porta con cuidado: una petición a la vez con pausas, consulta el robots.txt del portal antes de cada página y se detiene si responde 403, 429 o error del servidor, sin reintentar ni esquivar." },
+      { tipo: "mejora", texto: "Documentado en docs/SCRAPER_PROPIO.md, con modo de prueba (--probar), búsquedas por distrito y cómo programarlo en Windows." },
+    ],
+  },
+  {
     version: "2.6.0",
     fecha: "2026-11-10",
     titulo: "Entrada para scrapers propios (PHP, Python o Node)",
