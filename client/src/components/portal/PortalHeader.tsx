@@ -12,8 +12,11 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet"
 import type { PlanType } from "@/types"
+import PortalTabs, { BuscadorBoton, type PortalView } from "./PortalTabs"
 
 interface PortalHeaderProps {
+  view: PortalView
+  onViewChange: (view: PortalView) => void
   usuario: string
   planType: PlanType
   fechaVencimiento: string
@@ -31,6 +34,8 @@ function PlanBadge({ planType }: { planType: PlanType }) {
 }
 
 export default function PortalHeader({
+  view,
+  onViewChange,
   usuario,
   planType,
   fechaVencimiento,
@@ -48,39 +53,44 @@ export default function PortalHeader({
   return (
     <>
     <header className="glass fixed inset-x-0 top-0 z-40 border-b border-line shadow-[0_1px_0_rgb(var(--gold-rgb)/0.12),0_12px_30px_-24px_rgb(0_0_0/0.8)]">
-      <div className="mx-auto flex h-16 max-w-[1500px] items-center justify-between px-4 sm:px-8">
+      <div className="mx-auto flex h-16 max-w-[1500px] items-center gap-6 px-4 sm:px-8">
         <Logo />
 
-        {/* Escritorio */}
-        <div className="hidden items-center gap-5 md:flex">
-          <PlanBadge planType={planType} />
-          <span className="flex items-center gap-2 text-sm text-text-muted">
-            <CalendarClock className="size-4 text-text-faint" />
-            Vence <strong className="mono font-medium text-text">{fechaVencimiento}</strong>
-          </span>
+        {/* Escritorio ancho: las secciones del portal en la propia barra */}
+        <PortalTabs view={view} onChange={onViewChange} variant="barra" />
+
+        {/* Escritorio: buscador, plan, cuenta y salida, del más usado al menos usado */}
+        <div className="ml-auto hidden items-center gap-3 md:flex">
+          <BuscadorBoton />
 
           <span className="h-6 w-px bg-line" />
 
+          <span className="flex items-center gap-2" title={`Tu plan vence el ${fechaVencimiento}`}>
+            <PlanBadge planType={planType} />
+            <span className="hidden items-center gap-1.5 text-xs text-text-muted 2xl:flex">
+              <CalendarClock className="size-3.5 text-text-faint" aria-hidden="true" />
+              Vence <strong className="mono font-medium text-text">{fechaVencimiento}</strong>
+            </span>
+          </span>
+
           <button
             onClick={() => setShowPassword(true)}
-            className="flex items-center gap-3 rounded-xl px-2 py-1 transition hover:bg-surface-3"
+            className="flex items-center gap-2.5 rounded-xl px-2 py-1 transition hover:bg-surface-3"
             title="Mi cuenta: contraseña y sesiones"
           >
             <Avatar name={usuario} size="sm" />
-            <span className="text-sm font-medium text-text">{usuario}</span>
-            <KeyRound className="size-3.5 text-text-faint" />
+            <span className="hidden text-sm font-medium text-text xl:inline">{usuario}</span>
           </button>
 
           <ThemeToggle className="btn-sm" />
 
-          <button onClick={onLogout} className="btn btn-secondary btn-sm">
-            <LogOut className="size-4" />
-            Cerrar sesión
+          <button onClick={onLogout} className="btn btn-secondary btn-sm btn-icon" aria-label="Cerrar sesión" title="Cerrar sesión">
+            <LogOut className="size-4" aria-hidden="true" />
           </button>
         </div>
 
         {/* Móvil */}
-        <div className="flex items-center gap-2 md:hidden">
+        <div className="ml-auto flex items-center gap-2 md:hidden">
           <PlanBadge planType={planType} />
           <Sheet>
             <SheetTrigger asChild>

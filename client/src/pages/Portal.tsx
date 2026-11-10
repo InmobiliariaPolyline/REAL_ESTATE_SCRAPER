@@ -301,13 +301,15 @@ export default function Portal({
       <a href="#contenido" className="skip-link">Saltar al contenido</a>
       <CommandPalette actions={paletteActions} />
       <PortalHeader
+        view={view}
+        onViewChange={setView}
         usuario={usuario}
         planType={planType}
         fechaVencimiento={fechaVencimiento}
         onLogout={onLogout}
       />
 
-      <main id="contenido" tabIndex={-1} className="mx-auto w-full max-w-[1500px] px-4 pb-28 pt-8 sm:px-8">
+      <main id="contenido" tabIndex={-1} className="mx-auto w-full max-w-[1500px] px-4 pb-28 pt-8 sm:px-8 lg:pt-10">
         <PortalTabs view={view} onChange={setView} />
 
         {view === "inicio" && (
@@ -402,92 +404,100 @@ export default function Portal({
           </SheetContent>
         </Sheet>
 
-        {/* Barra de resultados */}
-        <div className="mb-5 mt-8 flex flex-wrap items-center justify-between gap-3">
+        {/* Barra de resultados: cuántos hay a la izquierda; cómo verlos y qué hacer con ellos a la derecha */}
+        <div className="mb-6 mt-8 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b border-line pb-4 xl:mt-0">
           <p className="text-sm text-text-muted" aria-live="polite">
             {soloFavoritos ? (
               <>
-                Mostrando tus{" "}
-                <strong className="mono font-medium text-text">{favList.length}</strong> favoritos
+                <strong className="mono text-lg font-semibold text-text">{favList.length}</strong> favoritos guardados
               </>
             ) : (
               <>
-                Mostrando <strong className="mono font-medium text-text">{properties.length}</strong> de{" "}
-                <strong className="mono font-medium text-text">{totalCount}</strong> propiedades
+                <strong className="mono text-lg font-semibold text-text">{totalCount.toLocaleString("es-PE")}</strong>{" "}
+                {totalCount === 1 ? "propiedad" : "propiedades"}
+                <span className="ml-2 text-text-faint">
+                  mostrando <span className="mono">{properties.length}</span>
+                </span>
               </>
             )}
           </p>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => setIsFilterDrawerOpen(true)}
-              className="btn btn-secondary btn-sm md:hidden"
-            >
-              <SlidersHorizontal className="size-4" />
-              Filtrar
-            </button>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setIsFilterDrawerOpen(true)}
+                className="btn btn-secondary btn-sm md:hidden"
+              >
+                <SlidersHorizontal className="size-4" />
+                Filtrar
+              </button>
 
-            <select
-              value={orden}
-              onChange={e => handleOrden(e.target.value as Orden)}
-              disabled={soloFavoritos}
-              className="field !h-8 !w-auto !rounded-[0.625rem] !text-[0.8125rem]"
-              aria-label="Ordenar resultados"
-            >
-              {ORDEN_OPTIONS.map(o => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
+              <select
+                value={orden}
+                onChange={e => handleOrden(e.target.value as Orden)}
+                disabled={soloFavoritos}
+                className="field !h-8 !w-auto !rounded-[0.625rem] !text-[0.8125rem]"
+                aria-label="Ordenar resultados"
+              >
+                {ORDEN_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
 
-            <button onClick={() => setShowSaved(true)} className="btn btn-secondary btn-sm">
-              <Bookmark className="size-4" />
-              Mis búsquedas
-            </button>
+              <div className="segmented" role="group" aria-label="Tipo de vista">
+                {(
+                  [
+                    ["grid", Grid3X3, "Vista en cuadrícula"],
+                    ["list", List, "Vista en lista"],
+                  ] as const
+                ).map(([mode, Icon, label]) => (
+                  <button
+                    key={mode}
+                    onClick={() => setViewMode(mode)}
+                    aria-label={label}
+                    title={label}
+                    aria-pressed={viewMode === mode}
+                    className="segmented-option !flex-none !px-3"
+                  >
+                    <Icon className="size-4" />
+                  </button>
+                ))}
+              </div>
+            </div>
 
-            <button
-              onClick={toggleSoloFavoritos}
-              aria-pressed={soloFavoritos}
-              className={soloFavoritos ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"}
-            >
-              <Heart className="size-4" />
-              Favoritos
-              {favoritos.size > 0 && (
-                <span className="mono rounded-full bg-black/20 px-1.5 py-0.5 text-[0.6875rem]">
-                  {favoritos.size}
-                </span>
-              )}
-            </button>
+            <span aria-hidden="true" className="hidden h-6 w-px bg-line sm:block" />
 
-            <button
-              onClick={handleExport}
-              disabled={exporting || soloFavoritos || totalCount === 0}
-              className="btn btn-secondary btn-sm"
-              title="Descarga la búsqueda actual (hasta 5000 avisos)"
-            >
-              {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
-              Exportar CSV
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button onClick={() => setShowSaved(true)} className="btn btn-secondary btn-sm" title="Mis búsquedas">
+                <Bookmark className="size-4" aria-hidden="true" />
+                <span className="sr-only max-sm:not-sr-only 2xl:not-sr-only">Mis búsquedas</span>
+              </button>
 
-            <div className="segmented" role="group" aria-label="Tipo de vista">
-              {(
-                [
-                  ["grid", Grid3X3, "Vista en cuadrícula"],
-                  ["list", List, "Vista en lista"],
-                ] as const
-              ).map(([mode, Icon, label]) => (
-                <button
-                  key={mode}
-                  onClick={() => setViewMode(mode)}
-                  aria-label={label}
-                  title={label}
-                  aria-pressed={viewMode === mode}
-                  className="segmented-option !flex-none !px-3"
-                >
-                  <Icon className="size-4" />
-                </button>
-              ))}
+              <button
+                onClick={toggleSoloFavoritos}
+                aria-pressed={soloFavoritos}
+                className={soloFavoritos ? "btn btn-primary btn-sm" : "btn btn-secondary btn-sm"}
+              >
+                <Heart className="size-4" />
+                Favoritos
+                {favoritos.size > 0 && (
+                  <span className="mono rounded-full bg-black/20 px-1.5 py-0.5 text-[0.6875rem]">
+                    {favoritos.size}
+                  </span>
+                )}
+              </button>
+
+              <button
+                onClick={handleExport}
+                disabled={exporting || soloFavoritos || totalCount === 0}
+                className="btn btn-secondary btn-sm"
+                title="Descarga la búsqueda actual (hasta 5000 avisos)"
+              >
+                {exporting ? <Loader2 className="size-4 animate-spin" /> : <Download className="size-4" />}
+                <span className="sr-only max-sm:not-sr-only 2xl:not-sr-only">Exportar CSV</span>
+              </button>
             </div>
           </div>
         </div>

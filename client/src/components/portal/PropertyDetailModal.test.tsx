@@ -90,4 +90,17 @@ describe('PropertyDetailModal', () => {
     expect(rejilla.className).toContain('minmax(0,1.3fr)')
     expect(rejilla.className).toContain('minmax(0,1fr)')
   })
+
+  it('las acciones viven en una barra fija: la principal con texto y las secundarias como iconos con nombre', async () => {
+    abrir()
+    const dialogo = await screen.findByRole('dialog')
+    expect(await screen.findByRole('link', { name: /Ver aviso original/ })).toHaveAttribute('href', 'https://urbania.pe/x')
+    expect(screen.getByRole('button', { name: /Favorito/ })).toBeInTheDocument()
+    for (const nombre of ['Copiar enlace', 'Compartir por WhatsApp', 'Copiar resumen', 'Enlaces de apoyo']) {
+      expect(screen.getByLabelText(nombre)).toBeInTheDocument()
+    }
+    const barra = screen.getByRole('link', { name: /Ver aviso original/ }).parentElement as HTMLElement
+    expect(barra.className).toContain('sticky')
+    expect(dialogo.contains(barra)).toBe(true)
+  })
 })

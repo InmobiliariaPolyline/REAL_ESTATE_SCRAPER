@@ -23,6 +23,17 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "2.15.0",
+    fecha: "2026-11-10",
+    titulo: "Nueva jerarquía visual del portal",
+    cambios: [
+      { tipo: "mejora", texto: "Barra superior única: las secciones del portal (Inicio, Catálogo, Estadísticas, Calculadora, Cuenta) pasan a la propia barra con subrayado en la activa, y a la derecha quedan buscador, plan, cuenta, tema y salida en ese orden de uso. Antes eran dos franjas apiladas. En pantallas chicas las secciones siguen en una fila bajo la barra." },
+      { tipo: "mejora", texto: "Cabecera de página más clara: etiqueta, título, descripción y una línea divisoria que separa el encabezado del contenido, con un espaciado uniforme en todas las secciones." },
+      { tipo: "mejora", texto: "Catálogo: la barra de resultados muestra primero cuántas propiedades hay y agrupa a la derecha cómo verlas (orden y vista) y qué hacer con ellas (búsquedas, favoritos, exportar). En pantallas medias los botones secundarios se reducen a iconos." },
+      { tipo: "mejora", texto: "Vista previa: las acciones pasan a una barra fija inferior con «Ver aviso original» como botón principal, Favorito y Comparar al lado, y copiar enlace, compartir, copiar resumen, mapa y enlaces de apoyo como iconos. Siempre a la vista, sin buscarlas al final del scroll." },
+    ],
+  },
+  {
     version: "2.14.1",
     fecha: "2026-11-10",
     titulo: "Corrección de la vista previa con muchas fotos",

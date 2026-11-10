@@ -309,57 +309,6 @@ export default function PropertyDetailModal({
               </div>
 
               <div className="space-y-6 border-t border-line p-5 sm:p-6">
-                {/* ── Acciones ───────────────────────────────────────────── */}
-                <div className="flex flex-wrap gap-2.5">
-                  <a
-                    href={url ?? undefined}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-disabled={!url}
-                    className={cn('btn btn-primary', !url && 'pointer-events-none opacity-50')}
-                  >
-                    <ExternalLink className="size-4" />
-                    Ver aviso original
-                  </a>
-                  <button onClick={() => copiar('enlace')} disabled={!url} className="btn btn-secondary">
-                    {copiado === 'enlace' ? <Check className="size-4 text-green" /> : <Copy className="size-4" />}
-                    Copiar enlace
-                  </button>
-                  <a href={whatsappUrl(resumenDelAviso(p, precioTexto))} target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
-                    <MessageCircle className="size-4" />
-                    Compartir
-                  </a>
-                  <button onClick={() => copiar('resumen')} className="btn btn-secondary">
-                    {copiado === 'resumen' ? <Check className="size-4 text-green" /> : <Share2 className="size-4" />}
-                    Copiar resumen
-                  </button>
-                  {mapa && (
-                    <a href={mapa} target="_blank" rel="noopener noreferrer" className="btn btn-secondary">
-                      <Map className="size-4" />
-                      Ver en el mapa
-                    </a>
-                  )}
-                  <button onClick={() => setShowLinks(true)} className="btn btn-secondary">
-                    <Link2 className="size-4" />
-                    Enlaces de apoyo
-                  </button>
-                  <button onClick={() => onToggleFavorite(p.id)} aria-pressed={isFavorite} className="btn btn-secondary">
-                    <Heart className={cn('size-4', isFavorite && 'fill-rose text-rose')} />
-                    {isFavorite ? 'En favoritos' : 'Favorito'}
-                  </button>
-                  {onToggleCompare && (
-                    <button
-                      onClick={() => onToggleCompare(p)}
-                      disabled={compareDisabled && !isCompared}
-                      aria-pressed={isCompared}
-                      className={cn('btn', isCompared ? 'btn-primary' : 'btn-secondary')}
-                    >
-                      <Scale className="size-4" />
-                      {isCompared ? 'Quitar de la comparación' : 'Comparar'}
-                    </button>
-                  )}
-                </div>
-
                 {/* ── Precio, financiamiento y mercado ───────────────────── */}
                 <div className="grid gap-6 lg:grid-cols-2">
                   <Seccion
@@ -570,6 +519,57 @@ export default function PropertyDetailModal({
                     </ul>
                   </Seccion>
                 )}
+              </div>
+
+              {/* ── Barra de acciones: siempre a la vista; lo principal a la izquierda, lo secundario como iconos ── */}
+              <div className="sticky bottom-0 z-10 flex flex-wrap items-center gap-2 border-t border-line bg-surface-1/95 px-5 py-3 backdrop-blur-md sm:px-6">
+                <a
+                  href={url ?? undefined}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-disabled={!url}
+                  className={cn('btn btn-primary', !url && 'pointer-events-none opacity-50')}
+                >
+                  <ExternalLink className="size-4" />
+                  Ver aviso original
+                </a>
+                <button onClick={() => onToggleFavorite(p.id)} aria-pressed={isFavorite} className="btn btn-secondary">
+                  <Heart className={cn('size-4', isFavorite && 'fill-rose text-rose')} />
+                  {isFavorite ? 'En favoritos' : 'Favorito'}
+                </button>
+                {onToggleCompare && (
+                  <button
+                    onClick={() => onToggleCompare(p)}
+                    disabled={compareDisabled && !isCompared}
+                    aria-pressed={isCompared}
+                    className={cn('btn', isCompared ? 'btn-primary' : 'btn-secondary')}
+                  >
+                    <Scale className="size-4" />
+                    {isCompared ? 'Quitar de la comparación' : 'Comparar'}
+                  </button>
+                )}
+
+                <span aria-hidden="true" className="mx-1 hidden h-6 w-px bg-line sm:block" />
+
+                <div className="flex items-center gap-1.5">
+                  <button onClick={() => copiar('enlace')} disabled={!url} className="btn btn-secondary btn-icon" title="Copiar enlace" aria-label="Copiar enlace">
+                    {copiado === 'enlace' ? <Check className="size-4 text-green" /> : <Copy className="size-4" />}
+                  </button>
+                  <a href={whatsappUrl(resumenDelAviso(p, precioTexto))} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-icon" title="Compartir por WhatsApp" aria-label="Compartir por WhatsApp">
+                    <MessageCircle className="size-4" />
+                  </a>
+                  <button onClick={() => copiar('resumen')} className="btn btn-secondary btn-icon" title="Copiar resumen" aria-label="Copiar resumen">
+                    {copiado === 'resumen' ? <Check className="size-4 text-green" /> : <Share2 className="size-4" />}
+                  </button>
+                  {mapa && (
+                    <a href={mapa} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-icon" title="Ver en el mapa" aria-label="Ver en el mapa">
+                      <Map className="size-4" />
+                    </a>
+                  )}
+                  <button onClick={() => setShowLinks(true)} className="btn btn-secondary btn-icon" title="Enlaces de apoyo" aria-label="Enlaces de apoyo">
+                    <Link2 className="size-4" />
+                  </button>
+                </div>
               </div>
             </div>
           )}
