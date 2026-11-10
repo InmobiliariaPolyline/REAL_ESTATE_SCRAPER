@@ -30,6 +30,30 @@ const menorPositivo = lista => {
   return n.length > 0 ? Math.min(...n) : undefined
 }
 
+// Área máxima creíble por tipo (m²); los terrenos, edificios y similares pueden ser enormes.
+const AREA_MAXIMA = { Departamento: 3000, Proyecto: 3000, Casa: 20000, Oficina: 20000, "Local Comercial": 50000 }
+
+/**
+ * Área de la ficha («218.000 m2» -> 218; «120 m2» -> 120). Solo se acepta un entero o un entero con «.000»: algo
+ * como «24.268» puede ser 24,268 m² (miles) o 24,268 m² (decimales) y no se adivina.
+ */
+const areaDeTexto = v => {
+  const m = /^\s*(\d+)(?:\.000)?\s*(?:m2|m²)?\s*$/i.exec(String(v ?? ""))
+  return m ? positivo(Number(m[1])) : undefined
+}
+
+/**
+ * Área en m². El portal a veces entrega `m2` mal escalado (218.000 m² -> 218000): si no es creíble para el tipo se
+ * prueba con el texto de la ficha y, si tampoco, con la superficie del terreno. Mejor sin área que con una absurda.
+ */
+function areaDe(it, ficha, tipo) {
+  const maxima = AREA_MAXIMA[tipo] ?? Infinity
+  for (const c of [positivo(it.m2), areaDeTexto(ficha.m2Built), positivo(it.m2Terrain)]) {
+    if (c && c <= maxima) return c
+  }
+  return undefined
+}
+
 /** Estado de construcción de un proyecto («A estrenar», «En construcción») como antigüedad. */
 function antiguedadDeEstado(valor) {
   const t = texto(valor)
@@ -83,12 +107,13 @@ export function avisoDeInfocasas(it, base = "https://www.infocasas.com.pe") {
   const dormitorios = (proyecto ? menorPositivo(proyecto.bedrooms) : undefined) ?? entero(ficha.bedrooms)
   const banios = (proyecto ? menorPositivo(proyecto.bathrooms) : undefined) ?? entero(ficha.bathrooms)
   const areaMin = proyecto ? positivo(proyecto.minM2) : undefined
+  const tipoInmueble = proyecto ? "Proyecto" : texto(it.property_type?.name) ?? "Otro"
 
   return {
     portal: "infocasas",
     codigo: String(it.id),
     operacion,
-    inmueble: proyecto ? "Proyecto" : texto(it.property_type?.name) ?? "Otro",
+    inmueble: tipoInmueble,
     titulo,
     precio: oculto ? undefined : positivo(precio.amount),
     moneda,
@@ -99,7 +124,7 @@ export function avisoDeInfocasas(it, base = "https://www.infocasas.com.pe") {
     provincia: nombre("city"),
     dormitorios: dormitorios?.toString(),
     banios: banios?.toString(),
-    area: areaMin ? `${areaMin} m2` : positivo(it.m2) ? `${it.m2} m2` : texto(ficha.m2Built),
+    area: (areaMin ?? areaDe(it, ficha, tipoInmueble)) ? `${areaMin ?? areaDe(it, ficha, tipoInmueble)} m2` : undefined,
     imagen: texto(limpiaFoto(it.img)) ?? imagenes[0],
     imagenes,
     url: it.link ? base + it.link : undefined,

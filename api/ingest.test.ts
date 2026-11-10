@@ -3,7 +3,8 @@ import path from "node:path"
 import { PGlite } from "@electric-sql/pglite"
 import { pgcrypto } from "@electric-sql/pglite/contrib/pgcrypto"
 import { beforeAll, describe, expect, it } from "vitest"
-import { decodificarEntidades, fotoGrande, guardarAvisos, limpiarDescripcion, normalizarAviso, usdCoherente, type Aviso } from "./ingest"
+import { tipoCanonico } from "../shared/ubicacion"
+import { coordenadasDePeru, decodificarEntidades, fotoGrande, guardarAvisos, limpiarDescripcion, normalizarAviso, precioInverosimil, usdCoherente, type Aviso } from "./ingest"
 
 const root = path.resolve(import.meta.dirname, "..")
 let pg: PGlite
@@ -211,5 +212,46 @@ describe("ubicación del aviso", () => {
   it("fuera de Lima y sin datos no se inventa nada", () => {
     expect(normalizarAviso({ ...base, distrito: "Cayma" })).toMatchObject({ departamento: null, provincia: null })
     expect(normalizarAviso(base)).toMatchObject({ distrito: null, departamento: null, provincia: null })
+  })
+})
+
+describe("datos que no cuadran", () => {
+  it("las coordenadas 0,0 o fuera de Perú se guardan vacías", () => {
+    expect(coordenadasDePeru(-12.05, -77.04)).toEqual({ latitud: -12.05, longitud: -77.04 })
+    expect(coordenadasDePeru(0, 0)).toEqual({ latitud: null, longitud: null })
+    expect(coordenadasDePeru(40.4, -3.7)).toEqual({ latitud: null, longitud: null })
+    expect(coordenadasDePeru(-12.05, undefined)).toEqual({ latitud: null, longitud: null })
+    const fila = normalizarAviso({ ...base, latitud: 0, longitud: 0 })!
+    expect(fila.latitud).toBeNull()
+    expect(fila.longitud).toBeNull()
+  })
+
+  it("detecta precios que son un error de tipeo y los deja sin precio", () => {
+    expect(precioInverosimil("VENTA", 145, 85)).toBe(true) // venta de US$ 145
+    expect(precioInverosimil("VENTA", 1_500_000_000, 600)).toBe(true) // US$ 1 500 millones
+    expect(precioInverosimil("VENTA", 211_866_870, 137)).toBe(true) // US$ 1,5 millones por m²
+    expect(precioInverosimil("VENTA", 250_000, 80)).toBe(false)
+    expect(precioInverosimil("VENTA", 7922, 300)).toBe(false) // terreno barato pero posible
+    expect(precioInverosimil("ALQUILER", 1300, 232)).toBe(false)
+    expect(precioInverosimil("ALQUILER", 900_000, undefined)).toBe(true)
+    expect(precioInverosimil("VENTA", 0, 50)).toBe(false) // sin precio no hay nada que descartar
+    const fila = normalizarAviso({ ...base, precio: 145, moneda: "USD", area: "85 m2" })!
+    expect(fila.precio).toBe(0)
+    expect(fila.precio_usd).toBe(0)
+    expect(normalizarAviso({ ...base, precio: 375000, area: "85 m2" })!.precio).toBe(375000)
+  })
+})
+
+describe("tipo de inmueble", () => {
+  it("unifica variantes de escritura con el nombre oficial", () => {
+    expect(tipoCanonico("Local Comercial")).toBe("Local comercial")
+    expect(tipoCanonico("local comercial")).toBe("Local comercial")
+    expect(tipoCanonico("Locales comerciales")).toBe("Local comercial")
+    expect(tipoCanonico("Local industrial o galpón")).toBe("Local industrial")
+    expect(tipoCanonico("DEPARTAMENTO")).toBe("Departamento")
+    expect(tipoCanonico("Habitaciones")).toBe("Habitación")
+    expect(tipoCanonico("Otro")).toBe("Otros")
+    expect(tipoCanonico("  Penthouse ")).toBe("Penthouse") // lo desconocido se conserva
+    expect(normalizarAviso({ ...base, inmueble: "Local Comercial" })!.inmueble).toBe("Local comercial")
   })
 })

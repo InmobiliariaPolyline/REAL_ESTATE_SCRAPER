@@ -74,6 +74,18 @@ export function distritoCanonico(distrito: string | null | undefined): string | 
   return LIMA.get(k) ?? CALLAO.get(k) ?? tituloNombre(nombre)
 }
 
+/**
+ * Nombre oficial si `distrito` es (o es un alias de) un distrito de Lima Metropolitana o del Callao; `null` si es
+ * otra cosa, por ejemplo un texto parcial («mira») o un distrito de provincias.
+ */
+export function distritoOficial(distrito: string | null | undefined): string | null {
+  const t = (distrito ?? "").trim()
+  if (!t) return null
+  const clave = claveNombre(t)
+  const k = claveNombre(ALIAS[clave] ?? t)
+  return LIMA.get(k) ?? CALLAO.get(k) ?? null
+}
+
 export interface Ubicacion {
   departamento: string
   provincia: string
@@ -166,3 +178,25 @@ export const TIPOS_INMUEBLE = [
   "Departamento", "Casa", "Terreno", "Oficina", "Local comercial", "Proyecto", "Habitación", "Edificio", "Cochera",
   "Local industrial", "Chacra o campo", "Hotel", "Otros",
 ] as const
+
+const ALIAS_TIPO: Record<string, (typeof TIPOS_INMUEBLE)[number]> = {
+  departamentos: "Departamento", depto: "Departamento", casas: "Casa", terrenos: "Terreno", lote: "Terreno", lotes: "Terreno",
+  oficinas: "Oficina", "locales comerciales": "Local comercial", local: "Local comercial", locales: "Local comercial",
+  proyectos: "Proyecto", habitaciones: "Habitación", habitacion: "Habitación", edificios: "Edificio", cocheras: "Cochera",
+  estacionamiento: "Cochera", estacionamientos: "Cochera",
+  "local industrial o galpon": "Local industrial", "galpon": "Local industrial", "local industrial": "Local industrial",
+  chacra: "Chacra o campo", campo: "Chacra o campo", chacras: "Chacra o campo", "chacra o campo": "Chacra o campo", "terreno agricola": "Chacra o campo",
+  otro: "Otros",
+}
+
+/**
+ * Nombre oficial de un tipo de inmueble: «Local Comercial» y «local comercial» pasan a «Local comercial», «Local
+ * industrial o galpón» a «Local industrial». Lo que no se reconoce se deja como llegó (con la primera letra en mayúscula).
+ */
+export function tipoCanonico(tipo: string): string {
+  const clave = claveNombre(tipo)
+  const oficial = TIPOS_INMUEBLE.find(t => claveNombre(t) === clave)
+  if (oficial) return oficial
+  if (ALIAS_TIPO[clave]) return ALIAS_TIPO[clave]
+  return tipo.trim().charAt(0).toUpperCase() + tipo.trim().slice(1)
+}

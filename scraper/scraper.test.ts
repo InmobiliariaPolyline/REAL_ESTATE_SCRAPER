@@ -111,6 +111,23 @@ describe("InfoCasas: lectura de la página", () => {
     expect(avisoDeInfocasas({ ...b34, project: undefined })).toMatchObject({ inmueble: "Departamento", precio: 130600, dormitorios: "3" })
   })
 
+  it("el área se corrige cuando el portal la entrega mal escalada o solo trae la del terreno", () => {
+    const base = fixture.searchFast.data[0]
+    const con = (extra: Record<string, unknown>, built?: string) => avisoDeInfocasas({
+      ...base, project: [], ...extra,
+      technicalSheet: [{ field: "m2Built", value: built ?? "", text: "m2" }],
+    })
+    expect(con({ m2: 127 }, "127 m2").area).toBe("127 m2")
+    // «218.000 m2» llega como 218000: se usa el texto de la ficha.
+    expect(con({ m2: 218000, property_type: { name: "Casa" } }, "218.000 m2").area).toBe("218 m2")
+    // «24.268» es ambiguo (miles o decimales): mejor sin área que con una que puede estar mal.
+    expect(con({ m2: 24268 }, "24.268 m2").area).toBeUndefined()
+    // Sin superficie construida se usa la del terreno.
+    expect(con({ m2: 0, m2Terrain: 300, property_type: { name: "Casa" } }).area).toBe("300 m2")
+    // Un terreno puede ser grande de verdad.
+    expect(con({ m2: 120000, property_type: { name: "Terreno" } }).area).toBe("120000 m2")
+  })
+
   it("arma la dirección de cada página (la primera sin sufijo)", () => {
     expect(infocasas.urlPagina("venta/casas/lima", 1)).toBe("https://www.infocasas.com.pe/venta/casas/lima")
     expect(infocasas.urlPagina("venta/casas/lima", 3)).toBe("https://www.infocasas.com.pe/venta/casas/lima/pagina3")

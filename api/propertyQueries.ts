@@ -1,4 +1,4 @@
-import { claveNombre } from "../shared/ubicacion"
+import { claveNombre, distritoOficial } from "../shared/ubicacion"
 import {
   accentInsensitivePattern,
   bathroomsPattern,
@@ -204,10 +204,21 @@ function applyDetalleWhere(w: Where, f: FiltrosDetalle) {
   }
 }
 
+/**
+ * Condición del filtro de distrito. Un distrito oficial de Lima o del Callao se compara exacto (sin tildes ni
+ * mayúsculas): «Miraflores» no debe traer «San Juan de Miraflores». Un texto parcial («mira») o de provincias
+ * sigue buscando por coincidencia.
+ */
+function condicionDistrito(w: Where, valor: string): string {
+  const oficial = distritoOficial(valor)
+  if (oficial) return `translate(lower(distrito), 'áéíóúüñ', 'aeiouun') = ${w.p(claveNombre(oficial))}`
+  return `distrito ~* ${w.p(accentInsensitivePattern(valor))}`
+}
+
 /** Agrega a `w` las condiciones de los filtros del portal. */
 function applyPortalWhere(w: Where, f: PortalFilters, usdToPen: number) {
   if (f.operacion) w.add(`lower(operacion) = lower(${w.p(f.operacion)})`)
-  if (f.distrito) w.add(`distrito ~* ${w.p(accentInsensitivePattern(f.distrito))}`)
+  if (f.distrito) w.add(condicionDistrito(w, f.distrito))
   if (f.portales.length) w.add(`portal = any(${w.p(f.portales)}::text[])`)
 
   applyDetalleWhere(w, f)
@@ -324,7 +335,7 @@ export function parseAdminFilters(q: URLSearchParams): AdminFilters {
 }
 
 function applyAdminWhere(w: Where, f: AdminFilters) {
-  if (f.distrito) w.add(`distrito ilike ${w.p(`%${escapeLike(f.distrito)}%`)}`)
+  if (f.distrito) w.add(condicionDistrito(w, f.distrito))
   if (f.operacion) w.add(`operacion ilike ${w.p(escapeLike(f.operacion))}`)
   if (f.portal) w.add(`portal ilike ${w.p(`%${escapeLike(f.portal)}%`)}`)
   if (f.moneda) w.add(`moneda = ${w.p(f.moneda)}`)

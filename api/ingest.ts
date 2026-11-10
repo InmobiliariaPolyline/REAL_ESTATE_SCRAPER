@@ -1,6 +1,6 @@
 import { DEFAULT_USD_TO_PEN_RATE } from "../shared/constants"
 import { safeHttpUrl } from "../shared/url"
-import { distritoCanonico, nombreDeLugar, ubicacionDeDistrito } from "../shared/ubicacion"
+import { distritoCanonico, nombreDeLugar, tipoCanonico, ubicacionDeDistrito } from "../shared/ubicacion"
 
 export const PORTALES = ["properati", "infocasas", "babilonia", "urbania", "adondevivir"] as const
 export type Portal = (typeof PORTALES)[number]
@@ -135,7 +135,34 @@ const corto = (v: string | undefined, max: number) => {
   const t = clean(v)
   return t ? t.slice(0, max) : null
 }
-const coord = (n: number | undefined, limite: number) => (Number.isFinite(n) && Math.abs(n as number) <= limite ? (n as number) : null)
+
+/**
+ * Coordenadas dentro de Perú. Algunos portales entregan «0, 0» (o puntos fuera del país) cuando el anunciante no
+ * marcó el mapa: se guardan vacías en lugar de ubicar el aviso en el océano.
+ */
+export function coordenadasDePeru(lat: number | undefined, lon: number | undefined): { latitud: number | null; longitud: number | null } {
+  const ok = Number.isFinite(lat) && Number.isFinite(lon) && (lat as number) >= -19 && (lat as number) <= 0.5 && (lon as number) >= -82 && (lon as number) <= -68
+  return ok ? { latitud: lat as number, longitud: lon as number } : { latitud: null, longitud: null }
+}
+
+/**
+ * Precios que son claramente un error de tipeo del anunciante (una venta de US$ 145, un local de US$ 1 500 millones,
+ * un departamento de 137 m² a US$ 1,5 millones el m²). Se guardan sin precio para no distorsionar medianas ni
+ * comparaciones. Los límites son holgados: solo caen los absurdos.
+ */
+export function precioInverosimil(operacion: "VENTA" | "ALQUILER", usd: number, areaM2: number | undefined): boolean {
+  if (!usd) return false
+  if (operacion === "VENTA") {
+    if (usd < 1000 || usd > 300_000_000) return true
+    return !!areaM2 && areaM2 >= 10 && usd / areaM2 > 60_000
+  }
+  return usd > 200_000
+}
+
+const areaEnM2 = (area: string | undefined) => {
+  const n = Number(/^\s*(\d+(?:[.,]\d+)?)/.exec(area ?? "")?.[1]?.replace(",", "."))
+  return Number.isFinite(n) && n > 0 ? n : undefined
+}
 
 const money = (n: number | undefined) => (Number.isFinite(n) && (n as number) > 0 ? (n as number) : 0)
 
@@ -153,6 +180,12 @@ export function normalizarAviso(
   let precioUsd = usdCoherente(money(aviso.precio), moneda, money(aviso.precioUsd), usdToPen)
   if (!precioUsd && precio) precioUsd = moneda === "USD" ? precio : precio / usdToPen
 
+  let precioFinal = precio
+  if (precioInverosimil(aviso.operacion, precioUsd, areaEnM2(aviso.area))) {
+    precioFinal = 0
+    precioUsd = 0
+  }
+
   const imagenes = normalizarFotos(aviso.imagen, aviso.imagenes)
   // Un distrito de Lima o del Callao escrito de otra forma pasa a su nombre oficial y da su departamento y provincia.
   const distrito = distritoCanonico(clean(aviso.distrito))
@@ -161,9 +194,9 @@ export function normalizarAviso(
     id: `${aviso.portal}:${codigo}`,
     portal: aviso.portal,
     operacion: aviso.operacion,
-    inmueble: aviso.inmueble.trim() || "Departamento",
+    inmueble: aviso.inmueble.trim() ? tipoCanonico(aviso.inmueble) : "Departamento",
     titulo: clean(aviso.titulo),
-    precio,
+    precio: precioFinal,
     precio_usd: Math.round(precioUsd * 100) / 100,
     moneda,
     distrito,
@@ -180,8 +213,7 @@ export function normalizarAviso(
     estacionamientos: corto(aviso.estacionamientos, 40),
     antiguedad: corto(aviso.antiguedad, 60),
     publicador: corto(aviso.publicador, 120),
-    latitud: coord(aviso.latitud, 90),
-    longitud: coord(aviso.longitud, 180),
+    ...coordenadasDePeru(aviso.latitud, aviso.longitud),
     mantenimiento: money(aviso.mantenimiento) || null,
   }
 }

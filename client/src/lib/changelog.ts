@@ -23,6 +23,19 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "2.11.0",
+    fecha: "2026-11-10",
+    titulo: "Auditoría de datos y pruebas con avisos reales",
+    cambios: [
+      { tipo: "correccion", texto: "El filtro de distrito ya no mezcla distritos: «Miraflores» traía también «San Juan de Miraflores». Un distrito oficial de Lima o del Callao se compara exacto; el texto parcial sigue buscando por coincidencia." },
+      { tipo: "correccion", texto: "Las coordenadas «0, 0» (o fuera de Perú) que entregan algunos avisos se guardan vacías en lugar de ubicar el aviso en el océano. Aplica a todos los portales." },
+      { tipo: "correccion", texto: "Los precios que son un error de tipeo evidente (una venta de US$ 145, un local de US$ 1 500 millones, un departamento a US$ 1,5 millones el m²) se guardan sin precio para no distorsionar medianas ni comparaciones." },
+      { tipo: "correccion", texto: "El área de InfoCasas se corrige cuando el portal la entrega mal escalada (218.000 m² llegaba como 218 000), usa la superficie del terreno si no hay construida y se deja vacía si es absurda." },
+      { tipo: "correccion", texto: "Los tipos de inmueble se unifican con su nombre oficial («Local Comercial» y «Local comercial» eran dos filtros distintos). La migración opcional db/012_tipos.sql corrige los ya guardados." },
+      { tipo: "implementacion", texto: "Nueva prueba de punta a punta con 174 avisos reales de InfoCasas: lector, entrada /api/ingesta, base de datos y API del portal (filtros, orden, detalle, facetas, exportación), comprobando que nada se pierde ni se deforma." },
+    ],
+  },
+  {
     version: "2.10.2",
     fecha: "2026-11-10",
     titulo: "Proyectos de InfoCasas bien clasificados",
