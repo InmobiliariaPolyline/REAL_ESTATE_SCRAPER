@@ -36,13 +36,13 @@ export default function PropiedadesFilters({ filters, onChange, onSearch, onClea
   const nDetalle = contarDetalle(filters)
 
   const provincias = useMemo(
-    () => (facetas?.provincias ?? []).filter(p => !filters.departamento || !p.padre || claveNombre(p.padre) === claveNombre(filters.departamento)),
+    () => facetas.provincias.filter(p => !filters.departamento || !p.padre || claveNombre(p.padre) === claveNombre(filters.departamento)),
     [facetas, filters.departamento]
   )
-  const tipos: OpcionFicha<string>[] = useMemo(() => {
-    const base = facetas?.inmuebles?.length ? facetas.inmuebles.slice(0, 5) : [{ valor: "Departamento", n: undefined }, { valor: "Casa", n: undefined }]
-    return [{ value: "todos", label: "Todos", icon: Layers }, ...base.map(t => ({ value: t.valor, label: t.valor, icon: ICONO_TIPO[t.valor.toLowerCase()] ?? Building2, n: t.n }))]
-  }, [facetas])
+  const tipos: OpcionFicha<string>[] = useMemo(
+    () => [{ value: "todos", label: "Todos", icon: Layers }, ...facetas.inmuebles.map(t => ({ value: t.valor, label: t.valor, icon: ICONO_TIPO[t.valor.toLowerCase()] ?? Building2, n: t.n }))],
+    [facetas]
+  )
   const tiposConActual = filters.inmueble !== "todos" && !tipos.some(t => t.value === filters.inmueble) ? [...tipos, { value: filters.inmueble, label: filters.inmueble, icon: Building2 }] : tipos
 
   return (
@@ -103,7 +103,7 @@ export default function PropiedadesFilters({ filters, onChange, onSearch, onClea
 
         <Bloque icon={MapPin} tono="blue" title="Ubicación">
           <div className="grid gap-4">
-            <Selector id="adm-departamento" label="Departamento" value={filters.departamento} onChange={v => set({ departamento: v, provincia: "" })} opciones={facetas?.departamentos ?? []} vacio="Sin datos aún" />
+            <Selector id="adm-departamento" label="Departamento" value={filters.departamento} onChange={v => set({ departamento: v, provincia: "" })} opciones={facetas.departamentos} vacio="Sin datos aún" />
             <Selector id="adm-provincia" label="Ciudad o provincia" value={filters.provincia} onChange={v => set({ provincia: v })} opciones={provincias} vacio="Sin datos aún" />
           </div>
         </Bloque>
@@ -171,7 +171,7 @@ export default function PropiedadesFilters({ filters, onChange, onSearch, onClea
             <label htmlFor="adm-anunciante" className="field-label">Inmobiliaria o persona</label>
             <input id="adm-anunciante" type="text" list="adm-anunciantes" value={filters.anunciante} onChange={e => set({ anunciante: e.target.value })} placeholder="Ej.: Prisma" className="field" maxLength={80} autoComplete="off" />
             <datalist id="adm-anunciantes">
-              {(facetas?.anunciantes ?? []).map(a => <option key={a.valor} value={a.valor} />)}
+              {facetas.anunciantes.map(a => <option key={a.valor} value={a.valor} />)}
             </datalist>
           </div>
         </Bloque>

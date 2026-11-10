@@ -8,7 +8,7 @@ import { EMPTY_ADMIN_SEARCH, type AdminSearchFilters } from '@/lib/propertiesApi
 import PropiedadesFilters from './PropiedadesFilters'
 
 const fetchFacetas = vi.fn()
-vi.mock('@/lib/facetas', () => ({ fetchFacetas: () => fetchFacetas() }))
+vi.mock('@/lib/facetas', async importOriginal => ({ ...(await importOriginal<typeof import('@/lib/facetas')>()), fetchFacetas: () => fetchFacetas() }))
 
 const FACETAS = {
   departamentos: [{ valor: 'Lima', n: 40 }, { valor: 'Arequipa', n: 6 }],
@@ -77,6 +77,16 @@ describe('PropiedadesFilters (administración)', () => {
     await userEvent.click(within(screen.getByRole('group', { name: 'Moneda del rango' })).getByRole('button', { name: /Dólares/ }))
     expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ moneda: 'USD', precioMin: '', precioMax: '' }))
     expect(screen.getByLabelText('Mín. (USD)')).toHaveValue(null)
+  })
+
+  it('ofrece todos los departamentos, provincias y tipos aunque no haya avisos', async () => {
+    render(<Harness />)
+    const departamento = screen.getByLabelText('Departamento')
+    expect(within(departamento).getByRole('option', { name: 'Cusco (0)' })).toBeInTheDocument()
+    expect(within(departamento).getAllByRole('option')).toHaveLength(26)
+    await userEvent.selectOptions(departamento, 'Puno')
+    expect(within(screen.getByLabelText('Ciudad o provincia')).getByRole('option', { name: 'Yunguyo (0)' })).toBeInTheDocument()
+    expect(within(screen.getByRole('group', { name: 'Tipo' })).getByRole('button', { name: /Oficina/ })).toBeInTheDocument()
   })
 
   it('buscar y limpiar siguen funcionando y no dependen de las facetas', async () => {

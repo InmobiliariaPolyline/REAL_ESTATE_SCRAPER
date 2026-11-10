@@ -29,16 +29,6 @@ interface PortalFiltersProps {
   isMobileDrawer?: boolean
 }
 
-/** Distritos que se sugieren mientras no se conoce el catálogo (o si aún no tiene ubicación guardada). */
-const DISTRITOS_BASE = [
-  'Ancón', 'Ate', 'Barranco', 'Breña', 'Callao', 'Carabayllo', 'Chaclacayo', 'Chorrillos', 'Cieneguilla', 'Comas',
-  'El Agustino', 'Independencia', 'Jesús María', 'La Molina', 'La Perla', 'La Punta', 'La Victoria', 'Lima', 'Lince',
-  'Los Olivos', 'Lurigancho', 'Lurín', 'Magdalena del Mar', 'Miraflores', 'Pachacámac', 'Pueblo Libre', 'Puente Piedra',
-  'Rímac', 'San Borja', 'San Isidro', 'San Juan de Lurigancho', 'San Juan de Miraflores', 'San Luis', 'San Martín de Porres',
-  'San Miguel', 'Santa Anita', 'Santiago de Surco', 'Surquillo', 'Ventanilla', 'Villa El Salvador', 'Villa María del Triunfo',
-  'Arequipa', 'Cayma', 'Cerro Colorado', 'Trujillo', 'Chiclayo', 'Cusco', 'Piura', 'Tarapoto', 'Huancayo', 'Iquitos', 'Tacna',
-].sort((a, b) => a.localeCompare(b, 'es', { sensitivity: 'base' }))
-
 const ICONO_TIPO: Record<string, LucideIcon> = {
   departamento: Building2,
   casa: Home,
@@ -104,24 +94,24 @@ export default function PortalFilters({
   }, [claveFiltros])
 
   // Listas del catálogo: las provincias se limitan al departamento elegido y los distritos a ambos.
-  const departamentos = facetas?.departamentos ?? []
+  const departamentos = facetas.departamentos
   const provincias = useMemo(
-    () => (facetas?.provincias ?? []).filter(p => !filters.departamento || !p.padre || claveNombre(p.padre) === claveNombre(filters.departamento)),
+    () => facetas.provincias.filter(p => !filters.departamento || !p.padre || claveNombre(p.padre) === claveNombre(filters.departamento)),
     [facetas, filters.departamento]
   )
   const distritosCatalogo = useMemo(
-    () => (facetas?.distritos ?? []).filter(d => !filters.departamento || !d.padre || claveNombre(d.padre) === claveNombre(filters.departamento)),
+    () => facetas.distritos.filter(d => !filters.departamento || !d.padre || claveNombre(d.padre) === claveNombre(filters.departamento)),
     [facetas, filters.departamento]
   )
 
-  // Tipos de inmueble: los más frecuentes del catálogo (con su cantidad), o los dos de siempre si aún no hay datos.
-  const tipos: OpcionFicha<string>[] = useMemo(() => {
-    const base = facetas?.inmuebles?.length ? facetas.inmuebles.slice(0, 5) : [{ valor: 'Departamento', n: undefined }, { valor: 'Casa', n: undefined }]
-    return [
+  // Tipos de inmueble: todos los que existen (primero los que tienen avisos), con su cantidad.
+  const tipos: OpcionFicha<string>[] = useMemo(
+    () => [
       { value: 'todos', label: 'Todos', icon: Layers },
-      ...base.map(t => ({ value: t.valor, label: t.valor, icon: ICONO_TIPO[t.valor.toLowerCase()] ?? Building2, n: t.n })),
-    ]
-  }, [facetas])
+      ...facetas.inmuebles.map(t => ({ value: t.valor, label: t.valor, icon: ICONO_TIPO[t.valor.toLowerCase()] ?? Building2, n: t.n })),
+    ],
+    [facetas]
+  )
   // Si el tipo elegido no está entre los más frecuentes (búsqueda guardada), se muestra igual.
   const tiposConActual = filters.inmueble !== 'todos' && !tipos.some(t => t.value === filters.inmueble) ? [...tipos, { value: filters.inmueble, label: filters.inmueble, icon: Building2 }] : tipos
 
@@ -129,10 +119,9 @@ export default function PortalFilters({
   const suggestions = useMemo(() => {
     const q = removeAccents(filters.distrito.trim().toLowerCase())
     if (!q) return []
-    const base: { valor: string; n?: number }[] = distritosCatalogo.length > 0 ? distritosCatalogo : DISTRITOS_BASE.map(valor => ({ valor }))
-    return base.filter(d => removeAccents(d.valor.toLowerCase()).includes(q)).slice(0, 12)
+    return distritosCatalogo.filter(d => removeAccents(d.valor.toLowerCase()).includes(q)).slice(0, 12)
   }, [filters.distrito, distritosCatalogo])
-  const populares = distritosCatalogo.slice(0, 8)
+  const populares = distritosCatalogo.filter(d => d.n > 0).slice(0, 8)
 
   const handlePortalToggle = (portal: string) =>
     update({ portales: filters.portales.includes(portal) ? filters.portales.filter(p => p !== portal) : [...filters.portales, portal] })
@@ -412,7 +401,7 @@ export default function PortalFilters({
               <label className="field-label" htmlFor="flt-anunciante">Inmobiliaria o persona</label>
               <input id="flt-anunciante" type="text" list="flt-anunciantes" value={filters.anunciante} onChange={e => update({ anunciante: e.target.value })} placeholder="Ej.: Prisma" className="field" maxLength={80} autoComplete="off" />
               <datalist id="flt-anunciantes">
-                {(facetas?.anunciantes ?? []).map(a => <option key={a.valor} value={a.valor} />)}
+                {facetas.anunciantes.map(a => <option key={a.valor} value={a.valor} />)}
               </datalist>
             </div>
           </Bloque>

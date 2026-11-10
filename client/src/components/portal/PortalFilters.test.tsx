@@ -8,7 +8,7 @@ import { DEFAULT_FILTERS, type FilterState } from '@/types'
 import PortalFilters from './PortalFilters'
 
 const fetchFacetas = vi.fn()
-vi.mock('@/lib/facetas', () => ({ fetchFacetas: () => fetchFacetas() }))
+vi.mock('@/lib/facetas', async importOriginal => ({ ...(await importOriginal<typeof import('@/lib/facetas')>()), fetchFacetas: () => fetchFacetas() }))
 
 const FACETAS = {
   departamentos: [{ valor: 'Lima', n: 40 }, { valor: 'Arequipa', n: 6 }],
@@ -134,13 +134,33 @@ describe('PortalFilters (ventana de filtros)', () => {
     expect(screen.getByLabelText('Palabra clave')).toHaveValue('')
   })
 
-  it('sin datos de ubicación las listas salen vacías, pero el distrito y los tipos de siempre siguen', async () => {
-    fetchFacetas.mockResolvedValue({ departamentos: [], provincias: [], distritos: [], inmuebles: [], anunciantes: [] })
+  it('ofrece todo el Perú aunque el catálogo no tenga avisos de esos lugares ni de esos tipos', async () => {
     render(<Harness />)
-    expect(await screen.findAllByRole('option', { name: 'Sin datos aún' })).toHaveLength(2)
+    const departamento = screen.getByLabelText('Departamento')
+    // Hay avisos de Lima y Arequipa, pero también se ofrece el resto, con 0 avisos.
+    expect(await within(departamento).findByRole('option', { name: 'Arequipa (6)' })).toBeInTheDocument()
+    for (const d of ['Cusco (0)', 'Amazonas (0)', 'Tumbes (0)', 'La Libertad (0)']) expect(within(departamento).getByRole('option', { name: d })).toBeInTheDocument()
+    expect(within(departamento).getAllByRole('option')).toHaveLength(26) // «Todos» + 25
+    // Los tipos que no están en el catálogo también aparecen.
+    const tipos = grupo('Tipo')
+    for (const t of ['Oficina', 'Local comercial', 'Proyecto', 'Edificio']) expect(within(tipos).getByRole('button', { name: new RegExp(t) })).toBeInTheDocument()
+  })
+
+  it('al elegir un departamento sin avisos se ofrecen igual sus provincias y distritos', async () => {
+    render(<Harness inicial={{ ...DEFAULT_FILTERS, departamento: 'Cusco' }} />)
+    const provincia = screen.getByLabelText('Ciudad o provincia')
+    for (const p of ['Cusco (0)', 'Urubamba (0)', 'Calca (0)']) expect(within(provincia).getByRole('option', { name: p })).toBeInTheDocument()
+    expect(within(provincia).queryByRole('option', { name: /^Arequipa/ })).toBeNull() // otras regiones no
+    await userEvent.type(screen.getByLabelText('Distrito'), 'wanch')
+    expect(await screen.findByRole('button', { name: /Wanchaq/ })).toBeInTheDocument()
+  })
+
+  it('si no se puede cargar el catálogo, igual ofrece las listas completas', async () => {
+    fetchFacetas.mockRejectedValue(new Error('sin red'))
+    render(<Harness />)
+    expect(within(screen.getByLabelText('Departamento')).getByRole('option', { name: 'Ucayali (0)' })).toBeInTheDocument()
     await userEvent.type(screen.getByLabelText('Distrito'), 'mira')
-    expect(await screen.findByRole('button', { name: 'Miraflores' })).toBeInTheDocument()
-    expect(within(grupo('Tipo')).getByRole('button', { name: /Casa/ })).toBeInTheDocument()
+    expect((await screen.findAllByRole('button', { name: /Miraflores/ })).length).toBeGreaterThan(0) // Lima y Arequipa tienen uno
   })
 })
 

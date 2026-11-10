@@ -1,15 +1,16 @@
-import { useEffect, useState } from "react"
-import { fetchFacetas, type Facetas } from "@/lib/facetas"
+import { useEffect, useMemo, useState } from "react"
+import { combinarFacetas, fetchFacetas, type Facetas, type FacetasDelCatalogo } from "@/lib/facetas"
 
 /**
- * Valores que existen en el catálogo (departamentos, provincias, distritos, tipos y anunciantes) para las
- * listas de los filtros. Se piden una sola vez y se comparten entre todos los paneles; `null` mientras
- * llegan o si no se pudieron cargar (los filtros siguen funcionando con sus listas de respaldo).
+ * Opciones de los filtros (departamentos, provincias, distritos, tipos y anunciantes). Siempre incluyen
+ * todo lo que existe en el Perú, con la cantidad de avisos de cada una (0 si no hay); lo que hay en el
+ * catálogo se pide una sola vez y se comparte entre todos los paneles. Si no se puede pedir, las listas
+ * completas siguen disponibles.
  */
-let pendiente: Promise<Facetas | null> | null = null
+let pendiente: Promise<FacetasDelCatalogo | null> | null = null
 
-export function useFacetas(): Facetas | null {
-  const [facetas, setFacetas] = useState<Facetas | null>(null)
+export function useFacetas(): Facetas {
+  const [catalogo, setCatalogo] = useState<FacetasDelCatalogo | null>(null)
 
   useEffect(() => {
     let cancelado = false
@@ -17,13 +18,13 @@ export function useFacetas(): Facetas | null {
       pendiente = null // se reintenta la próxima vez que se abra un panel
       return null
     })
-    pendiente.then(f => !cancelado && setFacetas(f))
+    pendiente.then(f => !cancelado && setCatalogo(f))
     return () => {
       cancelado = true
     }
   }, [])
 
-  return facetas
+  return useMemo(() => combinarFacetas(catalogo), [catalogo])
 }
 
 /** Solo para pruebas: olvida lo ya pedido. */

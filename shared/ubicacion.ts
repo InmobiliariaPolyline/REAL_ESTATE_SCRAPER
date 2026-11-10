@@ -94,3 +94,75 @@ export function nombreDeLugar(valor: string | null | undefined): string | null {
   const t = (valor ?? "").trim()
   return t ? tituloNombre(t).slice(0, 60) : null
 }
+
+// ── Catálogo completo del Perú (para que los filtros ofrezcan todo, haya o no avisos) ──────────
+
+/** Los 24 departamentos y la Provincia Constitucional del Callao. */
+export const DEPARTAMENTOS = [
+  "Amazonas", "Áncash", "Apurímac", "Arequipa", "Ayacucho", "Cajamarca", "Callao", "Cusco", "Huancavelica", "Huánuco", "Ica",
+  "Junín", "La Libertad", "Lambayeque", "Lima", "Loreto", "Madre de Dios", "Moquegua", "Pasco", "Piura", "Puno", "San Martín",
+  "Tacna", "Tumbes", "Ucayali",
+] as const
+
+/** Las 196 provincias, por departamento. */
+export const PROVINCIAS: Record<string, readonly string[]> = {
+  "Amazonas": ["Chachapoyas", "Bagua", "Bongará", "Condorcanqui", "Luya", "Rodríguez de Mendoza", "Utcubamba"],
+  "Áncash": ["Huaraz", "Aija", "Antonio Raymondi", "Asunción", "Bolognesi", "Carhuaz", "Carlos Fermín Fitzcarrald", "Casma", "Corongo", "Huari", "Huarmey", "Huaylas", "Mariscal Luzuriaga", "Ocros", "Pallasca", "Pomabamba", "Recuay", "Santa", "Sihuas", "Yungay"],
+  "Apurímac": ["Abancay", "Andahuaylas", "Antabamba", "Aymaraes", "Chincheros", "Cotabambas", "Grau"],
+  "Arequipa": ["Arequipa", "Camaná", "Caravelí", "Castilla", "Caylloma", "Condesuyos", "Islay", "La Unión"],
+  "Ayacucho": ["Huamanga", "Cangallo", "Huanca Sancos", "Huanta", "La Mar", "Lucanas", "Parinacochas", "Páucar del Sara Sara", "Sucre", "Víctor Fajardo", "Vilcas Huamán"],
+  "Cajamarca": ["Cajamarca", "Cajabamba", "Celendín", "Chota", "Contumazá", "Cutervo", "Hualgayoc", "Jaén", "San Ignacio", "San Marcos", "San Miguel", "San Pablo", "Santa Cruz"],
+  "Callao": ["Callao"],
+  "Cusco": ["Cusco", "Acomayo", "Anta", "Calca", "Canas", "Canchis", "Chumbivilcas", "Espinar", "La Convención", "Paruro", "Paucartambo", "Quispicanchi", "Urubamba"],
+  "Huancavelica": ["Huancavelica", "Acobamba", "Angaraes", "Castrovirreyna", "Churcampa", "Huaytará", "Tayacaja"],
+  "Huánuco": ["Huánuco", "Ambo", "Dos de Mayo", "Huacaybamba", "Huamalíes", "Leoncio Prado", "Marañón", "Pachitea", "Puerto Inca", "Lauricocha", "Yarowilca"],
+  "Ica": ["Ica", "Chincha", "Nasca", "Palpa", "Pisco"],
+  "Junín": ["Huancayo", "Chanchamayo", "Chupaca", "Concepción", "Jauja", "Junín", "Satipo", "Tarma", "Yauli"],
+  "La Libertad": ["Trujillo", "Ascope", "Bolívar", "Chepén", "Gran Chimú", "Julcán", "Otuzco", "Pacasmayo", "Pataz", "Sánchez Carrión", "Santiago de Chuco", "Virú"],
+  "Lambayeque": ["Chiclayo", "Ferreñafe", "Lambayeque"],
+  "Lima": ["Lima", "Barranca", "Cajatambo", "Canta", "Cañete", "Huaral", "Huarochirí", "Huaura", "Oyón", "Yauyos"],
+  "Loreto": ["Maynas", "Alto Amazonas", "Datem del Marañón", "Loreto", "Mariscal Ramón Castilla", "Putumayo", "Requena", "Ucayali"],
+  "Madre de Dios": ["Tambopata", "Manu", "Tahuamanu"],
+  "Moquegua": ["Mariscal Nieto", "General Sánchez Cerro", "Ilo"],
+  "Pasco": ["Pasco", "Daniel Alcides Carrión", "Oxapampa"],
+  "Piura": ["Piura", "Ayabaca", "Huancabamba", "Morropón", "Paita", "Sechura", "Sullana", "Talara"],
+  "Puno": ["Puno", "Azángaro", "Carabaya", "Chucuito", "El Collao", "Huancané", "Lampa", "Melgar", "Moho", "San Antonio de Putina", "San Román", "Sandia", "Yunguyo"],
+  "San Martín": ["Moyobamba", "Bellavista", "El Dorado", "Huallaga", "Lamas", "Mariscal Cáceres", "Picota", "Rioja", "San Martín", "Tocache"],
+  "Tacna": ["Tacna", "Candarave", "Jorge Basadre", "Tarata"],
+  "Tumbes": ["Tumbes", "Contralmirante Villar", "Zarumilla"],
+  "Ucayali": ["Coronel Portillo", "Atalaya", "Padre Abad", "Purús"],
+}
+
+/**
+ * Distritos principales fuera de Lima Metropolitana y del Callao (las ciudades donde más se anuncian
+ * inmuebles). No son todos los distritos del país: el catálogo agrega los demás cuando aparecen.
+ */
+export const DISTRITOS_PRINCIPALES: Record<string, readonly string[]> = {
+  "Áncash": ["Huaraz", "Independencia", "Chimbote", "Nuevo Chimbote", "Casma", "Huarmey"],
+  "Arequipa": ["Arequipa", "Cayma", "Cerro Colorado", "Yanahuara", "Sachaca", "Socabaya", "Paucarpata", "Miraflores", "Mariano Melgar", "José Luis Bustamante y Rivero", "Jacobo Hunter", "Alto Selva Alegre", "Characato", "Tiabaya", "Sabandía", "Yura", "Camaná", "Mollendo"],
+  "Ayacucho": ["Ayacucho", "Carmen Alto", "San Juan Bautista", "Jesús Nazareno"],
+  "Cajamarca": ["Cajamarca", "Baños del Inca", "Jaén", "Chota"],
+  "Cusco": ["Cusco", "San Sebastián", "San Jerónimo", "Santiago", "Wanchaq", "Saylla", "Poroy", "Urubamba", "Ollantaytambo", "Calca"],
+  "Huánuco": ["Huánuco", "Amarilis", "Pillco Marca", "Tingo María"],
+  "Ica": ["Ica", "La Tinguiña", "Parcona", "Subtanjalla", "Pisco", "Chincha Alta", "Nasca"],
+  "Junín": ["Huancayo", "El Tambo", "Chilca", "Tarma", "Jauja", "La Merced", "Satipo"],
+  "La Libertad": ["Trujillo", "Víctor Larco Herrera", "La Esperanza", "El Porvenir", "Florencia de Mora", "Huanchaco", "Laredo", "Moche", "Salaverry", "Alto Trujillo", "Chepén", "Pacasmayo"],
+  "Lambayeque": ["Chiclayo", "José Leonardo Ortiz", "La Victoria", "Pimentel", "Pomalca", "Monsefú", "Santa Rosa", "Reque", "Lambayeque", "Ferreñafe"],
+  "Lima": ["Huacho", "Huaral", "Barranca", "Supe", "San Vicente de Cañete", "Mala", "Asia", "Chilca", "Huaura", "Oyón"],
+  "Loreto": ["Iquitos", "Punchana", "Belén", "San Juan Bautista", "Yurimaguas"],
+  "Madre de Dios": ["Tambopata", "Las Piedras", "Iñapari"],
+  "Moquegua": ["Moquegua", "Samegua", "Ilo"],
+  "Pasco": ["Chaupimarca", "Yanacancha", "Oxapampa", "Villa Rica"],
+  "Piura": ["Piura", "Castilla", "Catacaos", "Veintiséis de Octubre", "Sullana", "Paita", "Talara", "Máncora", "Sechura"],
+  "Puno": ["Puno", "Juliaca", "Ilave", "Azángaro"],
+  "San Martín": ["Tarapoto", "Morales", "La Banda de Shilcayo", "Moyobamba", "Rioja", "Tocache"],
+  "Tacna": ["Tacna", "Alto de la Alianza", "Ciudad Nueva", "Pocollay", "Gregorio Albarracín", "Calana"],
+  "Tumbes": ["Tumbes", "Zarumilla", "Zorritos"],
+  "Ucayali": ["Callería", "Yarinacocha", "Manantay"],
+}
+
+/** Tipos de inmueble que publican los portales. */
+export const TIPOS_INMUEBLE = [
+  "Departamento", "Casa", "Terreno", "Oficina", "Local comercial", "Proyecto", "Habitación", "Edificio", "Cochera",
+  "Local industrial", "Chacra o campo", "Hotel", "Otros",
+] as const

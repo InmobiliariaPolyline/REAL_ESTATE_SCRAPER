@@ -23,6 +23,16 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "2.5.0",
+    fecha: "2026-11-10",
+    titulo: "Los filtros ofrecen todo el Perú, haya o no avisos",
+    cambios: [
+      { tipo: "mejora", texto: "Departamento, ciudad o provincia, distrito y tipo de inmueble ya no dependen de los datos disponibles: se ofrecen los 25 departamentos, las 196 provincias, los distritos de Lima, el Callao y de las ciudades principales, y todos los tipos de inmueble." },
+      { tipo: "mejora", texto: "Cada opción muestra cuántos avisos tiene (0 si aún no hay); primero van las que tienen avisos y después el resto por orden alfabético. Al elegir un departamento, sus provincias y distritos se ofrecen aunque aún no tenga avisos." },
+      { tipo: "mejora", texto: "Si en el catálogo aparece un lugar o tipo que no estaba en la lista completa, se agrega solo; y si no se puede consultar el catálogo, las listas completas siguen disponibles. Lo mismo en Propiedades del administrador." },
+    ],
+  },
+  {
     version: "2.4.1",
     fecha: "2026-11-10",
     titulo: "Los precios se muestran en soles por defecto",
