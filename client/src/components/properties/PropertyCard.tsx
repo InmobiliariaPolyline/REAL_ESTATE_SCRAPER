@@ -108,7 +108,8 @@ export default function PropertyCard({
   const estado = estadoDeAntiguedad(antiguedad)
   // Un proyecto ofrece varias tipologías: «Desde» el precio más bajo «hasta» el más alto, y varios tamaños.
   const hasta = esProyecto && partes && precioMax && precioMax > precio ? partesDePrecio(getPublishedPrice(precioMax, null, monedaOriginal, moneda)) : null
-  const rangoDeArea = area.includes('–')
+  // `area` puede llegar vacío (nulo) en avisos que no la publican.
+  const rangoDeArea = (area ?? '').includes('–')
   const porM2 = esProyecto && rangoDeArea ? null : precioPorM2Partes(price, area)
   const nuevo = esNuevo(creadoEn)
   const lugar = ubicacionTexto(distrito, departamento)

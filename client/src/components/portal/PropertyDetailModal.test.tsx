@@ -156,6 +156,13 @@ describe('PropertyDetailModal', () => {
     expect(screen.getByText('1 opción, cada una con su tamaño y su precio')).toBeInTheDocument()
   })
 
+  it('un proyecto o un aviso sin área ni cantidades (nulos) se dibuja sin fallar', async () => {
+    fetchPropertyDetail.mockResolvedValue({ propiedad: { ...b34, area: null, dormitorios: null, banios: null, unidades: null, precio_max: null }, historial: [] })
+    abrir()
+    expect(await screen.findByRole('dialog')).toBeInTheDocument()
+    expect(await screen.findByText('B34')).toBeInTheDocument()
+  })
+
   it('un aviso normal no muestra tipologías ni «Hasta»', async () => {
     abrir()
     const dialogo = await screen.findByRole('dialog')

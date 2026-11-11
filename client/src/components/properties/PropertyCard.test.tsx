@@ -62,6 +62,17 @@ describe('PropertyCard', () => {
     expect(insignia(normal.container).some(t => t?.startsWith('Hasta'))).toBe(false)
   })
 
+  it('un aviso sin área, dormitorios ni baños (valores nulos de la base) se dibuja sin fallar', () => {
+    // La API entrega `null` en los campos que el aviso no publica; la tarjeta no debe romper la página.
+    const vacios = { dormitorios: null, banios: null, area: null } as unknown as Pick<typeof base, 'dormitorios' | 'banios' | 'area'>
+    for (const inmueble of ['Departamento', 'Proyecto', 'Terreno', undefined]) {
+      const { container, unmount } = render(<PropertyCard {...base} {...vacios} inmueble={inmueble} precioMax={400000} />)
+      expect(container.querySelector('article')).not.toBeNull()
+      expect(insignia(container).some(t => t?.startsWith('Dorm') || t?.startsWith('Baños') || t?.startsWith('Área'))).toBe(false)
+      unmount()
+    }
+  })
+
   it('sin precio no muestra símbolo de moneda ni «0»', () => {
     const { container } = render(<PropertyCard {...base} precio={0} precioUsd={0} inmueble="Casa" />)
     expect(insignia(container)).toContain('Precio Sin precio')

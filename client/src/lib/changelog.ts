@@ -23,6 +23,14 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "3.4.1",
+    fecha: "2026-11-10",
+    titulo: "Corrección: error al abrir Propiedades",
+    cambios: [
+      { tipo: "correccion", texto: "Al entrar a Propiedades aparecía «Ocurrió un error inesperado». La tarjeta nueva de proyectos (v3.4.0) leía el área del aviso sin considerar que los avisos que no la publican llegan con el área vacía, y eso detenía toda la pantalla. Ahora se tolera el área vacía, y hay pruebas con avisos sin área, dormitorios ni baños en la tarjeta y en el detalle." },
+    ],
+  },
+  {
     version: "3.4.0",
     fecha: "2026-11-10",
     titulo: "Proyectos inmobiliarios leídos con exactitud",
