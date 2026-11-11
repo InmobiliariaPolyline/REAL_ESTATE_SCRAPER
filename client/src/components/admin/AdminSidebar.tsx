@@ -38,6 +38,11 @@ export default function AdminSidebar({
 
   return (
     <>
+      {/* Barra superior (móvil): la marca y, encima, el botón de menú; así el contenido no pasa por debajo del botón sin fondo */}
+      <div className="glass fixed inset-x-0 top-0 z-30 flex h-16 items-center border-b border-line px-4 md:hidden" aria-hidden="true">
+        <Logo />
+      </div>
+
       {/* Botón de menú (móvil) */}
       <button
         onClick={() => setIsOpen(!isOpen)}

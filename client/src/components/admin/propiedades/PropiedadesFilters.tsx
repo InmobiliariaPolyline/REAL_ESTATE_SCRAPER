@@ -99,7 +99,8 @@ export default function PropiedadesFilters({ filters, onChange, onSearch, onClea
       <div className="p-4 sm:p-5">
         <ControlesDeFiltros soloDisponibles={soloDisponibles} onSoloDisponibles={() => setSoloDisponibles(v => !v)} todosAbiertos={todosAbiertos} onCambiarTodos={cambiarTodos} />
 
-        <div className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-3">
+        {/* Columnas que se llenan hacia abajo: los bloques (de alturas muy distintas) no dejan huecos vacíos como en una cuadrícula. */}
+        <div className="gap-x-3 md:columns-2 xl:columns-3 [&>section]:mb-3 [&>section]:break-inside-avoid">
           <BloqueDesplegable icon={TextCursorInput} tono="rose" title="Buscar por palabra" {...desp("texto")}>
             <div>
               <label htmlFor="adm-texto" className="field-label">Palabra clave</label>
@@ -129,7 +130,7 @@ export default function PropiedadesFilters({ filters, onChange, onSearch, onClea
           </BloqueDesplegable>
 
           <BloqueDesplegable icon={Building2} tono="violet" title="Tipo de inmueble" {...desp("tipo")}>
-            <Fichas label="Tipo" columnas={3} value={filters.inmueble} onChange={inmueble => set({ inmueble })} options={tiposConActual} />
+            <Fichas label="Tipo" columnas={2} value={filters.inmueble} onChange={inmueble => set({ inmueble })} options={tiposConActual} />
           </BloqueDesplegable>
 
           <BloqueDesplegable icon={MapPin} tono="blue" title="Ubicación" {...desp("ubicacion")}>

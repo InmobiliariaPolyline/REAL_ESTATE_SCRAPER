@@ -1906,3 +1906,16 @@
   /* Texto tras el monto («/ mes») dentro del mismo segmento */
   .sb-suffix { margin-left: 0.5rem; font-family: var(--font-sans); font-size: 0.75rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
 }
+
+/* ── Pulido de la interfaz (v3.5) ─────────────────────────────────────────────── */
+@layer base {
+  /* Un `grid` sin columnas definidas tenía una columna «auto» que crecía con el texto más largo y ensanchaba toda la
+     página en el celular. Ahora la columna base ocupa el ancho disponible (`grid-cols-*` sigue mandando cuando existe). */
+  .grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+@layer utilities {
+  /* Barras que se desplazan a lo ancho (pestañas) sin mostrar la barra de desplazamiento. */
+  .segmented { scrollbar-width: none; }
+  .segmented::-webkit-scrollbar { display: none; }
+}

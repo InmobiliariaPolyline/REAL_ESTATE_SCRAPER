@@ -123,11 +123,11 @@ export default function PortalCalculadora() {
           <dl className="mt-4 grid grid-cols-2 gap-4">
             <div className="rounded-2xl bg-surface-3 p-4">
               <dt className="text-xs text-text-muted">Cuota mensual</dt>
-              <dd className="mono mt-1 text-2xl font-semibold text-gold">{money(r.cuota)}</dd>
+              <dd className="mono mt-1 whitespace-nowrap text-xl font-semibold sm:text-2xl text-gold">{money(r.cuota)}</dd>
             </div>
             <div className="rounded-2xl bg-surface-3 p-4">
               <dt className="text-xs text-text-muted">Cuota inicial</dt>
-              <dd className="mono mt-1 text-2xl font-semibold text-text">{money(r.inicial)}</dd>
+              <dd className="mono mt-1 whitespace-nowrap text-xl font-semibold sm:text-2xl text-text">{money(r.inicial)}</dd>
             </div>
             <div>
               <dt className="text-xs text-text-muted">Préstamo</dt>
@@ -150,13 +150,13 @@ export default function PortalCalculadora() {
               <dt className="flex items-center gap-1 text-xs text-text-muted">
                 <Percent className="size-3" aria-hidden="true" /> Bruta anual
               </dt>
-              <dd className="mono mt-1 text-2xl font-semibold text-text">{pct(r.rentabilidadBruta)}</dd>
+              <dd className="mono mt-1 whitespace-nowrap text-xl font-semibold sm:text-2xl text-text">{pct(r.rentabilidadBruta)}</dd>
             </div>
             <div className="rounded-2xl bg-surface-3 p-4">
               <dt className="flex items-center gap-1 text-xs text-text-muted">
                 <Percent className="size-3" aria-hidden="true" /> Neta anual
               </dt>
-              <dd className="mono mt-1 text-2xl font-semibold text-green">{pct(r.rentabilidadNeta)}</dd>
+              <dd className="mono mt-1 whitespace-nowrap text-xl font-semibold sm:text-2xl text-green">{pct(r.rentabilidadNeta)}</dd>
             </div>
             <div>
               <dt className="text-xs text-text-muted">Años para recuperar la inversión</dt>

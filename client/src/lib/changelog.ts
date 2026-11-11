@@ -23,6 +23,18 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "3.5.0",
+    fecha: "2026-11-11",
+    titulo: "Pulido de la interfaz (celular y escritorio)",
+    cambios: [
+      { tipo: "correccion", texto: "En el celular, la pantalla de Inicio se ensanchaba y se podía arrastrar hacia los lados: los avisos recientes empujaban el ancho de toda la página. Se corrigió de raíz para todas las cuadrículas del sistema (una cuadrícula sin columnas definidas ahora ocupa el ancho disponible), así que el problema no se repite en otras pantallas." },
+      { tipo: "correccion", texto: "Calculadora en el celular: las cifras (cuota mensual, cuota inicial) se partían en dos líneas («S/» arriba y el monto abajo). Ahora quedan en una sola línea con un tamaño que se ajusta a la pantalla." },
+      { tipo: "correccion", texto: "Filtros de tipo de inmueble: «Departamento» y «Local comercial» aparecían cortados con «…». Los nombres largos ahora pasan a dos líneas, y en el panel de administración las fichas de tipo son más anchas." },
+      { tipo: "mejora", texto: "Filtros del panel de administración: los bloques se acomodan en columnas que se llenan hacia abajo, sin el gran espacio vacío que quedaba junto al bloque más alto." },
+      { tipo: "mejora", texto: "Panel de administración en el celular: nueva barra superior con la marca y el botón de menú; antes el botón flotaba solo y el contenido pasaba por debajo. Las pestañas del portal en el celular ya no muestran la barra de desplazamiento." },
+    ],
+  },
+  {
     version: "3.4.1",
     fecha: "2026-11-10",
     titulo: "Corrección: error al abrir Propiedades",

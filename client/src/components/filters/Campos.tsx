@@ -136,7 +136,8 @@ export function Fichas<T extends string>({
               )}
             >
               {Icon && <Icon className={cn('size-[1.15rem]', activa ? 'text-gold' : 'text-text-faint')} strokeWidth={1.75} aria-hidden="true" />}
-              <span className="w-full truncate text-xs font-semibold">{o.label}</span>
+              {/* Un nombre largo («Departamento», «Local comercial») pasa a dos líneas en vez de cortarse con «…». */}
+              <span className="line-clamp-2 w-full text-xs font-semibold leading-tight [hyphens:auto] [overflow-wrap:anywhere]">{o.label}</span>
               {o.n !== undefined && <span className="mono text-[0.625rem] text-text-faint">{o.n.toLocaleString('es-PE')}</span>}
             </button>
           )
