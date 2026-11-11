@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, ChevronsDownUp, ChevronsUpDown, Layers } from 'lucide-react'
 import { useId, type ReactNode } from 'react'
 import { Icono3D, type Tono } from '@/components/portal/detail/Piezas'
 import { cn } from '@/lib/utils'
@@ -249,5 +249,48 @@ export function BloqueDesplegable({
         {children}
       </div>
     </section>
+  )
+}
+
+/** Fila de controles de la ventana de filtros: «Solo con avisos / Ver todo» y «Desplegar todo / Recoger todo». */
+export function ControlesDeFiltros({
+  soloDisponibles,
+  onSoloDisponibles,
+  todosAbiertos,
+  onCambiarTodos,
+}: {
+  soloDisponibles: boolean
+  onSoloDisponibles: () => void
+  todosAbiertos: boolean
+  onCambiarTodos: (abierto: boolean) => void
+}) {
+  return (
+    <div className="mb-3 flex items-center justify-between gap-3">
+      <p className="label-mono">Opciones de búsqueda</p>
+      <div className="flex items-center gap-1">
+        <button
+          type="button"
+          onClick={onSoloDisponibles}
+          aria-pressed={soloDisponibles}
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition hover:bg-surface-3',
+            soloDisponibles ? 'text-gold' : 'text-text-muted hover:text-text'
+          )}
+          title={soloDisponibles ? 'Mostrando solo lo que tiene avisos con tus filtros; pulsa para ver también lo que no' : 'Mostrando todo, también lo que no tiene avisos; pulsa para ver solo lo disponible'}
+        >
+          <Layers className="size-3.5" aria-hidden="true" />
+          {soloDisponibles ? 'Solo con avisos' : 'Ver todo'}
+        </button>
+        <button
+          type="button"
+          onClick={() => onCambiarTodos(!todosAbiertos)}
+          className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-text-muted transition hover:bg-surface-3 hover:text-text"
+          title={todosAbiertos ? 'Recoger todos los bloques' : 'Desplegar todos los bloques'}
+        >
+          {todosAbiertos ? <ChevronsDownUp className="size-3.5" aria-hidden="true" /> : <ChevronsUpDown className="size-3.5" aria-hidden="true" />}
+          {todosAbiertos ? 'Recoger todo' : 'Desplegar todo'}
+        </button>
+      </div>
+    </div>
   )
 }

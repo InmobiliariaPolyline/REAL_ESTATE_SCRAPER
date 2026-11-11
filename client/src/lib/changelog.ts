@@ -23,6 +23,16 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "3.3.2",
+    fecha: "2026-11-10",
+    titulo: "Filtros desglosables también en el panel de administración",
+    cambios: [
+      { tipo: "correccion", texto: "La ventana de filtros desglosable solo se había aplicado al catálogo del portal; la pestaña Propiedades del panel de administración seguía mostrando todos los bloques abiertos. Ahora usa lo mismo: bloques que se despliegan y recogen desde su cabecera con un resumen de lo elegido, botón «Desplegar todo / Recoger todo» y memoria de lo que dejaste abierto." },
+      { tipo: "correccion", texto: "En el panel, las opciones de ubicación y tipo también se calculan sobre los filtros activos (por ejemplo, el portal elegido) y muestran solo lo disponible, con el interruptor «Solo con avisos / Ver todo». La ubicación es jerárquica (departamento → provincia → distrito) y el distrito pasó a ese mismo bloque con sugerencias del lugar elegido." },
+      { tipo: "mejora", texto: "Las piezas de la ventana (bloque desglosable, controles, ubicación jerárquica y memoria de bloques abiertos) son ahora compartidas entre el portal y la administración, para que se comporten igual." },
+    ],
+  },
+  {
     version: "3.3.1",
     fecha: "2026-11-10",
     titulo: "Filtros que muestran solo lo disponible",

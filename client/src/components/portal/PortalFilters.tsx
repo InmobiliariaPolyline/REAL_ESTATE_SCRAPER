@@ -1,14 +1,16 @@
 import {
   Bath, BedDouble, Briefcase, Building2, CalendarClock, Car, CircleDollarSign, Construction, Hammer, Home, KeyRound, Layers, Loader2, MapPin, Ruler,
-  Search, SlidersHorizontal, Store, Tag, TextCursorInput, Trees, UserRound, Warehouse, X, BedSingle, ChevronsDownUp, ChevronsUpDown, ChevronRight, type LucideIcon,
+  Search, SlidersHorizontal, Store, Tag, TextCursorInput, Trees, UserRound, Warehouse, X, BedSingle, type LucideIcon,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { BloqueDesplegable, Etiquetas, Fichas, Selector, type OpcionFicha } from '@/components/filters/Campos'
+import { BloqueDesplegable, ControlesDeFiltros, Etiquetas, Fichas, type OpcionFicha } from '@/components/filters/Campos'
+import UbicacionFiltro from '@/components/filters/UbicacionFiltro'
 import { Icono3D } from '@/components/portal/detail/Piezas'
+import { useBloques } from '@/hooks/useBloques'
 import { useFacetas } from '@/hooks/useFacetas'
 import type { Faceta } from '@/lib/facetas'
 import { atajosDePrecio, filtrosActivos } from '@/lib/filterChips'
-import { elegirDepartamento, elegirDistrito, elegirProvincia, opcionesGeograficas, rutaGeografica, sugerirDistritos } from '@/lib/geografia'
+import { opcionesGeograficas, rutaGeografica } from '@/lib/geografia'
 import { PORTALS } from '@/lib/portals'
 import { claveNombre } from '@shared/ubicacion'
 import { cn } from '@/lib/utils'
@@ -57,24 +59,6 @@ const AREAS_RAPIDAS: { label: string; min: number | ''; max: number | '' }[] = [
 const CLAVES_BLOQUES = ['texto', 'operacion', 'tipo', 'ubicacion', 'precio', 'ambientes', 'area', 'antiguedad', 'portales', 'anunciante', 'publicacion']
 /** Qué bloques se ven abiertos la primera vez: lo esencial para empezar a buscar. */
 const BLOQUES_ABIERTOS: Record<string, boolean> = { operacion: true, tipo: true, ubicacion: true }
-const CLAVE_ALMACEN = 'filtros-abiertos'
-
-function cargarAbiertos(): Record<string, boolean> {
-  try {
-    const crudo = JSON.parse(localStorage.getItem(CLAVE_ALMACEN) ?? '{}') as Record<string, unknown>
-    return Object.fromEntries(Object.entries(crudo).filter(([k, v]) => CLAVES_BLOQUES.includes(k) && typeof v === 'boolean')) as Record<string, boolean>
-  } catch {
-    return {}
-  }
-}
-function guardarAbiertos(estado: Record<string, boolean>): Record<string, boolean> {
-  try {
-    localStorage.setItem(CLAVE_ALMACEN, JSON.stringify(estado))
-  } catch {
-    /* sin almacenamiento: vale solo para esta visita */
-  }
-  return estado
-}
 
 export default function PortalFilters({
   filters,
@@ -85,7 +69,6 @@ export default function PortalFilters({
   contar,
   isMobileDrawer = false,
 }: PortalFiltersProps) {
-  const [showSuggestions, setShowSuggestions] = useState(false)
   // Las opciones se calculan sobre los filtros activos: solo lo disponible con ese portal, operación, precio, etc.
   const facetas = useFacetas(filters)
   const [soloDisponibles, setSoloDisponibles] = useState(true)
@@ -93,11 +76,7 @@ export default function PortalFilters({
     facetas.delServidor && soloDisponibles ? lista.filter(x => x.n > 0 || (!!elegido && claveNombre(x.valor) === claveNombre(elegido))) : lista
 
   // Bloques desglosables: por defecto se ve lo esencial y el resto queda recogido (con un resumen de lo elegido).
-  const [abiertos, setAbiertos] = useState<Record<string, boolean>>(cargarAbiertos)
-  const alternar = (clave: string) => setAbiertos(a => guardarAbiertos({ ...a, [clave]: !(a[clave] ?? BLOQUES_ABIERTOS[clave] ?? false) }))
-  const estaAbierto = (clave: string) => abiertos[clave] ?? BLOQUES_ABIERTOS[clave] ?? false
-  const todosAbiertos = CLAVES_BLOQUES.every(estaAbierto)
-  const cambiarTodos = (abierto: boolean) => setAbiertos(guardarAbiertos(Object.fromEntries(CLAVES_BLOQUES.map(c => [c, abierto]))))
+  const { estaAbierto, alternar, todosAbiertos, cambiarTodos } = useBloques(CLAVES_BLOQUES, BLOQUES_ABIERTOS, 'filtros-abiertos')
 
   const update = (patch: Partial<FilterState>) => onFiltersChange({ ...filters, ...patch })
   const aplicar = (patch: Partial<FilterState>) => {
@@ -134,7 +113,6 @@ export default function PortalFilters({
   const { provincias: provinciasTodas, distritos: distritosTodos } = useMemo(() => opcionesGeograficas(facetas, geo), [facetas, filters.departamento, filters.provincia]) // eslint-disable-line react-hooks/exhaustive-deps
   const provincias = visibles(provinciasTodas, filters.provincia)
   const distritosCatalogo = visibles(distritosTodos, filters.distrito)
-  const aplicarGeo = (g: { departamento: string; provincia: string; distrito: string }) => update(g)
 
   // Tipos de inmueble: todos los que existen (primero los que tienen avisos), con su cantidad.
   const tipos: OpcionFicha<string>[] = useMemo(
@@ -146,10 +124,6 @@ export default function PortalFilters({
   )
   // Si el tipo elegido no está entre los más frecuentes (búsqueda guardada), se muestra igual.
   const tiposConActual = filters.inmueble !== 'todos' && !tipos.some(t => t.value === filters.inmueble) ? [...tipos, { value: filters.inmueble, label: filters.inmueble, icon: Building2 }] : tipos
-
-  // Sugerencias de distrito mientras se escribe (solo los del lugar elegido arriba).
-  const suggestions = useMemo(() => sugerirDistritos(distritosCatalogo, filters.distrito), [filters.distrito, distritosCatalogo])
-  const populares = distritosCatalogo.filter(d => d.n > 0).slice(0, 8)
 
   const handlePortalToggle = (portal: string) =>
     update({ portales: filters.portales.includes(portal) ? filters.portales.filter(p => p !== portal) : [...filters.portales, portal] })
@@ -238,33 +212,12 @@ export default function PortalFilters({
 
       {/* Ventana de filtros: todo a la vista, en bloques */}
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <p className="label-mono">Opciones de búsqueda</p>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => setSoloDisponibles(v => !v)}
-              aria-pressed={soloDisponibles}
-              className={cn(
-                'inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition hover:bg-surface-3',
-                soloDisponibles ? 'text-gold' : 'text-text-muted hover:text-text'
-              )}
-              title={soloDisponibles ? 'Mostrando solo lo que tiene avisos con tus filtros; pulsa para ver también lo que no' : 'Mostrando todo, también lo que no tiene avisos; pulsa para ver solo lo disponible'}
-            >
-              <Layers className="size-3.5" aria-hidden="true" />
-              {soloDisponibles ? 'Solo con avisos' : 'Ver todo'}
-            </button>
-          <button
-            type="button"
-            onClick={() => cambiarTodos(!todosAbiertos)}
-            className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-text-muted transition hover:bg-surface-3 hover:text-text"
-            title={todosAbiertos ? 'Recoger todos los bloques' : 'Desplegar todos los bloques'}
-          >
-            {todosAbiertos ? <ChevronsDownUp className="size-3.5" aria-hidden="true" /> : <ChevronsUpDown className="size-3.5" aria-hidden="true" />}
-            {todosAbiertos ? 'Recoger todo' : 'Desplegar todo'}
-          </button>
-          </div>
-        </div>
+        <ControlesDeFiltros
+          soloDisponibles={soloDisponibles}
+          onSoloDisponibles={() => setSoloDisponibles(v => !v)}
+          todosAbiertos={todosAbiertos}
+          onCambiarTodos={cambiarTodos}
+        />
         <div className="grid gap-3">
           <BloqueDesplegable icon={TextCursorInput} tono="rose" title="Buscar por palabra" {...desp("texto")}>
             <div>
@@ -304,73 +257,17 @@ export default function PortalFilters({
           </BloqueDesplegable>
 
           <BloqueDesplegable icon={MapPin} tono="blue" title="Ubicación" {...desp("ubicacion")}>
-            <div className="grid gap-4">
-              {rutaGeografica(geo) && (
-                <p className="flex flex-wrap items-center gap-1 rounded-xl bg-surface-3/60 px-3 py-2 text-xs font-medium text-text" aria-label="Lugar elegido">
-                  {[geo.departamento, geo.provincia, geo.distrito].filter(Boolean).map((n, i, a) => (
-                    <span key={n + i} className="inline-flex items-center gap-1">
-                      {n}
-                      {i < a.length - 1 && <ChevronRight className="size-3 text-text-faint" aria-hidden="true" />}
-                    </span>
-                  ))}
-                </p>
-              )}
-              <Selector id="flt-departamento" label="Departamento" value={filters.departamento} onChange={v => aplicarGeo(elegirDepartamento(facetas, geo, v))} opciones={departamentos} vacio="Sin avisos con estos filtros" />
-              <Selector id="flt-provincia" label="Ciudad o provincia" value={filters.provincia} onChange={v => aplicarGeo(elegirProvincia(facetas, geo, v))} opciones={provincias} vacio="Sin avisos con estos filtros" />
-
-              <div className="relative">
-                <label className="field-label" htmlFor="flt-distrito">Distrito</label>
-                <div className="field-icon">
-                  <Search className="size-4" />
-                  <input
-                    id="flt-distrito"
-                    type="text"
-                    value={filters.distrito}
-                    onChange={e => {
-                      update({ distrito: e.target.value })
-                      setShowSuggestions(true)
-                    }}
-                    onFocus={() => setShowSuggestions(true)}
-                    onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-                    placeholder={filters.provincia || filters.departamento ? `Distritos de ${filters.provincia || filters.departamento}…` : 'Buscar distrito...'}
-                    className="field"
-                    autoComplete="off"
-                  />
-                </div>
-                {showSuggestions && suggestions.length > 0 && (
-                  <ul className="animate-popIn absolute left-0 right-0 top-full z-30 mt-2 max-h-60 overflow-y-auto rounded-2xl border border-line-strong bg-surface-2 p-1.5 shadow-2xl">
-                    {suggestions.map(d => (
-                      <li key={`${d.valor}|${d.padre}|${d.provincia}`}>
-                        <button
-                          type="button"
-                          onMouseDown={e => e.preventDefault()}
-                          onClick={() => {
-                            aplicarGeo(elegirDistrito(facetas, geo, d.valor))
-                            setShowSuggestions(false)
-                          }}
-                          className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm text-text transition hover:bg-surface-3"
-                        >
-                          <span className="min-w-0">
-                            <span className="block truncate">{d.valor}</span>
-                            {(d.provincia || d.padre) && <span className="block truncate text-[0.6875rem] text-text-faint">{[d.provincia, d.padre].filter((x, i, a) => x && a.indexOf(x) === i).join(' · ')}</span>}
-                          </span>
-                          {d.n !== undefined && <span className="mono shrink-0 text-xs text-text-muted">{d.n.toLocaleString('es-PE')}</span>}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              {populares.length > 0 && (
-                <Etiquetas
-                  label={filters.provincia || filters.departamento ? `Distritos con más avisos en ${filters.provincia || filters.departamento}` : 'Distritos con más avisos'}
-                  options={populares.map(d => ({ value: d.valor, label: d.valor, n: d.n }))}
-                  seleccion={filters.distrito ? [populares.find(d => claveNombre(d.valor) === claveNombre(filters.distrito))?.valor ?? ''] : []}
-                  onToggle={v => aplicar(claveNombre(filters.distrito) === claveNombre(v) ? { ...geo, distrito: '' } : elegirDistrito(facetas, geo, v))}
-                />
-              )}
-            </div>
+            <UbicacionFiltro
+              idBase="flt"
+              geo={geo}
+              facetas={facetas}
+              departamentos={departamentos}
+              provincias={provincias}
+              distritos={distritosCatalogo}
+              vacio="Sin avisos con estos filtros"
+              onCambiar={g => update(g)}
+              onAplicar={g => aplicar(g)}
+            />
           </BloqueDesplegable>
 
           <BloqueDesplegable icon={CircleDollarSign} tono="green" title="Precio" {...desp("precio")}>

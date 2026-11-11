@@ -168,6 +168,35 @@ export const EMPTY_ADMIN_SEARCH: AdminSearchFilters = {
   ...DETALLE_VACIO,
 }
 
+/**
+ * Los filtros del panel, con la forma de los del catálogo, para pedir las opciones de la ventana (departamentos,
+ * provincias, tipos…) ya filtradas: el portal elegido pasa a la lista de portales y el rango de precio, a dólares.
+ */
+export function adminComoPortal(f: AdminSearchFilters): FilterState {
+  return {
+    ...DEFAULT_FILTERS,
+    portales: f.portal && f.portal !== "todos" ? [f.portal] : [],
+    texto: f.texto,
+    operacion: f.operacion as FilterState["operacion"],
+    inmueble: f.inmueble,
+    departamento: f.departamento,
+    provincia: f.provincia,
+    distrito: f.distrito,
+    dormitorios: f.dormitorios,
+    banios: f.banios,
+    cocheras: f.cocheras,
+    antiguedadMax: f.antiguedadMax,
+    anunciante: f.anunciante,
+    soloConPrecio: f.soloConPrecio,
+    areaMin: f.areaMin,
+    areaMax: f.areaMax,
+    publicado: f.publicado,
+    moneda: "USD",
+    precioMin: toUsd(f.precioMin, f.moneda) ?? "",
+    precioMax: toUsd(f.precioMax, f.moneda) ?? "",
+  }
+}
+
 /** Convierte el monto escrito (en la moneda del filtro) a USD normalizado. */
 export function toUsd(value: string, moneda: "USD" | "PEN" | null): number | null {
   if (!value) return null
