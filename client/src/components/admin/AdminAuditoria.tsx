@@ -9,6 +9,9 @@ import { formatDateTime } from '@/lib/dates'
 
 const PAGE_SIZE = 25
 
+/** Ancho mínimo (px) para mostrar la auditoría como tabla; con menos espacio se muestra como lista (la tabla obligaba a desplazarse y ocultaba el detalle y la IP). */
+const ANCHO_TABLA = 760
+
 /** Resumen corto del `detalle` de un registro (sin mostrar JSON crudo). */
 function summarize(entry: AuditEntry): string {
   const d = entry.detalle
@@ -35,6 +38,17 @@ export default function AdminAuditoria() {
   const [loading, setLoading] = useState(true)
   const { addToast } = useToast()
   const requestId = useRef(0)
+  const marco = useRef<HTMLElement>(null)
+  const [compacto, setCompacto] = useState(false)
+
+  // Lista en lugar de tabla cuando el espacio es angosto (celular, o escritorio con la barra lateral y el submenú abiertos).
+  useEffect(() => {
+    const el = marco.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const obs = new ResizeObserver(([e]) => setCompacto(e.contentRect.width < ANCHO_TABLA))
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
 
   const load = useCallback(
     async (targetPage: number, accionFilter: string, userFilter: string) => {
@@ -83,7 +97,7 @@ export default function AdminAuditoria() {
           <input
             value={usuario}
             onChange={e => setUsuario(e.target.value)}
-            placeholder="Filtrar por usuario que realizó la acción..."
+            placeholder="Filtrar por usuario…"
             className="field"
             aria-label="Usuario"
           />
@@ -117,7 +131,44 @@ export default function AdminAuditoria() {
         </button>
       </form>
 
-      <section className="card overflow-hidden">
+      <section ref={marco} className="card overflow-hidden">
+        {compacto ? (
+          <ul>
+            {loading ? (
+              <li className="flex items-center justify-center gap-2 py-8 text-text-muted">
+                <Loader2 className="size-4 animate-spin" />
+                Cargando auditoría...
+              </li>
+            ) : rows.length === 0 ? (
+              <li>
+                <EmptyState icon={ScrollText} title="Sin registros" description="Las acciones administrativas aparecerán aquí." />
+              </li>
+            ) : (
+              rows.map(r => (
+                <li key={r.id} className="border-b border-line px-4 py-3.5 last:border-0">
+                  <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Avatar name={r.usuario} size="sm" />
+                      <span className="truncate font-medium text-text">{r.usuario}</span>
+                    </div>
+                    <span className="mono text-xs text-text-muted">{formatDateTime(r.creado_en)}</span>
+                  </div>
+                  <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                    <span className="badge badge-gold">{AUDIT_LABELS[r.accion] ?? r.accion}</span>
+                    {r.objetivo && <span className="text-sm text-text">{r.objetivo}</span>}
+                  </div>
+                  {(summarize(r) || r.ip) && (
+                    <p className="mt-1.5 text-xs text-text-muted">
+                      {summarize(r)}
+                      {summarize(r) && r.ip ? ' · ' : ''}
+                      {r.ip && <span className="mono">IP {r.ip}</span>}
+                    </p>
+                  )}
+                </li>
+              ))
+            )}
+          </ul>
+        ) : (
         <div className="overflow-x-auto">
           <table className="table-modern min-w-[760px]">
             <thead>
@@ -174,6 +225,7 @@ export default function AdminAuditoria() {
             </tbody>
           </table>
         </div>
+        )}
       </section>
 
       {!loading && count > PAGE_SIZE && (

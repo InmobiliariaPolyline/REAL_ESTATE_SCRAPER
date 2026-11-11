@@ -23,6 +23,19 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "3.5.1",
+    fecha: "2026-11-11",
+    titulo: "Revisión a fondo de Enlaces, Sistema y Cuenta",
+    cambios: [
+      { tipo: "correccion", texto: "Sistema → Carga de datos: en pantallas de laptop (con la barra lateral y el submenú abiertos) la tarjeta «Carga automática de avisos» quedaba aplastada en una columna de unos 100 px y empujaba la página hacia los lados. Las dos columnas ahora solo se usan con pantallas muy anchas; si no, las tarjetas se apilan. Lo mismo en «Acerca del sistema» (la etiqueta «Implementaciones» pasaba por debajo del icono) y en las cifras del Perfil." },
+      { tipo: "correccion", texto: "Los días restantes del plan se veían distintos: la barra lateral decía 31 y el Perfil 30. Ahora los dos cuentan por fechas de calendario en Lima y muestran el mismo número." },
+      { tipo: "correccion", texto: "Perfil en el celular: el botón «Cerrar sesión» tapaba la insignia «Cuenta activa». Ahora pasa debajo cuando no hay espacio. El submenú de secciones del celular ya no muestra la barra de desplazamiento." },
+      { tipo: "mejora", texto: "Auditoría: con poco espacio (celular, o escritorio con barra lateral y submenú) se muestra como lista en vez de tabla; antes la tabla obligaba a desplazarse y ocultaba el detalle y la IP. Con espacio suficiente sigue la tabla." },
+      { tipo: "mejora", texto: "Formularios: Enlaces ahora valida en el orden del formulario (propiedad, título, dirección), marca en rojo solo el campo con el error y lleva el cursor a él. El cambio de contraseña hace lo mismo y ya no marca el campo equivocado." },
+      { tipo: "mejora", texto: "Sesiones activas: el dispositivo y la IP se ven completos en lugar de cortarse con «…». Los seis colores de acento caben en una sola fila. «hace 2 min» ya no se parte en dos líneas. Textos de búsqueda más cortos (Enlaces y Auditoría) para que no se corten." },
+    ],
+  },
+  {
     version: "3.5.0",
     fecha: "2026-11-11",
     titulo: "Pulido de la interfaz (celular y escritorio)",

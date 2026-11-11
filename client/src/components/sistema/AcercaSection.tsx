@@ -101,14 +101,14 @@ export default function AcercaSection() {
       </section>
 
       {/* Totales */}
-      <div className="stagger grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="stagger grid grid-cols-1 gap-5 sm:grid-cols-2 2xl:grid-cols-4">
         <StatCard label="Implementaciones" icon={Rocket} tone="gold" value={<AnimatedNumber value={conteo.implementacion} />} hint="funciones nuevas" />
         <StatCard label="Mejoras" icon={Sparkles} tone="blue" value={<AnimatedNumber value={conteo.mejora} />} hint="de uso, diseño y rendimiento" />
         <StatCard label="Correcciones" icon={Bug} tone="rose" value={<AnimatedNumber value={conteo.correccion} />} hint="errores resueltos" />
         <StatCard label="Seguridad" icon={ShieldCheck} tone="green" value={<AnimatedNumber value={conteo.seguridad} />} hint="protecciones añadidas" />
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid gap-6 2xl:grid-cols-2">
         {/* Estado en vivo */}
         <section className="card p-6" aria-live="polite">
           <div className="flex items-center justify-between gap-3">

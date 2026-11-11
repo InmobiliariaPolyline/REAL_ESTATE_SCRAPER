@@ -31,6 +31,8 @@ export default function PasswordForm(props: PasswordFormProps) {
   const [copied, setCopied] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  /** Campo con el error (para marcarlo): `actual`, `nueva` o `confirmar`. */
+  const [campoError, setCampoError] = useState('')
   const { addToast } = useToast()
 
   const generar = () => {
@@ -51,21 +53,29 @@ export default function PasswordForm(props: PasswordFormProps) {
     }
   }
 
+  /** Muestra el error y lleva el cursor al campo que hay que corregir. */
+  const fallar = (mensaje: string, campo: 'actual' | 'nueva' | 'confirmar') => {
+    setError(mensaje)
+    setCampoError(campo)
+    document.getElementById(`pw-${campo}`)?.focus()
+  }
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (busy) return
     setError('')
+    setCampoError('')
 
+    if (!isReset && !actual) {
+      fallar('Ingresa tu contraseña actual', 'actual')
+      return
+    }
     if (nueva.length < MIN_PASSWORD_LENGTH) {
-      setError(`La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres`)
+      fallar(`La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres`, 'nueva')
       return
     }
     if (nueva !== confirmar) {
-      setError('Las contraseñas no coinciden')
-      return
-    }
-    if (!isReset && !actual) {
-      setError('Ingresa tu contraseña actual')
+      fallar('Las contraseñas no coinciden', 'confirmar')
       return
     }
 
@@ -104,7 +114,7 @@ export default function PasswordForm(props: PasswordFormProps) {
               value={actual}
               onChange={e => setActual(e.target.value)}
               className="field"
-              aria-invalid={!!error && !actual}
+              aria-invalid={campoError === 'actual'}
               autoComplete="current-password"
               disabled={busy}
               autoFocus
@@ -129,6 +139,7 @@ export default function PasswordForm(props: PasswordFormProps) {
               value={nueva}
               onChange={e => setNueva(e.target.value)}
               className="field mono pr-20"
+              aria-invalid={campoError === 'nueva'}
               autoComplete="new-password"
               placeholder={`Mínimo ${MIN_PASSWORD_LENGTH} caracteres`}
               disabled={busy}
@@ -166,7 +177,7 @@ export default function PasswordForm(props: PasswordFormProps) {
             value={confirmar}
             onChange={e => setConfirmar(e.target.value)}
             className="field mono"
-            aria-invalid={!!confirmar && confirmar !== nueva}
+            aria-invalid={campoError === 'confirmar' || (!!confirmar && confirmar !== nueva)}
             autoComplete="new-password"
             disabled={busy}
           />

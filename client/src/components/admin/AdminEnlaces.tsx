@@ -45,6 +45,8 @@ export default function AdminEnlaces() {
   const [url, setUrl] = useState('')
   const [tipo, setTipo] = useState('OTRO')
   const [propiedadId, setPropiedadId] = useState('')
+  /** Campo del formulario con error (para marcarlo y enfocarlo). */
+  const [campoError, setCampoError] = useState<'propiedad' | 'titulo' | 'url' | null>(null)
 
   // Selector de propiedad: búsqueda en el servidor (no se descargan todas las propiedades).
   const [propBusqueda, setPropBusqueda] = useState('')
@@ -105,20 +107,28 @@ export default function AdminEnlaces() {
     setPropResultados([])
     setPropSeleccionada(null)
     setEditingId(null)
+    setCampoError(null)
     setShowForm(false)
   }
 
   const guardarEnlace = async () => {
     if (saving) return
+    const fallar = (mensaje: string, campo: 'propiedad' | 'titulo' | 'url') => {
+      setCampoError(campo)
+      addToast(mensaje, 'error')
+      document.getElementById(`ae-${campo}`)?.focus()
+    }
+    // En el orden del formulario: propiedad, título y dirección.
+    if (!propiedadId) {
+      fallar('Debes seleccionar una propiedad.', 'propiedad')
+      return
+    }
     const valid = validateEnlace({ titulo, descripcion, url })
     if (!valid.ok) {
-      addToast(valid.message, 'error')
+      fallar(valid.message, /URL/.test(valid.message) ? 'url' : 'titulo')
       return
     }
-    if (!propiedadId) {
-      addToast('Debes seleccionar una propiedad.', 'error')
-      return
-    }
+    setCampoError(null)
 
     const payload = {
       titulo: valid.titulo,
@@ -254,10 +264,13 @@ export default function AdminEnlaces() {
                 />
               </div>
               <select
+                id="ae-propiedad"
                 aria-label="Propiedad seleccionada"
+                aria-invalid={campoError === 'propiedad'}
                 value={propiedadId}
                 onChange={e => {
                   const id = e.target.value
+                  setCampoError(null)
                   setPropiedadId(id)
                   setPropSeleccionada(opcionesPropiedad.find(p => p.id === id) ?? null)
                 }}
@@ -277,8 +290,12 @@ export default function AdminEnlaces() {
               <label htmlFor="ae-titulo" className="field-label">Título *</label>
               <input
                 id="ae-titulo"
+                aria-invalid={campoError === 'titulo'}
                 value={titulo}
-                onChange={e => setTitulo(e.target.value)}
+                onChange={e => {
+                  setCampoError(null)
+                  setTitulo(e.target.value)
+                }}
                 placeholder="Ej. Información estadística"
                 className="field"
               />
@@ -305,8 +322,12 @@ export default function AdminEnlaces() {
               <input
                 id="ae-url"
                 type="url"
+                aria-invalid={campoError === 'url'}
                 value={url}
-                onChange={e => setUrl(e.target.value)}
+                onChange={e => {
+                  setCampoError(null)
+                  setUrl(e.target.value)
+                }}
                 placeholder="https://..."
                 className="field"
               />
@@ -344,7 +365,7 @@ export default function AdminEnlaces() {
           <input
             value={busqueda}
             onChange={e => setBusqueda(e.target.value)}
-            placeholder="Buscar por título, propiedad, portal, distrito o URL..."
+            placeholder="Buscar enlaces…"
             className="field"
             aria-label="Buscar enlaces"
           />

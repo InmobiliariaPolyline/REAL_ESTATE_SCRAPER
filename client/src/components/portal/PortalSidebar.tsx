@@ -14,12 +14,18 @@ interface PortalSidebarProps {
   onLogout: () => void
 }
 
-/** Días que faltan para `iso` (redondeado hacia arriba); `null` si la fecha no es válida. */
+/**
+ * Días de calendario que faltan para `iso` (AAAA-MM-DD), contando desde hoy en Lima y nunca negativos; `null` si la fecha
+ * no es válida. Es la misma cuenta que el perfil (`dias_restantes` del servidor), para que ambos muestren el mismo número.
+ */
 export function diasHasta(iso: string | undefined, ahora = Date.now()): number | null {
-  if (!iso) return null
-  const t = Date.parse(iso.length <= 10 ? `${iso}T23:59:59` : iso)
-  if (!Number.isFinite(t)) return null
-  return Math.max(0, Math.ceil((t - ahora) / 86_400_000))
+  const fecha = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? "")
+  if (!fecha) return null
+  const vence = Date.UTC(Number(fecha[1]), Number(fecha[2]) - 1, Number(fecha[3]))
+  if (!Number.isFinite(vence)) return null
+  const hoyLima = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Lima" }).format(ahora) // AAAA-MM-DD
+  const [a, m, d] = hoyLima.split("-").map(Number)
+  return Math.max(0, Math.round((vence - Date.UTC(a, m - 1, d)) / 86_400_000))
 }
 
 /** Barra lateral del portal (escritorio): marca, secciones y estado del plan. */

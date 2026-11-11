@@ -50,10 +50,13 @@ describe("PortalSidebar", () => {
 
 describe("diasHasta", () => {
   it("cuenta los días que faltan, nunca negativos", () => {
-    const ahora = Date.parse("2026-11-10T12:00:00")
-    expect(diasHasta("2026-11-20", ahora)).toBe(11)
-    expect(diasHasta("2026-11-10", ahora)).toBe(1)
+    const ahora = Date.parse("2026-11-10T17:00:00Z") // mediodía en Lima
+    expect(diasHasta("2026-11-20", ahora)).toBe(10)
+    expect(diasHasta("2026-11-10", ahora)).toBe(0)
     expect(diasHasta("2026-10-01", ahora)).toBe(0)
+    // Cuenta por fecha de calendario en Lima, no por horas: a las 23:30 de Lima sigue siendo el mismo día.
+    expect(diasHasta("2026-12-10", Date.parse("2026-11-11T04:30:00Z"))).toBe(30)
+    expect(diasHasta("2026-12-10", Date.parse("2026-11-10T17:00:00Z"))).toBe(30)
     expect(diasHasta(undefined, ahora)).toBeNull()
     expect(diasHasta("no es fecha", ahora)).toBeNull()
   })

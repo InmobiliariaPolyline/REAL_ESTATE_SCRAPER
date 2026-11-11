@@ -198,7 +198,7 @@ export default function CargaSection() {
         </div>
       )}
 
-      <div className="stagger grid gap-6 xl:grid-cols-[auto_minmax(0,1fr)]">
+      <div className="stagger grid gap-6 2xl:grid-cols-[auto_minmax(0,1fr)]">
         {/* Estado del ciclo */}
         <section className="card flex flex-col items-center p-6 text-center">
           <h2 className="flex items-center gap-2 text-base font-semibold text-text">

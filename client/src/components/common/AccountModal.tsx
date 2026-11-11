@@ -109,7 +109,7 @@ export function SessionsPanel() {
                     {describeDevice(s.user_agent)}
                     {s.actual && <span className="badge badge-gold">Esta sesión</span>}
                   </p>
-                  <p className="mt-0.5 truncate text-xs text-text-muted">
+                  <p className="mt-0.5 text-xs text-text-muted [overflow-wrap:anywhere]">
                     {s.ip ? <span className="mono">{s.ip}</span> : 'IP desconocida'} · activa {timeAgo(s.ultimo_uso)}
                   </p>
                 </div>

@@ -52,7 +52,7 @@ export default function PerfilSection({ onLogout }: PerfilSectionProps) {
           <span className="animate-float">
             <Avatar name={perfil?.usuario ?? "…"} size="xl" />
           </span>
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-[1_1_12rem]">
             {loading ? (
               <>
                 <div className="skeleton h-8 w-48" />
@@ -75,7 +75,7 @@ export default function PerfilSection({ onLogout }: PerfilSectionProps) {
                   Miembro desde <strong className="font-medium text-text">{perfil ? formatDate(perfil.creado_en) : ""}</strong>
                   {perfil?.acceso_anterior && (
                     <>
-                      {" · "}último acceso <strong className="font-medium text-text">{timeAgo(perfil.acceso_anterior)}</strong>
+                      {" · "}último acceso <strong className="whitespace-nowrap font-medium text-text">{timeAgo(perfil.acceso_anterior)}</strong>
                     </>
                   )}
                 </p>
@@ -90,7 +90,7 @@ export default function PerfilSection({ onLogout }: PerfilSectionProps) {
       </section>
 
       {/* Cifras */}
-      <div className="stagger grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="stagger grid grid-cols-1 gap-5 sm:grid-cols-2 2xl:grid-cols-4">
         <StatCard
           label="Accesos (30 días)"
           icon={History}

@@ -65,7 +65,7 @@ export default function PersonalizacionSection() {
               Color de acento
             </h2>
             <p className="mb-4 mt-1 text-sm text-text-muted">Botones, enlaces activos, gráficos y detalles de la interfaz.</p>
-            <div className="flex flex-wrap gap-3" role="group" aria-label="Color de acento">
+            <div className="grid grid-cols-6 gap-2.5" role="group" aria-label="Color de acento">
               {ACCENTS.map(a => {
                 const activo = prefs.accent === a.id
                 return (
@@ -80,7 +80,7 @@ export default function PersonalizacionSection() {
                       setPulsado(a.id)
                     }}
                     className={cn(
-                      "relative inline-flex size-12 items-center justify-center rounded-2xl ring-2 ring-offset-2 ring-offset-surface-2 transition-all duration-300 hover:scale-110",
+                      "relative inline-flex aspect-square w-full items-center justify-center rounded-2xl ring-2 ring-offset-2 ring-offset-surface-2 transition-all duration-300 hover:scale-110",
                       activo ? "ring-text" : "ring-transparent"
                     )}
                     style={{ background: a.swatch }}

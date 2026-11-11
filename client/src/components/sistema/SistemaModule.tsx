@@ -93,7 +93,7 @@ export default function SistemaModule({ esAdmin, section, onSectionChange, onLog
         aria-label="Secciones del sistema"
         className="xl:sticky xl:top-6 xl:self-start"
       >
-        <ul className="card stagger flex gap-1.5 overflow-x-auto p-2 xl:flex-col xl:overflow-visible xl:p-3">
+        <ul className="card stagger flex gap-1.5 overflow-x-auto p-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden xl:flex-col xl:overflow-visible xl:p-3">
           {sections.map(s => {
             const Icon = s.icon
             const active = s.id === current.id
