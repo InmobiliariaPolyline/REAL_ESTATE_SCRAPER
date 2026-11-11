@@ -269,7 +269,7 @@ export default function PropertyDetailModal({
                       </div>
                     ) : (
                       <div className="flex flex-col items-start gap-2.5">
-                        <Insignia tamano="lg" etiqueta={`${esProyecto ? 'Desde' : alquiler ? 'Alquiler' : 'Venta'} · ${partesPrecio.moneda}`} tono={alquiler ? 'cyan' : 'violet'}>
+                        <Insignia tamano="lg" etiqueta={`${esProyecto ? 'Desde' : alquiler ? 'Alquiler' : 'Venta'} · ${partesPrecio.moneda}`} tono="green">
                           {partesPrecio.monto}
                           {alquiler && <span className="sb-suffix">{" "}/ mes</span>}
                         </Insignia>

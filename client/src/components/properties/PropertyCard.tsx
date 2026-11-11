@@ -197,7 +197,7 @@ export default function PropertyCard({
         <div className="flex flex-1 flex-col gap-3 p-5">
           <div className="flex flex-col items-start gap-2">
             {partes ? (
-              <Insignia tamano="lg" etiqueta={esProyecto ? `Desde · ${partes.moneda}` : partes.moneda} tono={alquiler ? 'cyan' : 'violet'}>
+              <Insignia tamano="lg" etiqueta={esProyecto ? `Desde · ${partes.moneda}` : partes.moneda} tono="green">
                 {partes.monto}
                 {alquiler && <span className="sb-suffix">{" "}/ mes</span>}
               </Insignia>

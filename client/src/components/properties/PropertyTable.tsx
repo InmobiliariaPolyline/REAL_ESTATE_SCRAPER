@@ -81,7 +81,7 @@ export default function PropertyTable({ properties, moneda }: PropertyTableProps
                   </td>
                   <td className="whitespace-nowrap">
                     {partesDePrecio(price) ? (
-                      <Insignia etiqueta={partesDePrecio(price)!.moneda} tono={esAlquiler(prop.operacion) ? 'cyan' : 'violet'} mono>
+                      <Insignia etiqueta={partesDePrecio(price)!.moneda} tono="green" mono>
                         {partesDePrecio(price)!.monto}
                       </Insignia>
                     ) : (

@@ -28,11 +28,11 @@ describe('PropertyCard', () => {
     expect(precio.querySelector('.sb-v')?.textContent).toBe('300,000')
   })
 
-  it('un alquiler dice «/ mes», va en cian y no muestra precio por m²', () => {
+  it('un alquiler dice «/ mes», va en verde y no muestra precio por m²', () => {
     const { container } = render(<PropertyCard {...base} operacion="ALQUILER" precio={3500} precioUsd={930} inmueble="Casa" />)
     expect(insignia(container)).toEqual(expect.arrayContaining(['Op. Alquiler', 'S/ 3,500 / mes']))
     expect(insignia(container).some(t => t?.startsWith('Por m²'))).toBe(false)
-    expect(container.querySelector('.sb-lg.sb-cyan')).not.toBeNull()
+    expect(container.querySelector('.sb-lg.sb-green')).not.toBeNull()
   })
 
   it('un proyecto dice «Desde» y muestra su estado de construcción', () => {

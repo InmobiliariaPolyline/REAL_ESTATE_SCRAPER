@@ -43,7 +43,7 @@ function MiniAviso({ p, onOpen, extra }: { p: Propiedad; onOpen: () => void; ext
         </span>
         <span className="flex shrink-0 flex-col items-end gap-1">
           {partes ? (
-            <Insignia etiqueta={partes.moneda} tono={alquiler ? 'cyan' : 'violet'} mono>
+            <Insignia etiqueta={partes.moneda} tono="green" mono>
               {partes.monto}
               {alquiler && <span className="sb-suffix !ml-1">{" "}/ mes</span>}
             </Insignia>

@@ -23,6 +23,14 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "3.3.4",
+    fecha: "2026-11-10",
+    titulo: "Barras de precio en verde",
+    cambios: [
+      { tipo: "mejora", texto: "Las barras que muestran dinero (tarjetas, detalle del aviso, tabla y portada) ahora son verdes en venta y en alquiler, en lugar de violeta o celeste. La operación se distingue por su etiqueta («Venta», «Alquiler»)." },
+    ],
+  },
+  {
     version: "3.3.3",
     fecha: "2026-11-10",
     titulo: "Las opciones de ubicación coinciden con lo que devuelve la búsqueda",
