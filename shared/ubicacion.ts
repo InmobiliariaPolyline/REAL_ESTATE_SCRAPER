@@ -35,6 +35,9 @@ const ALIAS: Record<string, string> = {
   "surco": "Santiago de Surco",
 }
 
+/** Alias de distritos (clave sin tildes -> nombre oficial); la base los usa para reconocer «Cercado de Lima» como «Lima». */
+export const ALIAS_DE_DISTRITO: Readonly<Record<string, string>> = ALIAS
+
 /** Minúsculas, sin tildes ni espacios sobrantes: «Santiago De  Surco» -> «santiago de surco». */
 export function claveNombre(nombre: string): string {
   return nombre
@@ -84,6 +87,12 @@ export function distritoOficial(distrito: string | null | undefined): string | n
   const clave = claveNombre(t)
   const k = claveNombre(ALIAS[clave] ?? t)
   return LIMA.get(k) ?? CALLAO.get(k) ?? null
+}
+
+/** Todas las formas (claves sin tildes) con que se reconoce un distrito oficial: su nombre y sus alias. */
+export function clavesDeDistrito(oficial: string): string[] {
+  const nombre = claveNombre(oficial)
+  return [nombre, ...Object.entries(ALIAS).filter(([, v]) => claveNombre(v) === nombre).map(([k]) => k)]
 }
 
 export interface Ubicacion {

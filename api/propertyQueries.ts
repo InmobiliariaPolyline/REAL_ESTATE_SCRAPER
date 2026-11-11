@@ -1,4 +1,13 @@
-import { claveNombre, distritoOficial } from "../shared/ubicacion"
+import {
+  DEPARTAMENTOS,
+  DISTRITOS_CALLAO,
+  DISTRITOS_LIMA,
+  PROVINCIAS,
+  claveNombre,
+  clavesDeDistrito,
+  departamentoDeProvincia,
+  distritoOficial,
+} from "../shared/ubicacion"
 import {
   accentInsensitivePattern,
   bathroomsPattern,
@@ -37,10 +46,56 @@ export interface BuiltQuery {
   params: unknown[]
 }
 
+// ── Ubicación normalizada ────────────────────────────────────────────────────
+//
+// Los portales publican la ubicación de formas contradictorias (el Callao dentro de «Lima», una provincia puesta como
+// departamento, avisos sin departamento…). Las listas de la ventana de filtros muestran la ubicación ya corregida, así que
+// la búsqueda y las cantidades deben corregirla igual; si no, se ofrece «Lima (50)» y al buscar no sale nada. Estas
+// columnas (`dep_c`, `prov_c`, `dis_c`) aplican en SQL las mismas reglas que `ubicacionCanonica` (shared/ubicacion.ts),
+// con lo que todo funciona aunque la base aún tenga los datos sin corregir (db/013).
+
+const sqlTexto = (s: string) => `'${s.replace(/'/g, "''")}'`
+/** Minúsculas, sin tildes ni espacios sobrantes (como `claveNombre`). */
+const clave = (col: string) => `translate(lower(regexp_replace(trim(${col}), '\\s+', ' ', 'g')), 'áéíóúüñ', 'aeiouun')`
+
+const filasDistritos = new Map<string, string>()
+for (const [lista, dep] of [[DISTRITOS_LIMA, "Lima"], [DISTRITOS_CALLAO, "Callao"]] as const) {
+  for (const nombre of lista) for (const k of clavesDeDistrito(nombre)) filasDistritos.set(k, `(${sqlTexto(k)}, ${sqlTexto(nombre)}, ${sqlTexto(dep)}, ${sqlTexto(dep)})`)
+}
+const filasProvincias = new Map<string, string>()
+for (const p of Object.values(PROVINCIAS).flat()) {
+  const dep = departamentoDeProvincia(p)
+  if (dep) filasProvincias.set(claveNombre(p), `(${sqlTexto(claveNombre(p))}, ${sqlTexto(dep)})`)
+}
+const OFICIALES = DEPARTAMENTOS.map(d => sqlTexto(claveNombre(d))).join(", ")
+
+const enLimaOCallao = `(nullif(${clave("p.departamento")}, '') is null or ${clave("p.departamento")} in ('lima', 'callao'))`
+const depEsProvincia = `(nullif(${clave("p.departamento")}, '') is not null and ${clave("p.departamento")} not in (${OFICIALES}) and pd.dep is not null)`
+
+/** `public.propiedades` con la ubicación normalizada en `dep_c`, `prov_c` y `dis_c`. */
+const PROPIEDADES_CON_UBICACION = `(select p.*,
+    case when o.clave is not null and ${enLimaOCallao} then o.dep
+         else coalesce(pp.dep, case when ${depEsProvincia} then pd.dep end, nullif(trim(p.departamento), '')) end as dep_c,
+    case when o.clave is not null and ${enLimaOCallao} then o.prov
+         else coalesce(nullif(trim(p.provincia), ''), case when ${depEsProvincia} then trim(p.departamento) end) end as prov_c,
+    coalesce(o.nombre, nullif(trim(p.distrito), '')) as dis_c
+  from public.propiedades p
+  left join (values ${[...filasDistritos.values()].join(", ")}) as o(clave, nombre, dep, prov) on o.clave = ${clave("p.distrito")}
+  left join (values ${[...filasProvincias.values()].join(", ")}) as pd(clave, dep) on pd.clave = ${clave("p.departamento")}
+  left join (values ${[...filasProvincias.values()].join(", ")}) as pp(clave, dep) on pp.clave = ${clave("p.provincia")}
+) propiedades`
+
 /** Acumulador de condiciones con parámetros posicionales ($1, $2, ...). */
 class Where {
   readonly params: unknown[] = []
   private readonly clauses: string[] = []
+  /** Se activa cuando una condición usa la ubicación normalizada (`dep_c`, `prov_c`, `dis_c`). */
+  usaUbicacion = false
+
+  /** Tabla de la que se lee: con la ubicación normalizada solo si hace falta (así las búsquedas simples no dependen de db/011). */
+  fuente(): string {
+    return this.usaUbicacion ? PROPIEDADES_CON_UBICACION : "public.propiedades"
+  }
 
   /** Registra un valor y devuelve su marcador posicional. */
   p(value: unknown): string {
@@ -172,10 +227,15 @@ function applyDetalleWhere(w: Where, f: FiltrosDetalle) {
   const dorm = bedroomsPattern(f.dormitorios)
   if (dorm) w.add(`dormitorios ~* ${w.p(dorm)}`)
 
-  // Departamento y provincia: igualdad exacta, sin tildes ni mayúsculas.
-  const sinTildes = (col: string) => `translate(lower(${col}), 'áéíóúüñ', 'aeiouun')`
-  if (f.departamento) w.add(`${sinTildes("departamento")} = ${w.p(claveNombre(f.departamento))}`)
-  if (f.provincia) w.add(`${sinTildes("provincia")} = ${w.p(claveNombre(f.provincia))}`)
+  // Departamento y provincia: igualdad exacta, sin tildes ni mayúsculas, sobre la ubicación ya corregida.
+  if (f.departamento) {
+    w.usaUbicacion = true
+    w.add(`${clave("dep_c")} = ${w.p(claveNombre(f.departamento))}`)
+  }
+  if (f.provincia) {
+    w.usaUbicacion = true
+    w.add(`${clave("prov_c")} = ${w.p(claveNombre(f.provincia))}`)
+  }
 
   // Cocheras: «2+» entiende «2», «3 cocheras», «10»…, pero no «0».
   if (f.cocheras !== "todos") {
@@ -218,7 +278,8 @@ function applyDetalleWhere(w: Where, f: FiltrosDetalle) {
  */
 function condicionDistrito(w: Where, valor: string): string {
   const oficial = distritoOficial(valor)
-  if (oficial) return `translate(lower(distrito), 'áéíóúüñ', 'aeiouun') = ${w.p(claveNombre(oficial))}`
+  // También se reconocen sus alias («Cercado de Lima» es «Lima»), igual que en las listas de la ventana de filtros.
+  if (oficial) return `${clave("distrito")} = any(${w.p(clavesDeDistrito(oficial))}::text[])`
   return `distrito ~* ${w.p(accentInsensitivePattern(valor))}`
 }
 
@@ -287,7 +348,7 @@ export function buildPortalQuery(
   const offset = w.p(page * pageSize)
   return {
     text: `select ${columnas}, count(*) over()::int as total
-           from public.propiedades ${w.sql()}
+           from ${w.fuente()} ${w.sql()}
            ${order}
            limit ${limit} offset ${offset}`,
     params: w.params,
@@ -301,16 +362,18 @@ export function buildPortalQuery(
  * un departamento las provincias y distritos son los de ese departamento.
  */
 export function buildFacetas(f: PortalFilters, usdToPen: number) {
-  const consulta = (reset: Partial<PortalFilters>, columnas: string, agrupar: string, extra: string, orden: string): BuiltQuery => {
+  const consulta = (reset: Partial<PortalFilters>, columnas: string, agrupar: string, extra: string, orden: string, ubicacion = false): BuiltQuery => {
     const w = new Where()
     applyPortalWhere(w, { ...f, ...reset }, usdToPen)
+    if (ubicacion) w.usaUbicacion = true
     w.add(extra)
-    return { text: `select ${columnas}, count(*)::int as n from public.propiedades ${w.sql()} group by ${agrupar} ${orden}`, params: w.params }
+    return { text: `select ${columnas}, count(*)::int as n from ${w.fuente()} ${w.sql()} group by ${agrupar} ${orden}`, params: w.params }
   }
+  // Departamentos, provincias y distritos salen de la ubicación normalizada: son los mismos valores contra los que se busca.
   return {
-    departamentos: consulta({ departamento: "", provincia: "", distrito: "" }, "departamento as valor", "1", "departamento is not null", "order by n desc, 1"),
-    provincias: consulta({ provincia: "", distrito: "" }, "provincia as valor, departamento as padre", "1, 2", "provincia is not null", "order by n desc, 1"),
-    distritos: consulta({ distrito: "" }, "distrito as valor, departamento as padre, provincia", "1, 2, 3", "distrito is not null and distrito <> ''", "order by n desc, 1 limit 300"),
+    departamentos: consulta({ departamento: "", provincia: "", distrito: "" }, "dep_c as valor", "1", "dep_c is not null", "order by n desc, 1", true),
+    provincias: consulta({ provincia: "", distrito: "" }, "prov_c as valor, dep_c as padre", "1, 2", "prov_c is not null", "order by n desc, 1", true),
+    distritos: consulta({ distrito: "" }, "dis_c as valor, dep_c as padre, prov_c as provincia", "1, 2, 3", "dis_c is not null", "order by n desc, 1 limit 300", true),
     inmuebles: consulta({ inmueble: null }, "inmueble as valor", "1", "inmueble is not null and inmueble <> ''", "order by n desc, 1"),
     anunciantes: consulta({ anunciante: "" }, "publicador as valor", "1", "publicador is not null and publicador <> ''", "order by n desc, 1 limit 40"),
   }
@@ -321,7 +384,7 @@ export function buildPortalCount(f: PortalFilters, usdToPen: number): BuiltQuery
   const w = new Where()
   applyPortalWhere(w, f, usdToPen)
   return {
-    text: `select count(*)::int as total from public.propiedades ${w.sql()}`,
+    text: `select count(*)::int as total from ${w.fuente()} ${w.sql()}`,
     params: w.params,
   }
 }
@@ -332,7 +395,7 @@ export function buildPortalNewCount(f: PortalFilters, usdToPen: number, dias: nu
   applyPortalWhere(w, f, usdToPen)
   w.add(`creado_en >= now() - ${w.p(dias)}::int * interval '1 day'`)
   return {
-    text: `select count(*)::int as total from public.propiedades ${w.sql()}`,
+    text: `select count(*)::int as total from ${w.fuente()} ${w.sql()}`,
     params: w.params,
   }
 }
@@ -381,7 +444,7 @@ export function buildAdminQuery(f: AdminFilters, page: number, pageSize: number)
   const offset = w.p(page * pageSize)
   return {
     text: `select ${PROPERTY_COLUMNS}, count(*) over()::int as total
-           from public.propiedades ${w.sql()}
+           from ${w.fuente()} ${w.sql()}
            order by creado_en desc, id desc
            limit ${limit} offset ${offset}`,
     params: w.params,
@@ -392,7 +455,7 @@ export function buildAdminCount(f: AdminFilters): BuiltQuery {
   const w = new Where()
   applyAdminWhere(w, f)
   return {
-    text: `select count(*)::int as total from public.propiedades ${w.sql()}`,
+    text: `select count(*)::int as total from ${w.fuente()} ${w.sql()}`,
     params: w.params,
   }
 }

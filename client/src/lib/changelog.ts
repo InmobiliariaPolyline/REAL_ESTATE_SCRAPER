@@ -23,6 +23,16 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "3.3.3",
+    fecha: "2026-11-10",
+    titulo: "Las opciones de ubicación coinciden con lo que devuelve la búsqueda",
+    cambios: [
+      { tipo: "correccion", texto: "Al elegir un portal (por ejemplo InfoCasas) y luego un lugar de la lista («Lima (50)»), la búsqueda a veces no devolvía nada. La lista corregía la ubicación de los avisos (el Callao que algunos portales publican como «Lima», avisos sin departamento, una provincia puesta como departamento, «Cercado de Lima» como «Lima») pero la búsqueda comparaba contra el dato sin corregir. Ahora el servidor aplica las mismas reglas al contar y al buscar, así cada opción ofrecida con N avisos devuelve exactamente N." },
+      { tipo: "mejora", texto: "Esto funciona sin necesidad de ejecutar db/013_geografia.sql: la corrección se hace al consultar. La migración sigue siendo recomendable para dejar los datos guardados ya limpios, pero ya no condiciona los filtros." },
+      { tipo: "mejora", texto: "Nueva prueba automática que, con datos desordenados y para cada portal y operación, comprueba que todo lugar ofrecido con N avisos devuelve N al buscarlo." },
+    ],
+  },
+  {
     version: "3.3.2",
     fecha: "2026-11-10",
     titulo: "Filtros desglosables también en el panel de administración",
