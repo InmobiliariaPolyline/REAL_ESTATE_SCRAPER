@@ -21,7 +21,7 @@ Estas son las familias verificadas; la carga con Apify y el scraper propio ya la
 ## InfoCasas Perú
 `https://www.infocasas.com.pe/{operacion}/{tipo}/{lugar}` (paginación: `/pagina2`, `/pagina3`…)
 
-- Generales: `/venta`, `/alquiler`, `/proyectos`
+- Generales: `/venta`, `/alquiler`, `/proyectos` (el listado de proyectos ya forma parte de las búsquedas del scraper propio)
 - tipos: `departamentos`, `casas`, `terrenos`, `oficinas`, `locales-comerciales`
 - Ejemplo: `venta/terrenos/lima`, `alquiler/oficinas/lima`
 
@@ -33,5 +33,5 @@ Estas son las familias verificadas; la carga con Apify y el scraper propio ya la
 ## Cómo cambiarlas
 - Apify: variables `CARGA_URLS` (Adondevivir), `CARGA_URLS_URBANIA`, `CARGA_URLS_INFOCASAS`
   (formato `operación|tipo|pe:lugar`) y `CARGA_URLS_PROPERATI`, separadas por comas.
-- Scraper propio (InfoCasas): `--busqueda venta/terrenos/lima` (repetible).
+- Scraper propio (InfoCasas): `--busqueda venta/terrenos/lima` (repetible; con `--provincias` suma Arequipa, La Libertad, Piura y Lambayeque).
 - Cada corrida toma la siguiente búsqueda de la lista (rotación), por eso conviene que las listas sean largas.

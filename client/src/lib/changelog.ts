@@ -23,6 +23,17 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "3.5.2",
+    fecha: "2026-11-11",
+    titulo: "Documentación del repositorio al día",
+    cambios: [
+      { tipo: "mejora", texto: "README reescrito para que coincida con el sistema actual: fuentes de datos (scraper propio de InfoCasas y Apify para el resto), arquitectura con las dos vías de entrada de avisos, estructura completa de carpetas, las 14 migraciones y cuáles son obligatorias, todas las variables de entorno y secretos de GitHub, las tareas programadas con su horario, el diseño actual (2D, violeta y cian), el panel y el módulo Sistema con «Carga de datos»." },
+      { tipo: "implementacion", texto: "Nueva guía docs/ENTREGA.md para quien reciba el sistema: de qué se compone, qué credencial hace qué, lista de primera puesta en marcha, rutina semanal y mensual, tabla de fallas frecuentes (incluido el permiso del token de GitHub), cómo hacer cambios sin romper nada y las decisiones y límites vigentes." },
+      { tipo: "mejora", texto: "Guías de ingesta, carga con Apify, seguridad, direcciones de búsqueda y scraper propio actualizadas (modelo de datos con proyectos, cuatro fuentes, credenciales nuevas y su rotación). Corregida una tabla rota y varias frases que describían el sistema anterior. Ilustraciones del README con la paleta y los textos actuales, y .env.example con todas las variables." },
+      { tipo: "implementacion", texto: "Nueva prueba automática (docs/docs.test.ts) que impide que la documentación se desactualice: verifica que existan los archivos y carpetas que nombra, que enlaces y secciones resuelvan, que todas las migraciones y variables de entorno estén documentadas, que los comandos pnpm existan y que los horarios descritos coincidan con los reales." },
+    ],
+  },
+  {
     version: "3.5.1",
     fecha: "2026-11-11",
     titulo: "Revisión a fondo de Enlaces, Sistema y Cuenta",

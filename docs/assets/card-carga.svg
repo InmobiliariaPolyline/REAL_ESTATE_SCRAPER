@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="400" height="132" viewBox="0 0 400 132" role="img" aria-label="Carga automática con topes">
+<svg xmlns="http://www.w3.org/2000/svg" width="400" height="132" viewBox="0 0 400 132" role="img" aria-label="Carga de datos con topes">
   <defs>
     <linearGradient id="cg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1d222b"/><stop offset="1" stop-color="#14181e"/></linearGradient>
     <linearGradient id="ig" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#4ade80" stop-opacity="0.38"/><stop offset="1" stop-color="#4ade80" stop-opacity="0.08"/></linearGradient>
@@ -13,6 +13,6 @@
     <path d="M6 8 Q26 -2 46 8" fill="none" stroke="#fff" stroke-opacity="0.35" stroke-width="1.5" stroke-linecap="round"/>
     <path d="M14 30 a8 8 0 0 1 4 -15 a10 10 0 0 1 19 3 a7 7 0 0 1 -1 12 H14 Z" fill="none" stroke="#4ade80" stroke-width="3" stroke-linejoin="round"/><path d="M26 24 V37 M21 32 L26 37 L31 32" fill="none" stroke="#4ade80" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
-  <text x="84" y="48" font-family="Georgia, 'Times New Roman', serif" font-size="19" font-weight="700" fill="#ece8e1">Carga automática con topes</text>
-  <text x="84" y="72" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="13.5" fill="#98a0ac">Apify con interruptor de pausa y tope por</text><text x="84" y="91" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="13.5" fill="#98a0ac">fuente: nunca cobra de más.</text>
+  <text x="84" y="48" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="19" font-weight="700" fill="#ece8e1">Carga de datos con topes</text>
+  <text x="84" y="72" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="13.5" fill="#98a0ac">Scraper propio gratis para InfoCasas y Apify</text><text x="84" y="91" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="13.5" fill="#98a0ac">con tope de gasto para el resto.</text>
 </svg>

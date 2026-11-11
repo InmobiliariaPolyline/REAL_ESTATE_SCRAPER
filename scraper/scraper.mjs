@@ -11,7 +11,7 @@
 //   --busqueda RUTA   ruta de búsqueda del portal (se puede repetir); sin ella usa las de siempre
 //   --max N           tope de avisos por ejecución (por defecto 2000)
 //   --pausa S         segundos entre peticiones (por defecto 5, mínimo 3)
-//   --provincias      además de Lima, lee Arequipa, La Libertad, Piura, Lambayeque y proyectos
+//   --provincias      además de Lima, lee Arequipa, La Libertad, Piura y Lambayeque (el listado de proyectos ya va siempre)
 //   --probar          no envía; imprime un resumen y 2 avisos de muestra
 //
 // Variables de entorno (para enviar): INGESTA_TOKEN y, si quieres, INGESTA_URL.

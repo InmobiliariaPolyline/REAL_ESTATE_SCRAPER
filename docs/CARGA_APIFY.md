@@ -1,15 +1,22 @@
 # Carga automática de avisos con Apify
 
-Guía para dejar funcionando la carga de avisos de Adondevivir. Son **5 pasos** y se hacen una sola vez.
+Guía para dejar funcionando la carga de avisos con Apify: **Adondevivir, Urbania, InfoCasas y Properati**. Son **5 pasos** y
+se hacen una sola vez. Los pasos explican Adondevivir (la primera fuente); las demás se configuran después con sus propias
+variables (ver «Fuentes»).
+
+> **InfoCasas tiene una vía mejor:** el **scraper propio** ([`SCRAPER_PROPIO.md`](SCRAPER_PROPIO.md)) es gratis y lee la lista
+> completa de tipologías de los proyectos. Apify queda para Urbania, Adondevivir y Properati, que bloquean (403) las lecturas
+> automáticas directas. El sistema **no** intenta esquivar esos bloqueos.
 
 > **Regla de oro:** no pongas tarjeta en Apify. El plan gratuito se bloquea al agotar su cupo
 > mensual; sin un método de pago guardado, no pueden cobrarte.
 
 ## 1. Base de datos (Neon)
 
-En el **SQL Editor** de Neon pega y ejecuta el contenido de `db/007_carga.sql` y, para la galería de fotos de la vista previa, `db/008_imagenes.sql` (es seguro repetirlo,
-también si ya lo ejecutaste antes: añade la columna del día de reinicio). Crea la configuración
-(empieza **pausada**) y el historial de cargas.
+Con `pnpm db:migrate` (o pegando cada archivo en el **SQL Editor** de Neon) aplica las migraciones de `db/`. Para esta carga
+importan `db/007_carga.sql` (la configuración, que empieza **pausada**, y el historial de corridas), `db/010_fuentes.sql`
+(topes propios de InfoCasas y Properati) y, para la galería de fotos, los detalles y la ubicación, `db/008_imagenes.sql`,
+`db/009_detalles.sql` y `db/011_ubicacion.sql`. Todas son seguras de repetir.
 
 ## 2. Cuenta de Apify
 
@@ -93,7 +100,6 @@ fuente (si una está en curso o sin cupo, las demás igual cargan); en **Cargar 
 |---|---|---|---|---|
 | Adondevivir | `gio21~adondevivir-scraper` (respaldo `scrapers_lat`) | US$ 3 por 1 000 avisos | hasta 200 | 1 000 |
 | Urbania | `sian.agency~urbania-property-scraper` | US$ 0.015 por corrida + US$ 6 por 1 000 avisos | 25 (plan gratuito) | 200 |
-
 | InfoCasas | `sian.agency~infocasas-property-scraper` (mercado Perú) | US$ 8 por 1 000 avisos | 25 (plan gratuito) | 100 |
 | Properati | `scrapers_lat~properati-scraper` (sin detalles) | US$ 8 por 1 000 avisos | 10 (plan gratuito) | 50 |
 
@@ -116,7 +122,10 @@ como portal `urbania` (`urbania:<código>`), sin duplicarse entre corridas.
   solo la da el modo `withDetails` del actor de respaldo, que exige un plan de pago de Apify (probado en el plan gratuito: no la devuelve).
 - **Variedad:** cada búsqueda de Adondevivir trae ≈ 30 avisos (una página); el sistema rota búsquedas y páginas 1 a 5. El actor
   gratuito de Urbania ignora la paginación, el orden y los filtros: trae siempre los mismos primeros 25 de cada búsqueda.
-- **Proyectos** (edificios nuevos) vienen sin área, dormitorios ni baños: son datos que el portal no publica en el resumen.
+- **Proyectos** (edificios en construcción): el actor de InfoCasas entrega un registro **por tipología**, no la lista completa. El
+  sistema los agrupa por proyecto (`infocasas:proyecto-<nombre>`) dentro de una misma corrida y calcula el rango de precios
+  («Desde–Hasta»), pero el rango solo es exacto si llegan todas las tipologías juntas. Para InfoCasas, el scraper propio es la
+  fuente exacta (ver [`SCRAPER_PROPIO.md`](SCRAPER_PROPIO.md#proyectos-inmobiliarios-edificios-en-construcción-condominios)).
 
 ## Qué es automático, qué se edita y qué es manual
 
@@ -162,6 +171,7 @@ recalcula solo con el crédito que informe la cuenta.
 
 ## Aviso legal
 
-El actor es de un tercero y obtiene los datos de un sitio que no autoriza expresamente su
-extracción. Antes de ofrecer estos datos a clientes de pago, conviene hablar con Adondevivir
-(grupo Navent) sobre un acuerdo de acceso. Ver `docs/INGESTA.md`.
+Los actores son de terceros y obtienen los datos de sitios que no autorizan expresamente su extracción. Antes de ofrecer
+estos datos a clientes de pago, conviene hablar con los portales sobre un acuerdo de acceso. Se evaluó y se decidió no
+hacerlo por ahora: la ampliación del scraping se dio por cerrada y no se usan técnicas para esquivar bloqueos. Ver
+[`ENTREGA.md`](ENTREGA.md#7-decisiones-y-límites-a-tener-presentes) y [`INGESTA.md`](INGESTA.md).

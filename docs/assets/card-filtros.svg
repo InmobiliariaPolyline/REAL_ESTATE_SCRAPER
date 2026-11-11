@@ -13,6 +13,6 @@
     <path d="M6 8 Q26 -2 46 8" fill="none" stroke="#fff" stroke-opacity="0.35" stroke-width="1.5" stroke-linecap="round"/>
     <path d="M12 16 H40 L30 28 V40 L22 36 V28 Z" fill="none" stroke="#a78bfa" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
   </g>
-  <text x="84" y="48" font-family="Georgia, 'Times New Roman', serif" font-size="19" font-weight="700" fill="#ece8e1">Filtros por secciones</text>
-  <text x="84" y="72" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="13.5" fill="#98a0ac">Precio, ambientes, área y novedades con chips</text><text x="84" y="91" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="13.5" fill="#98a0ac">que se quitan con un clic.</text>
+  <text x="84" y="48" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="19" font-weight="700" fill="#ece8e1">Filtros por secciones</text>
+  <text x="84" y="72" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="13.5" fill="#98a0ac">Bloques desplegables que solo ofrecen lo que</text><text x="84" y="91" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="13.5" fill="#98a0ac">hay: portal, ubicación, precio y más.</text>
 </svg>

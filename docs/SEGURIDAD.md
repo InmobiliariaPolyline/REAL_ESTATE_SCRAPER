@@ -8,11 +8,13 @@ Guía práctica para mantener el sistema seguro y recuperable.
 | ---- | ------ |
 | Contraseñas | bcrypt en la base; mínimo 8 caracteres; las heredadas en texto plano se migran al iniciar sesión |
 | Login | bloqueo tras 5 fallos en 15 min (también aplica al cambio de contraseña) |
-| Sesiones | token opaco de 12 h validado en el servidor en cada petición; un baneo o un cambio de contraseña las cierra. Se guarda por pestaña (se pierde al cerrarla) y caduca por inactividad: aviso a los 14 min y cierre a los 15 (cliente); el servidor la invalida tras 30 min sin peticiones (`db/006`) |
+| Sesiones | token opaco de 12 h validado en el servidor en cada petición; un baneo o un cambio de contraseña las cierra. Se guarda por pestaña (se pierde al cerrarla) y caduca por inactividad: aviso a los 14 min y cierre a los 15 (cliente); el servidor la invalida tras 30 min sin peticiones (`db/006_idle_timeout.sql`) |
 | Autorización | cada ruta de la API exige público / sesión / suscriptor vigente / admin |
 | Datos | todo el SQL va parametrizado; los errores internos nunca llegan al cliente |
 | Navegador | CSP estricta, sin scripts de terceros; URLs de avisos filtradas a http(s) |
 | Auditoría | acciones administrativas registradas (pestaña **Auditoría**) |
+| Entrada de avisos | `POST /api/ingesta` exige un token largo (24 caracteres o más) comparado en tiempo constante; sin `INGESTA_TOKEN` configurado responde 501 y no recibe nada |
+| Botón del scraper | El panel lanza el workflow de GitHub con un token fino limitado a este repositorio y al permiso Actions; queda en la auditoría |
 
 ## 2. Sesiones y auditoría
 
@@ -42,6 +44,9 @@ La IP se toma de `x-nf-client-connection-ip` (Netlify) o `x-forwarded-for` (prox
 | `DATABASE_URL` (app) | Variables de Netlify (secreta) | Cada 90 días y ante cualquier sospecha |
 | `BACKUP_DATABASE_URL`, `BACKUP_PASSPHRASE` | Secrets de GitHub Actions | Cada 6 meses; guarda la frase de cifrado también fuera de GitHub |
 | `APIFY_TOKEN`, `APIFY_WEBHOOK_SECRET` | Variables de Netlify (secretas) | Cada 6 meses, o si se filtran; el token se regenera en Apify |
+| `INGESTA_TOKEN` | Variable de Netlify (secreta) **y** secreto de GitHub (el mismo valor) | Cada 6 meses, o si se filtra; al cambiarlo hay que actualizar **los dos** lugares y desplegar |
+| `GITHUB_TOKEN`, `GITHUB_REPO` | Variables de Netlify (la primera, secreta) | El token fino **vence** (ponle vencimiento y renuévalo antes); solo este repositorio y el permiso Actions: Read and write |
+| `CLOUDINARY_URL` | Variable de Netlify (secreta) | Si se filtra; se regenera la clave en Cloudinary |
 | `ALERT_WEBHOOK_URL`, `CRON_SECRET` | Variables de Netlify (secretas) | Si se filtran |
 | Contraseña del admin | Base de datos (hash) | Desde **Mi cuenta** |
 
@@ -90,7 +95,8 @@ que nunca se ha restaurado no es un respaldo.
 
 ## 6. Lista de comprobación periódica
 
-- [ ] `/api/health` responde `ok` y el Dashboard muestra al scraper activo.
+- [ ] `/api/health` responde `ok` y el Dashboard no muestra el aviso de «sin actividad».
+- [ ] La última ejecución del scraper propio (*Sistema → Carga de datos*) está «Completada».
 - [ ] Hay un respaldo reciente en *Actions* y la ejecución terminó en verde.
 - [ ] Nadie con acceso admin que ya no deba tenerlo (pestaña *Usuarios*); revisar *Auditoría*.
 - [ ] Credenciales dentro de su plazo de rotación (tabla de arriba).

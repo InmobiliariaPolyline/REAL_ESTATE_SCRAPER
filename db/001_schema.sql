@@ -1,17 +1,18 @@
 -- =============================================================================
 -- Esquema base de REAL ESTATE SCRAPER (base de datos desde cero)
 --
--- Ecosistema (ver "Informe Técnico: Mantenimiento y Escalabilidad"):
+-- Ecosistema (visión general en README.md):
 --
---   Portales ──► Scraper (Python, GitHub Actions) ──► PostgreSQL (Neon) ──► API ──► Portal web (React)
---                      │ conexión directa/pooler            ▲       │
---                      └─ SUNAT: tipo de cambio             │       └─► Panel admin
---                                                           └──────── Inmodata (ETL / BI): lectura
+--   InfoCasas ──► Scraper propio (GitHub Actions) ─┐
+--                                                  ├─► POST /api/ingesta ─► PostgreSQL (Neon) ──► API ──► Portal web (React)
+--   Urbania · Adondevivir · Properati ──► Apify ───┘   (webhook)                   ▲       │
+--                                                                                 │       └─► Panel admin
+--                                                                                 └──────── Inmodata (ETL / BI): lectura
 --
 -- Flujo de uso
---   1. El scraper hace UPSERT masivo en `propiedades` (clave `id`), guardando el precio
---      original (`precio`, `moneda`) y el normalizado a USD (`precio_usd`) con el tipo de
---      cambio de SUNAT. En cada corrida debe refrescar `ultima_vista_en`.
+--   1. La carga (scraper propio y Apify, siempre a través de api/ingest.ts) hace UPSERT masivo en
+--      `propiedades` (clave `id`), guardando el precio original (`precio`, `moneda`) y el
+--      normalizado a USD (`precio_usd`). Cada corrida refresca `ultima_vista_en`.
 --   2. El administrador crea usuarios y les activa Premium (`suscripciones`).
 --   3. Un usuario con suscripción vigente entra al portal y consulta `propiedades`;
 --      cada login queda en `historial_accesos`.
@@ -19,7 +20,7 @@
 --      y enlaces de apoyo por propiedad (`enlaces`).
 --   5. Inmodata lee `propiedades` (con una conexión de solo lectura) para limpieza y BI.
 --
--- Orden de ejecución:  este archivo  →  db/002_auth.sql
+-- Orden de ejecución: todos los archivos de db/ en orden numérico (pnpm db:migrate); este es el primero.
 -- Solo la API se conecta a esta base (la cadena de conexión nunca va al navegador).
 -- Es idempotente (`if not exists`): se puede ejecutar sobre una base que ya tenga tablas.
 -- Después de ejecutarlo, crea el primer administrador (ver la sección final).

@@ -13,6 +13,6 @@
     <path d="M6 8 Q26 -2 46 8" fill="none" stroke="#fff" stroke-opacity="0.35" stroke-width="1.5" stroke-linecap="round"/>
     <path d="M14 26 L26 14 L38 26 V40 H30 V31 H22 V40 H14 Z" fill="none" stroke="#6ea8fe" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
   </g>
-  <text x="84" y="48" font-family="Georgia, 'Times New Roman', serif" font-size="19" font-weight="700" fill="#ece8e1">Cuatro portales, un catálogo</text>
+  <text x="84" y="48" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="19" font-weight="700" fill="#ece8e1">Cuatro portales, un catálogo</text>
   <text x="84" y="72" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="13.5" fill="#98a0ac">Adondevivir, Urbania, InfoCasas y Properati</text><text x="84" y="91" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="13.5" fill="#98a0ac">con precios en soles y dólares.</text>
 </svg>

@@ -1,8 +1,9 @@
-# Conectar un scraper propio (PHP con XAMPP, Python o Node)
+# Scraper propio (InfoCasas) y cómo conectar otro programa (PHP con XAMPP, Python o Node)
 
-El sistema ya recibe avisos con Apify. Esta guía sirve para que **cualquier otro programa que recolecte avisos
-públicos** (un script en PHP corriendo en XAMPP, uno en Python, uno en Node…) los envíe al mismo sistema, que los
-guarda sin duplicarlos y con los mismos filtros, fotos y detalles.
+El repositorio incluye un scraper de **InfoCasas** (carpeta `scraper/`) que corre gratis en GitHub Actions. El sistema, además,
+recibe avisos con Apify. Esta guía explica el scraper incluido y sirve para que **cualquier otro programa que recolecte
+avisos públicos** (un script en PHP corriendo en XAMPP, uno en Python, uno en Node…) los envíe al mismo sistema, que los
+guarda sin duplicarlos y con los mismos filtros, fotos y detalles. Panorama general: [`ENTREGA.md`](ENTREGA.md).
 
 > **Qué es XAMPP.** Es un paquete para Windows que instala Apache, MySQL y PHP en tu computador. **No es un
 > scraper**: solo es el entorno donde puede correr un script escrito en PHP. Para esta guía solo necesitas el PHP
