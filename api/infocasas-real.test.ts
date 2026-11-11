@@ -168,7 +168,8 @@ describe("E2E con avisos reales de InfoCasas", () => {
       ('geo:1','infocasas','VENTA','Casa','Callao mal ubicado','Callao','Lima','Callao'),
       ('geo:2','infocasas','VENTA','Casa','Ventanilla mal ubicada','Ventanilla','Lima','Lima'),
       ('geo:3','infocasas','VENTA','Casa','La Victoria de Lambayeque','La Victoria','Lambayeque','Chiclayo'),
-      ('geo:4','infocasas','VENTA','Casa','Provincia con otro departamento','Camaná','Lima','Camaná')`)
+      ('geo:4','infocasas','VENTA','Casa','Provincia con otro departamento','Camaná','Lima','Camaná'),
+      ('geo:5','infocasas','VENTA','Casa','Provincia como departamento','Asia','Cañete',null)`)
     const sql = fs.readFileSync(path.join(root, "db/013_geografia.sql"), "utf8")
     await pg.exec(sql)
     await pg.exec(sql) // idempotente
@@ -178,11 +179,40 @@ describe("E2E con avisos reales de InfoCasas", () => {
       { id: "geo:2", departamento: "Callao", provincia: "Callao" },
       { id: "geo:3", departamento: "Lambayeque", provincia: "Chiclayo" },
       { id: "geo:4", departamento: "Arequipa", provincia: "Camaná" },
+      { id: "geo:5", departamento: "Lima", provincia: "Cañete" },
     ])
     // El catálogo ya no tiene dos «Callao».
     const fac = (await call("GET", "/api/propiedades/facetas", { token: member })).body
     expect(fac.provincias.filter((p: any) => p.valor === "Callao")).toHaveLength(1)
     expect(fac.distritos.filter((d: any) => d.valor === "Callao" && d.padre === "Callao")).toHaveLength(1)
+    await pg.exec("delete from public.propiedades where id like 'geo:%'") // para no alterar los conteos de las demás pruebas
+  })
+
+  it("las listas de los filtros se calculan sobre los filtros activos (solo lo disponible)", async () => {
+    const facetas = async (q: string) => (await call("GET", `/api/propiedades/facetas?${q}`, { token: member })).body
+    const total = (l: any[]) => l.reduce((n: number, x: any) => n + x.n, 0)
+
+    // Con un portal que no tiene avisos, no hay nada que ofrecer.
+    const ninguno = await facetas("portales=urbania")
+    expect(total(ninguno.departamentos)).toBe(0)
+    expect(ninguno.distritos).toEqual([])
+
+    // Con una operación, las cantidades son las de esa operación.
+    const alq = await facetas("operacion=ALQUILER")
+    expect(total(alq.departamentos)).toBe(filas().filter(e => e.operacion === "ALQUILER" && e.departamento).length)
+    expect(total(alq.inmuebles)).toBe(filas().filter(e => e.operacion === "ALQUILER").length)
+
+    // Cada lista ignora su propio filtro (para poder cambiar de opción) y respeta el de arriba.
+    const arequipa = await facetas("departamento=Arequipa")
+    expect(total(arequipa.departamentos)).toBe(filas().filter(e => e.departamento).length) // se ven todos los departamentos
+    expect(arequipa.provincias.every((p: any) => p.padre === "Arequipa")).toBe(true)
+    expect(arequipa.distritos.every((d: any) => d.padre === "Arequipa")).toBe(true)
+    expect(total(arequipa.inmuebles)).toBe(filas().filter(e => e.departamento === "Arequipa").length)
+
+    // El portal elegido y los demás filtros se combinan.
+    const venta = await facetas("portales=infocasas&operacion=VENTA&inmueble=Casa")
+    expect(total(venta.departamentos)).toBe(filas().filter(e => e.operacion === "VENTA" && e.inmueble === "Casa" && e.departamento).length)
+    expect(total(venta.inmuebles)).toBe(filas().filter(e => e.operacion === "VENTA").length) // el tipo ignora su propio filtro
   })
 })
 

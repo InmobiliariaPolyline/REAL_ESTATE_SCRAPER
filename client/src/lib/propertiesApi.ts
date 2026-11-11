@@ -18,7 +18,7 @@ export const ORDEN_OPTIONS: { value: Orden; label: string }[] = [
   { value: "precio_desc", label: "Precio: mayor a menor" },
 ]
 
-function portalParams(filters: FilterState, orden: Orden) {
+export function portalParams(filters: FilterState, orden: Orden) {
   return {
     operacion: filters.operacion,
     inmueble: filters.inmueble,

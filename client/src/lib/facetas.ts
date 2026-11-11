@@ -10,7 +10,9 @@ import {
   provinciaDeDistritoPrincipal,
   ubicacionCanonica,
 } from "@shared/ubicacion"
+import type { FilterState } from "@/types"
 import { api } from "./api"
+import { portalParams } from "./propertiesApi"
 
 /** Un valor que se puede elegir en un filtro y cuántos avisos del catálogo lo tienen (0 si aún ninguno). */
 export interface Faceta {
@@ -28,12 +30,22 @@ export interface Facetas {
   distritos: Faceta[]
   inmuebles: Faceta[]
   anunciantes: Faceta[]
+  /** Las cantidades vienen del servidor (calculadas sobre los filtros); si es `false`, son las listas completas con 0 avisos. */
+  delServidor?: boolean
 }
 
 /** Lo que entrega el servidor: solo valores que existen en el catálogo. */
 export type FacetasDelCatalogo = Partial<Facetas>
 
-export const fetchFacetas = () => api.get<FacetasDelCatalogo>("/propiedades/facetas")
+/**
+ * Opciones con su cantidad. Con `filtros` se calculan sobre lo ya filtrado (solo lo disponible para ese portal,
+ * operación, precio, etc.); sin ellos, sobre todo el catálogo.
+ */
+export const fetchFacetas = (filtros?: FilterState) => {
+  if (!filtros) return api.get<FacetasDelCatalogo>("/propiedades/facetas")
+  const { orden: _orden, ...params } = portalParams(filtros, "relevancia")
+  return api.get<FacetasDelCatalogo>("/propiedades/facetas", params)
+}
 
 interface Candidato {
   valor: string
@@ -96,5 +108,6 @@ export function combinarFacetas(catalogo: FacetasDelCatalogo | null | undefined)
     distritos: unir(distritos, distritosCat),
     inmuebles: unir(TIPOS_INMUEBLE.map(valor => ({ valor })), catalogo?.inmuebles),
     anunciantes: catalogo?.anunciantes ?? [],
+    delServidor: !!catalogo,
   }
 }

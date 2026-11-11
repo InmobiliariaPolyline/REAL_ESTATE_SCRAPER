@@ -23,6 +23,16 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "3.3.1",
+    fecha: "2026-11-10",
+    titulo: "Filtros que muestran solo lo disponible",
+    cambios: [
+      { tipo: "correccion", texto: "Las listas de la ventana de filtros (departamentos, provincias, distritos, tipos y anunciantes) y sus cantidades ahora se calculan sobre los filtros activos. Si eliges un portal, una operación, un precio, etc., solo se ofrece y se cuenta lo que tiene avisos con esa combinación: ya no aparece «Callao (28)» cuando esos avisos son de otro portal. Cada lista ignora su propio filtro para que puedas cambiar de opción." },
+      { tipo: "mejora", texto: "Nuevo interruptor «Solo con avisos» / «Ver todo» en la ventana: por defecto solo se ve lo disponible; «Ver todo» muestra también el resto del Perú con 0 avisos. Lo que ya elegiste se conserva visible aunque no tenga avisos con los demás filtros. Si algo no tiene avisos, el campo dice «Sin avisos con estos filtros»." },
+      { tipo: "correccion", texto: "Algunos portales ponían una provincia donde va el departamento («Cañete», «Pisco»): ahora se corrige al departamento real. La migración db/013_geografia.sql suma este arreglo (si ya la ejecutaste, vuelve a ejecutarla: es idempotente)." },
+    ],
+  },
+  {
     version: "3.3.0",
     fecha: "2026-11-10",
     titulo: "Filtros desglosables y ubicación jerárquica",

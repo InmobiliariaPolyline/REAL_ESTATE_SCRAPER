@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, render, screen, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -8,7 +8,7 @@ import { DEFAULT_FILTERS, type FilterState } from '@/types'
 import PortalFilters from './PortalFilters'
 
 const fetchFacetas = vi.fn()
-vi.mock('@/lib/facetas', async importOriginal => ({ ...(await importOriginal<typeof import('@/lib/facetas')>()), fetchFacetas: () => fetchFacetas() }))
+vi.mock('@/lib/facetas', async importOriginal => ({ ...(await importOriginal<typeof import('@/lib/facetas')>()), fetchFacetas: (...a: unknown[]) => fetchFacetas(...a) }))
 
 const FACETAS = {
   departamentos: [{ valor: 'Lima', n: 40 }, { valor: 'Arequipa', n: 6 }],
@@ -90,7 +90,7 @@ describe('PortalFilters (ventana de filtros)', () => {
   it('el tipo de inmueble sale del catálogo, con su cantidad y un icono', async () => {
     render(<Harness />)
     const tipos = grupo('Tipo')
-    expect(await within(tipos).findByRole('button', { name: /Terreno/ })).toHaveTextContent('3')
+    await waitFor(() => expect(within(tipos).getByRole('button', { name: /Terreno/ })).toHaveTextContent('3'))
     await userEvent.click(within(tipos).getByRole('button', { name: /Casa/ }))
     expect(within(screen.getByLabelText('Filtros aplicados')).getByText('Casa')).toBeInTheDocument()
   })
@@ -165,6 +165,7 @@ describe('PortalFilters (ventana de filtros)', () => {
 
   it('ofrece todo el Perú aunque el catálogo no tenga avisos de esos lugares ni de esos tipos', async () => {
     render(<Harness />)
+    await userEvent.click(screen.getByRole('button', { name: /Solo con avisos/ })) // «Ver todo»
     const departamento = screen.getByLabelText('Departamento')
     // Hay avisos de Lima y Arequipa, pero también se ofrece el resto, con 0 avisos.
     expect(await within(departamento).findByRole('option', { name: 'Arequipa (6)' })).toBeInTheDocument()
@@ -177,6 +178,7 @@ describe('PortalFilters (ventana de filtros)', () => {
 
   it('al elegir un departamento sin avisos se ofrecen igual sus provincias y distritos', async () => {
     render(<Harness inicial={{ ...DEFAULT_FILTERS, departamento: 'Cusco' }} />)
+    await userEvent.click(screen.getByRole('button', { name: /Solo con avisos/ })) // «Ver todo»
     const provincia = screen.getByLabelText('Ciudad o provincia')
     for (const p of ['Cusco (0)', 'Urubamba (0)', 'Calca (0)']) expect(within(provincia).getByRole('option', { name: p })).toBeInTheDocument()
     expect(within(provincia).queryByRole('option', { name: /^Arequipa/ })).toBeNull() // otras regiones no
@@ -187,6 +189,7 @@ describe('PortalFilters (ventana de filtros)', () => {
   it('si no se puede cargar el catálogo, igual ofrece las listas completas', async () => {
     fetchFacetas.mockRejectedValue(new Error('sin red'))
     render(<Harness />)
+    // Sin datos del servidor no se oculta nada: se ofrece todo el Perú.
     expect(within(screen.getByLabelText('Departamento')).getByRole('option', { name: 'Ucayali (0)' })).toBeInTheDocument()
     await userEvent.type(screen.getByLabelText('Distrito'), 'mira')
     expect((await screen.findAllByRole('button', { name: /Miraflores/ })).length).toBeGreaterThan(0) // Lima y Arequipa tienen uno
@@ -245,6 +248,57 @@ describe('PortalFilters: jerarquía geográfica', () => {
     const botones = [await sugerencia(/Miraflores/)]
     expect((await screen.findAllByRole('button', { name: /Miraflores/ })).filter(b => !b.closest('[role=group]'))).toHaveLength(1)
     expect(botones[0]).toHaveTextContent('Arequipa')
+  })
+})
+
+describe('PortalFilters: solo lo disponible con los filtros activos', () => {
+  const FACETAS_PROPERATI = {
+    departamentos: [{ valor: 'Lima', n: 30 }],
+    provincias: [{ valor: 'Lima', padre: 'Lima', n: 30 }],
+    distritos: [{ valor: 'Miraflores', padre: 'Lima', provincia: 'Lima', n: 12 }, { valor: 'Santiago de Surco', padre: 'Lima', provincia: 'Lima', n: 18 }],
+    inmuebles: [{ valor: 'Departamento', n: 25 }, { valor: 'Casa', n: 5 }],
+    anunciantes: [],
+  }
+  const opciones = (etiqueta: string) => within(screen.getByLabelText(etiqueta)).getAllByRole('option').map(o => o.textContent)
+
+  it('pide al servidor las opciones con los filtros elegidos y muestra solo lo que tiene avisos', async () => {
+    fetchFacetas.mockImplementation((filtros?: FilterState) => Promise.resolve(filtros?.portales.includes('Properati') ? FACETAS_PROPERATI : FACETAS))
+    render(<Harness inicial={{ ...DEFAULT_FILTERS, portales: ['Properati'] }} />)
+    await waitFor(() => expect(opciones('Departamento')).toEqual(['Todos', 'Lima (30)']))
+    expect(fetchFacetas).toHaveBeenLastCalledWith(expect.objectContaining({ portales: ['Properati'] }))
+    // Ni Arequipa ni el resto del Perú, que con este portal no tienen avisos.
+    expect(opciones('Departamento').some(o => /Arequipa|Callao|Cusco/.test(o ?? ''))).toBe(false)
+    expect(opciones('Ciudad o provincia')).toEqual(['Todos', 'Lima (30)'])
+  })
+
+  it('al cambiar un filtro las opciones y sus cantidades se vuelven a calcular', async () => {
+    fetchFacetas.mockImplementation((filtros?: FilterState) => Promise.resolve(filtros?.portales.includes('Properati') ? FACETAS_PROPERATI : FACETAS))
+    render(<Harness />)
+    await waitFor(() => expect(opciones('Departamento')).toContain('Arequipa (6)'))
+    await abrirTodo()
+    await userEvent.click(within(grupo('Dónde se publicó')).getByRole('button', { name: 'Properati' }))
+    await waitFor(() => expect(opciones('Departamento')).toEqual(['Todos', 'Lima (30)']))
+  })
+
+  it('lo ya elegido se conserva aunque no tenga avisos con esos filtros, y «Ver todo» muestra también lo que no tiene', async () => {
+    fetchFacetas.mockResolvedValue(FACETAS_PROPERATI)
+    render(<Harness inicial={{ ...DEFAULT_FILTERS, departamento: 'Callao' }} />)
+    await waitFor(() => expect(opciones('Departamento')).toContain('Lima (30)'))
+    expect(screen.getByLabelText('Departamento')).toHaveValue('Callao') // sigue visible para poder quitarlo
+    await userEvent.click(screen.getByRole('button', { name: /Solo con avisos/ }))
+    expect(screen.getByRole('button', { name: /Ver todo/ })).toHaveAttribute('aria-pressed', 'false')
+    expect(opciones('Departamento')).toContain('Cusco (0)')
+  })
+
+  it('los tipos y los distritos también se limitan a lo disponible', async () => {
+    fetchFacetas.mockResolvedValue(FACETAS_PROPERATI)
+    render(<Harness inicial={{ ...DEFAULT_FILTERS, portales: ['Properati'] }} />)
+    const tipos = grupo('Tipo')
+    await waitFor(() => expect(within(tipos).getByRole('button', { name: /Departamento/ })).toHaveTextContent('25'))
+    expect(within(tipos).queryByRole('button', { name: /Oficina/ })).toBeNull()
+    await userEvent.type(screen.getByLabelText('Distrito'), 'a')
+    expect(await sugerencia(/Miraflores/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Wanchaq/ })).toBeNull() // otro lugar sin avisos
   })
 })
 

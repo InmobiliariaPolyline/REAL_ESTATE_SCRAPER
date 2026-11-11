@@ -294,6 +294,28 @@ export function buildPortalQuery(
   }
 }
 
+/**
+ * Consultas de las listas de los filtros (departamentos, provincias, distritos, tipos y anunciantes) con su cantidad,
+ * calculadas sobre lo que ya está filtrado: cada lista ignora solo el filtro de su propio nivel y los de abajo, así
+ * al elegir un portal o una operación solo se ofrece (y se cuenta) lo que ese portal u operación tiene, y al elegir
+ * un departamento las provincias y distritos son los de ese departamento.
+ */
+export function buildFacetas(f: PortalFilters, usdToPen: number) {
+  const consulta = (reset: Partial<PortalFilters>, columnas: string, agrupar: string, extra: string, orden: string): BuiltQuery => {
+    const w = new Where()
+    applyPortalWhere(w, { ...f, ...reset }, usdToPen)
+    w.add(extra)
+    return { text: `select ${columnas}, count(*)::int as n from public.propiedades ${w.sql()} group by ${agrupar} ${orden}`, params: w.params }
+  }
+  return {
+    departamentos: consulta({ departamento: "", provincia: "", distrito: "" }, "departamento as valor", "1", "departamento is not null", "order by n desc, 1"),
+    provincias: consulta({ provincia: "", distrito: "" }, "provincia as valor, departamento as padre", "1, 2", "provincia is not null", "order by n desc, 1"),
+    distritos: consulta({ distrito: "" }, "distrito as valor, departamento as padre, provincia", "1, 2, 3", "distrito is not null and distrito <> ''", "order by n desc, 1 limit 300"),
+    inmuebles: consulta({ inmueble: null }, "inmueble as valor", "1", "inmueble is not null and inmueble <> ''", "order by n desc, 1"),
+    anunciantes: consulta({ anunciante: "" }, "publicador as valor", "1", "publicador is not null and publicador <> ''", "order by n desc, 1 limit 40"),
+  }
+}
+
 /** Total de avisos para los filtros (se usa cuando la página pedida queda fuera de rango). */
 export function buildPortalCount(f: PortalFilters, usdToPen: number): BuiltQuery {
   const w = new Where()

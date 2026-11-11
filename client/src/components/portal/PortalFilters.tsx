@@ -6,6 +6,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { BloqueDesplegable, Etiquetas, Fichas, Selector, type OpcionFicha } from '@/components/filters/Campos'
 import { Icono3D } from '@/components/portal/detail/Piezas'
 import { useFacetas } from '@/hooks/useFacetas'
+import type { Faceta } from '@/lib/facetas'
 import { atajosDePrecio, filtrosActivos } from '@/lib/filterChips'
 import { elegirDepartamento, elegirDistrito, elegirProvincia, opcionesGeograficas, rutaGeografica, sugerirDistritos } from '@/lib/geografia'
 import { PORTALS } from '@/lib/portals'
@@ -85,7 +86,11 @@ export default function PortalFilters({
   isMobileDrawer = false,
 }: PortalFiltersProps) {
   const [showSuggestions, setShowSuggestions] = useState(false)
-  const facetas = useFacetas()
+  // Las opciones se calculan sobre los filtros activos: solo lo disponible con ese portal, operación, precio, etc.
+  const facetas = useFacetas(filters)
+  const [soloDisponibles, setSoloDisponibles] = useState(true)
+  const visibles = (lista: Faceta[], elegido = ''): Faceta[] =>
+    facetas.delServidor && soloDisponibles ? lista.filter(x => x.n > 0 || (!!elegido && claveNombre(x.valor) === claveNombre(elegido))) : lista
 
   // Bloques desglosables: por defecto se ve lo esencial y el resto queda recogido (con un resumen de lo elegido).
   const [abiertos, setAbiertos] = useState<Record<string, boolean>>(cargarAbiertos)
@@ -124,18 +129,20 @@ export default function PortalFilters({
   }, [claveFiltros])
 
   // Geografía jerárquica: las provincias son las del departamento elegido y los distritos las de la provincia (o del departamento).
-  const departamentos = facetas.departamentos
+  const departamentos = visibles(facetas.departamentos, filters.departamento)
   const geo = { departamento: filters.departamento, provincia: filters.provincia, distrito: filters.distrito }
-  const { provincias, distritos: distritosCatalogo } = useMemo(() => opcionesGeograficas(facetas, geo), [facetas, filters.departamento, filters.provincia]) // eslint-disable-line react-hooks/exhaustive-deps
+  const { provincias: provinciasTodas, distritos: distritosTodos } = useMemo(() => opcionesGeograficas(facetas, geo), [facetas, filters.departamento, filters.provincia]) // eslint-disable-line react-hooks/exhaustive-deps
+  const provincias = visibles(provinciasTodas, filters.provincia)
+  const distritosCatalogo = visibles(distritosTodos, filters.distrito)
   const aplicarGeo = (g: { departamento: string; provincia: string; distrito: string }) => update(g)
 
   // Tipos de inmueble: todos los que existen (primero los que tienen avisos), con su cantidad.
   const tipos: OpcionFicha<string>[] = useMemo(
     () => [
       { value: 'todos', label: 'Todos', icon: Layers },
-      ...facetas.inmuebles.map(t => ({ value: t.valor, label: t.valor, icon: ICONO_TIPO[t.valor.toLowerCase()] ?? Building2, n: t.n })),
+      ...visibles(facetas.inmuebles, filters.inmueble === 'todos' ? '' : filters.inmueble).map(t => ({ value: t.valor, label: t.valor, icon: ICONO_TIPO[t.valor.toLowerCase()] ?? Building2, n: t.n })),
     ],
-    [facetas]
+    [facetas, soloDisponibles, filters.inmueble]
   )
   // Si el tipo elegido no está entre los más frecuentes (búsqueda guardada), se muestra igual.
   const tiposConActual = filters.inmueble !== 'todos' && !tipos.some(t => t.value === filters.inmueble) ? [...tipos, { value: filters.inmueble, label: filters.inmueble, icon: Building2 }] : tipos
@@ -233,6 +240,20 @@ export default function PortalFilters({
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
         <div className="mb-3 flex items-center justify-between gap-3">
           <p className="label-mono">Opciones de búsqueda</p>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setSoloDisponibles(v => !v)}
+              aria-pressed={soloDisponibles}
+              className={cn(
+                'inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition hover:bg-surface-3',
+                soloDisponibles ? 'text-gold' : 'text-text-muted hover:text-text'
+              )}
+              title={soloDisponibles ? 'Mostrando solo lo que tiene avisos con tus filtros; pulsa para ver también lo que no' : 'Mostrando todo, también lo que no tiene avisos; pulsa para ver solo lo disponible'}
+            >
+              <Layers className="size-3.5" aria-hidden="true" />
+              {soloDisponibles ? 'Solo con avisos' : 'Ver todo'}
+            </button>
           <button
             type="button"
             onClick={() => cambiarTodos(!todosAbiertos)}
@@ -242,6 +263,7 @@ export default function PortalFilters({
             {todosAbiertos ? <ChevronsDownUp className="size-3.5" aria-hidden="true" /> : <ChevronsUpDown className="size-3.5" aria-hidden="true" />}
             {todosAbiertos ? 'Recoger todo' : 'Desplegar todo'}
           </button>
+          </div>
         </div>
         <div className="grid gap-3">
           <BloqueDesplegable icon={TextCursorInput} tono="rose" title="Buscar por palabra" {...desp("texto")}>
@@ -293,8 +315,8 @@ export default function PortalFilters({
                   ))}
                 </p>
               )}
-              <Selector id="flt-departamento" label="Departamento" value={filters.departamento} onChange={v => aplicarGeo(elegirDepartamento(facetas, geo, v))} opciones={departamentos} vacio="Sin datos aún" />
-              <Selector id="flt-provincia" label="Ciudad o provincia" value={filters.provincia} onChange={v => aplicarGeo(elegirProvincia(facetas, geo, v))} opciones={provincias} vacio="Sin datos aún" />
+              <Selector id="flt-departamento" label="Departamento" value={filters.departamento} onChange={v => aplicarGeo(elegirDepartamento(facetas, geo, v))} opciones={departamentos} vacio="Sin avisos con estos filtros" />
+              <Selector id="flt-provincia" label="Ciudad o provincia" value={filters.provincia} onChange={v => aplicarGeo(elegirProvincia(facetas, geo, v))} opciones={provincias} vacio="Sin avisos con estos filtros" />
 
               <div className="relative">
                 <label className="field-label" htmlFor="flt-distrito">Distrito</label>

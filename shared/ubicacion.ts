@@ -261,7 +261,16 @@ export function ubicacionCanonica(l: Lugar): Lugar {
   // Solo se corrige la confusión Lima/Callao (o la falta de departamento): un «La Victoria» de Lambayeque sigue en Lambayeque.
   const claveDep = claveNombre(l.departamento ?? "")
   if (deDistrito && (!claveDep || claveDep === "lima" || claveDep === "callao")) return { ...deDistrito, distrito }
-  const provincia = nombreDeLugar(l.provincia)
+  let provincia = nombreDeLugar(l.provincia)
+  let departamento = nombreDeLugar(l.departamento)
+  // Algunos portales ponen una provincia donde va el departamento («Cañete», «Pisco»): se corrige al departamento real.
+  if (departamento && !DEPARTAMENTOS.some(d => claveNombre(d) === claveNombre(departamento!))) {
+    const real = departamentoDeProvincia(departamento)
+    if (real) {
+      provincia ??= departamento
+      departamento = real
+    }
+  }
   const deProvincia = departamentoDeProvincia(provincia)
-  return { departamento: deProvincia ?? nombreDeLugar(l.departamento), provincia, distrito }
+  return { departamento: deProvincia ?? departamento, provincia, distrito }
 }

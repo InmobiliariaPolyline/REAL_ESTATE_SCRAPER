@@ -28,6 +28,9 @@ describe("jerarquía geográfica compartida", () => {
     expect(ubicacionCanonica({ departamento: null, provincia: null, distrito: "surco" })).toEqual({ departamento: "Lima", provincia: "Lima", distrito: "Santiago de Surco" })
     // «La Victoria» de Lambayeque no se vuelve la de Lima.
     expect(ubicacionCanonica({ departamento: "Lambayeque", provincia: "Chiclayo", distrito: "La Victoria" })).toEqual({ departamento: "Lambayeque", provincia: "Chiclayo", distrito: "La Victoria" })
+    // Una provincia puesta donde va el departamento se corrige («Cañete» es una provincia de Lima).
+    expect(ubicacionCanonica({ departamento: "Cañete", provincia: null, distrito: "Asia" })).toEqual({ departamento: "Lima", provincia: "Cañete", distrito: "Asia" })
+    expect(ubicacionCanonica({ departamento: "Pisco", provincia: "Pisco", distrito: "Pisco" })).toMatchObject({ departamento: "Ica", provincia: "Pisco" })
     // Una provincia única corrige un departamento equivocado.
     expect(ubicacionCanonica({ departamento: "Lima", provincia: "Camaná", distrito: "Camaná" })).toMatchObject({ departamento: "Arequipa", provincia: "Camaná" })
   })
