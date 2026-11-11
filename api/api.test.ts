@@ -1868,7 +1868,7 @@ describe("entrada de datos para scrapers propios (POST /api/ingesta)", () => {
   it("valida la forma del envío y el tamaño del lote", async () => {
     expect((await enviar(con, { cosa: [] })).status).toBe(400)
     expect((await enviar(con, { avisos: "no" })).status).toBe(400)
-    expect((await enviar(con, { avisos: [] })).body).toEqual({ recibidos: 0, guardados: 0, descartados: 0 })
+    expect((await enviar(con, { avisos: [] })).body).toEqual({ recibidos: 0, guardados: 0, descartados: 0, retirados: 0 })
     expect((await enviar(con, { avisos: Array.from({ length: 501 }, (_, i) => aviso(`g${i}`)) })).status).toBe(400)
     const res = await con(new Request("http://localhost/api/ingesta", { method: "POST", headers: { Authorization: `Bearer ${TOKEN}`, "Content-Type": "application/json" }, body: "no es json" }))
     expect(res.status).toBe(400)

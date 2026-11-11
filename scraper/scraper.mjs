@@ -84,7 +84,38 @@ export async function leerPortal(portal, opciones, { fetchFn = fetch, dormirFn =
   const maxPaginas = Math.min(opciones.paginas, portal.maxPaginas)
   const vistos = new Set()
   const todos = []
+  const retirados = []
+  const comprobados = new Map()
   let primera = true
+
+  /**
+   * Un proyecto puede seguir en los listados del portal aunque su propia página ya no exista («Oops! error 404»). Se
+   * comprueba esa página (una petición por proyecto, con la misma pausa); si no existe, el proyecto no se envía y se
+   * reporta como retirado para que el sistema lo quite. Cualquier otra respuesta se deja pasar; un 403, 429 o 5xx detiene el portal.
+   */
+  const paginaExiste = async aviso => {
+    if (!portal.verificaProyectos || aviso.inmueble !== "Proyecto" || !aviso.url) return true
+    if (comprobados.has(aviso.url)) return comprobados.get(aviso.url)
+    const ruta = new URL(aviso.url).pathname
+    let existe = true
+    if (permitido(reglas, ruta)) {
+      await dormirFn(opciones.pausa * 1000 + Math.random() * 2000)
+      const res = await fetchFn(aviso.url, {
+        headers: { "User-Agent": AGENTE, Accept: "text/html,application/xhtml+xml", "Accept-Language": "es-PE,es;q=0.9" },
+        redirect: "manual",
+        signal: AbortSignal.timeout(30_000),
+      })
+      if (res.status === 403 || res.status === 429 || res.status >= 500) {
+        const e = new Error(`El portal respondió ${res.status}: se detiene este portal (no se reintenta ni se esquiva)`)
+        e.detener = true
+        throw e
+      }
+      // 404, o una redirección a la página general de proyectos (la del proyecto ya no existe).
+      existe = !(res.status === 404 || (res.status >= 300 && res.status < 400 && /\/proyectos\/?(?:[?#].*)?$/.test(res.headers?.get?.("location") ?? "")))
+    }
+    comprobados.set(aviso.url, existe)
+    return existe
+  }
 
   for (const busqueda of busquedas) {
     for (let n = 1; n <= maxPaginas; n++) {
@@ -109,11 +140,21 @@ export async function leerPortal(portal, opciones, { fetchFn = fetch, dormirFn =
         log(`  [${portal.nombre}] ${ruta}: la página no trae listados que se puedan leer`)
         break
       }
-      const nuevos = pagina.avisos.filter(a => !vistos.has(a.codigo))
-      for (const a of nuevos) vistos.add(a.codigo)
+      const leidos = pagina.avisos.filter(a => !vistos.has(a.codigo))
+      for (const a of leidos) vistos.add(a.codigo)
+      const nuevos = []
+      const retiradosAqui = []
+      for (const a of leidos) {
+        if (await paginaExiste(a)) nuevos.push(a)
+        else {
+          retiradosAqui.push({ portal: a.portal, codigo: a.codigo })
+          log(`  [${portal.nombre}] ${a.titulo}: su página (${a.url}) ya no existe; no se envía y se quita del catálogo`)
+        }
+      }
+      retirados.push(...retiradosAqui)
       todos.push(...nuevos)
-      log(`  [${portal.nombre}] ${ruta}: ${pagina.crudos} avisos leídos, ${nuevos.length} nuevos${pagina.total ? ` (hay ${pagina.total.toLocaleString("es-PE")} en total)` : ""}`)
-      if (alAvisos) await alAvisos(nuevos)
+      log(`  [${portal.nombre}] ${ruta}: ${pagina.crudos} avisos leídos, ${nuevos.length} nuevos${retiradosAqui.length ? `, ${retiradosAqui.length} retirados` : ""}${pagina.total ? ` (hay ${pagina.total.toLocaleString("es-PE")} en total)` : ""}`)
+      if (alAvisos) await alAvisos(nuevos, retiradosAqui)
       if (todos.length >= opciones.max || n >= pagina.paginas) break
     }
     if (todos.length >= opciones.max) break
@@ -131,7 +172,7 @@ async function principal() {
   }
 
   const ids = opciones.portal === "todos" ? Object.keys(PORTALES) : [opciones.portal]
-  const total = { leidos: 0, recibidos: 0, guardados: 0, descartados: 0 }
+  const total = { leidos: 0, recibidos: 0, guardados: 0, descartados: 0, retirados: 0 }
   let hayError = false
 
   for (const id of ids) {
@@ -142,10 +183,10 @@ async function principal() {
         // Cada página se envía apenas se lee, así un corte no pierde lo ya leído.
         alAvisos: opciones.probar
           ? undefined
-          : async lote => {
-              if (lote.length === 0) return
-              const r = await enviarAvisos(lote, url, token)
-              for (const k of ["recibidos", "guardados", "descartados"]) total[k] += r[k]
+          : async (lote, retirados = []) => {
+              if (lote.length === 0 && retirados.length === 0) return
+              const r = await enviarAvisos(lote, url, token, retirados)
+              for (const k of ["recibidos", "guardados", "descartados", "retirados"]) total[k] += r[k]
             },
       })
       total.leidos += avisos.length
@@ -159,7 +200,7 @@ async function principal() {
     }
   }
 
-  console.log(opciones.probar ? `\nListo (modo prueba): ${total.leidos} avisos leídos.` : `\nListo: ${total.leidos} leídos, ${total.guardados} guardados, ${total.descartados} descartados.`)
+  console.log(opciones.probar ? `\nListo (modo prueba): ${total.leidos} avisos leídos.` : `\nListo: ${total.leidos} leídos, ${total.guardados} guardados, ${total.descartados} descartados${total.retirados ? `, ${total.retirados} retirados del catálogo` : ""}.`)
   if (hayError) process.exitCode = 1
 }
 

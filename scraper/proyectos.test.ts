@@ -1,6 +1,8 @@
 import fs from "node:fs"
 import path from "node:path"
-import { describe, expect, it } from "vitest"
+import { describe, expect, it, vi } from "vitest"
+// @ts-expect-error módulo .mjs sin tipos
+import { leerPortal } from "./scraper.mjs"
 // @ts-expect-error módulo .mjs sin tipos
 import { avisoDeInfocasas, infocasas } from "./lib/portales.mjs"
 import { normalizarAviso } from "../api/ingest"
@@ -61,7 +63,7 @@ describe("todos los proyectos reales", () => {
       expect(a, `${item.id} ${item.title}`).not.toBeNull()
       expect(a.inmueble, item.title).toBe("Proyecto")
       expect(a.codigo, item.title).toMatch(/^proyecto-[a-z0-9-]+$/)
-      expect(a.url, item.title).toMatch(/^https:\/\/www\.infocasas\.com\.pe\/proyectos\/[a-z0-9-]+$/)
+      expect(a.url, item.title).toMatch(/^https:\/\/www\.infocasas\.com\.pe\/proyectos\/[a-z0-9-]+(\/\d+)?$/)
     }
   })
 
@@ -142,6 +144,102 @@ describe("todos los proyectos reales", () => {
         if (fila!.precio_max) expect(fila!.precio_max, item.title).toBeGreaterThan(fila!.precio)
       }
     }
+  })
+})
+
+describe("la dirección del aviso lleva al aviso original (no a una página 404 ni a una genérica)", () => {
+  const BASE = "https://www.infocasas.com.pe"
+
+  it("la dirección de un proyecto es la que publica el portal para el proyecto, no una armada con el nombre de una tipología", () => {
+    for (const item of items) {
+      const dirProyecto = item.project?.link ?? item.link
+      expect(avisoDeInfocasas(item).url, `${item.id} ${item.title}`).toBe(`${BASE}${String(dirProyecto).startsWith("/") ? "" : "/"}${dirProyecto}`)
+    }
+  })
+
+  it("casos reales donde el nombre de la tipología no es el del proyecto (daban 404 o una página genérica)", () => {
+    // Tipología «gran-central-colonial-2», proyecto «grancentralcolonial»; tipología «gran-central-colonial», proyecto «gran-central-colonial-1».
+    expect(aviso(190490128).url).toBe(`${BASE}/proyectos/grancentralcolonial`)
+    expect(aviso(190449245).url).toBe(`${BASE}/proyectos/grancentralcolonial`)
+    expect(aviso(190487486).url).toBe(`${BASE}/proyectos/gran-central-colonial-1`)
+    expect(aviso(190490134).url).toBe(`${BASE}/proyectos/la-mar-los-portales`)
+    expect(aviso(5349).url).toBe(`${BASE}/proyectos/b34`)
+    // Algunos proyectos llevan un número en su dirección: se respeta completa («/proyectos/eco-park» no existe y redirige a una página genérica).
+    expect(aviso(186357419).url).toBe(`${BASE}/proyectos/eco-park/3767`)
+    expect(aviso(186357419).codigo).toBe("proyecto-eco-park-3767")
+  })
+
+  it("el código del proyecto sale también de la dirección del proyecto, así las dos formas de leerlo dan el mismo aviso", () => {
+    expect(aviso(190490128).codigo).toBe("proyecto-grancentralcolonial")
+    expect(aviso(190449245).codigo).toBe(aviso(190490128).codigo)
+    expect(aviso(5349).codigo).toBe(aviso(187068547).codigo)
+  })
+
+  it("si el registro solo trae el enlace de una tipología, se usa ese enlace tal cual (el portal lo lleva al proyecto)", () => {
+    const sinProyecto = { ...por(190490128), project: { id: 15385 } } // sin `project.link`
+    const a = avisoDeInfocasas(sinProyecto)
+    expect(a.url).toBe(`${BASE}/gran-central-colonial-2/190490128`)
+    expect(a.codigo).toBe("proyecto-15385")
+    expect(a.url).not.toContain("/proyectos/")
+  })
+
+  it("los avisos normales conservan su enlace exacto", () => {
+    const normal = JSON.parse(fs.readFileSync(path.join(import.meta.dirname, "fixtures/infocasas.json"), "utf8")).searchFast.data
+    for (const it of normal) expect(avisoDeInfocasas(it).url).toBe(`${BASE}${it.link}`)
+  })
+})
+
+describe("proyectos cuya página ya no existe en el portal (Oops! error 404)", () => {
+  // Una página de listado con tres proyectos reales: B34 (página viva), Madre Selva (página 404 en el portal) y Gran Plaza Lotero.
+  const pagina = (ids: number[]) =>
+    `<html><body><script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+      props: { pageProps: { fetchResult: { searchFast: { data: ids.map(id => por(id)), paginatorInfo: { currentPage: 1, lastPage: 1, total: ids.length } } } } },
+    })}</script></body></html>`
+
+  const correr = async (estados: Record<string, { status: number; location?: string }>) => {
+    const pedidas: string[] = []
+    const fetchFn = vi.fn(async (url: string, init?: RequestInit) => {
+      pedidas.push(`${init?.redirect ?? "follow"} ${url}`)
+      if (url.endsWith("/robots.txt")) return new Response("User-agent: *\nAllow: /", { status: 200 })
+      if (url.includes("/proyectos/") && !url.includes("?")) {
+        const e = estados[url] ?? { status: 200 }
+        return new Response("", { status: e.status, headers: e.location ? { location: e.location } : undefined })
+      }
+      return new Response(pagina([187068547, 186054108, 190490104]), { status: 200 })
+    })
+    const enviados: { portal: string; codigo: string }[][] = []
+    const avisos = await leerPortal(infocasas, { busquedas: ["proyectos"], paginas: 1, max: 100, pausa: 3, provincias: false }, {
+      fetchFn,
+      dormirFn: async () => {},
+      log: () => {},
+      alAvisos: async (_lote: unknown[], retirados: { portal: string; codigo: string }[]) => {
+        enviados.push(retirados)
+      },
+    })
+    return { avisos, enviados, pedidas }
+  }
+
+  it("un proyecto con la página en 404 no se envía y se reporta como retirado; los demás siguen", async () => {
+    const { avisos, enviados } = await correr({ "https://www.infocasas.com.pe/proyectos/madre-selva": { status: 404 } })
+    expect(avisos.map((a: any) => a.codigo).sort()).toEqual(["proyecto-b34", "proyecto-gran-plaza-lotero"])
+    expect(enviados.flat()).toEqual([{ portal: "infocasas", codigo: "proyecto-madre-selva" }])
+  })
+
+  it("una redirección a la página general de proyectos también cuenta como retirado", async () => {
+    const { avisos, enviados } = await correr({ "https://www.infocasas.com.pe/proyectos/b34": { status: 301, location: "https://www.infocasas.com.pe/proyectos" } })
+    expect(avisos.map((a: any) => a.codigo)).not.toContain("proyecto-b34")
+    expect(enviados.flat().map((r: any) => r.codigo)).toContain("proyecto-b34")
+  })
+
+  it("comprueba cada proyecto una sola vez, sin seguir redirecciones, y solo las páginas de proyectos (no cada aviso)", async () => {
+    const { pedidas } = await correr({})
+    const deProyecto = pedidas.filter(p => p.includes("/proyectos/") && !p.includes("robots"))
+    expect(deProyecto).toHaveLength(3)
+    expect(deProyecto.every(p => p.startsWith("manual "))).toBe(true)
+  })
+
+  it("si el portal pide parar (403) en esa comprobación, se detiene sin reintentar", async () => {
+    await expect(correr({ "https://www.infocasas.com.pe/proyectos/b34": { status: 403 } })).rejects.toThrow("403")
   })
 })
 

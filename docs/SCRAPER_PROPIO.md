@@ -63,6 +63,13 @@ formado, `400`.
 Lo que no se puede identificar (portal desconocido, sin código u operación inválida) se descarta y se cuenta en
 `descartados`.
 
+### Avisos retirados (`retirados`)
+
+El envío puede incluir además `"retirados": [ { "portal": "infocasas", "codigo": "proyecto-madre-selva" } ]` (hasta 500): avisos
+que el portal **ya no tiene**. El sistema los quita del catálogo para que nadie llegue a un «404» desde «Ver aviso». No se toca
+un aviso que tenga favoritos o enlaces (igual que la limpieza de inactivos). La respuesta suma `retirados` con cuántos se
+quitaron. Se puede enviar `avisos` vacío si solo hay retirados.
+
 ## 3. Probar la conexión sin raspar nada
 
 Con el archivo de ejemplo `scraper/ejemplo-avisos.json`:
@@ -124,6 +131,17 @@ tamaño de una sola tipología (el B34 salía a US$ 130,600 y 66 m², cuando el 
 proyecto con el código `proyecto-<nombre>` (p. ej. `infocasas:proyecto-b34`), de modo que da igual por qué listado llegue.
 Al guardar un proyecto se eliminan las copias antiguas que lo representaban por tipología (salvo las que tengan
 favoritos o enlaces).
+
+**Enlace del proyecto.** El botón «Ver aviso» abre la dirección del **proyecto tal como la publica el portal**
+(`project.link`: `/proyectos/b34`, `/proyectos/grancentralcolonial`, `/proyectos/eco-park/3767`). No se arma con el nombre de una
+tipología ni se recorta: el nombre de la tipología no siempre es el del proyecto y las direcciones armadas así daban «Oops! error
+404» o una página genérica. Con Apify, que solo entrega el enlace de una tipología, se guarda ese enlace tal cual (el portal lo
+redirige al proyecto).
+
+**Proyectos con la página caída.** El portal puede seguir mostrando en sus listados un proyecto cuya propia página ya no existe
+(«Oops! error 404»; en una lectura real, 12 de los 21 proyectos del listado general estaban así). Antes de enviar un proyecto, el
+scraper comprueba su página (una petición por proyecto, con la misma pausa y respetando el `robots.txt`); si da 404, o redirige a la
+página general de proyectos, no lo envía y lo reporta como retirado. Un 403, 429 o 5xx detiene el portal, como siempre.
 
 **Precios ocultos.** Si el anunciante oculta el precio de una tipología, esa tipología no cuenta para el «Desde/Hasta»
 (sigue en la lista, como «Consultar»). Si todas están ocultas, el proyecto queda sin precio, como en el portal.

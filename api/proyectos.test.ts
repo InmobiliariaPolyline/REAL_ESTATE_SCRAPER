@@ -142,10 +142,13 @@ describe("con la migración 014", () => {
     const r = await guardarAvisos(ctx.db, avisos, 3.4)
     expect(r.guardados).toBe(1)
     const p = (await filas("id = 'infocasas:proyecto-b34'"))[0]
-    expect(p).toMatchObject({ inmueble: "Proyecto", dormitorios: "1, 2, 3", banios: "1, 2", area: "54 – 66 m2", url: "https://www.infocasas.com.pe/proyectos/b34" })
+    // La dirección es la que entrega el actor (la de una tipología: el portal la lleva al proyecto); no se arma una nueva.
+    expect(p).toMatchObject({ inmueble: "Proyecto", dormitorios: "1, 2, 3", banios: "1, 2", area: "54 – 66 m2", url: "https://www.infocasas.com.pe/b34/187068547" })
     expect(Number(p.precio)).toBe(108700)
     expect(Number(p.precio_max)).toBe(130600)
   })
+
+
 
   it("POST /api/ingesta (el scraper propio) conserva el «Hasta» y las tipologías del proyecto", async () => {
     const TOKEN = "token-de-prueba-con-mas-de-24-caracteres"
@@ -162,6 +165,43 @@ describe("con la migración 014", () => {
     expect(Number(p.precio_max)).toBe(130600)
     expect(p.unidades).toHaveLength(3)
     expect(p).toMatchObject({ inmueble: "Proyecto", dormitorios: "1, 2, 3", area: "54 – 66 m2" })
+  })
+
+  it("POST /api/ingesta quita los avisos retirados, sin tocar los que tienen favoritos ni los de otros portales", async () => {
+    const TOKEN = "token-de-prueba-con-mas-de-24-caracteres"
+    const handler = createApiHandler(() => ctx.db, { USD_TO_PEN_RATE: "4", INGESTA_TOKEN: TOKEN })
+    const enviar = async (cuerpo: unknown, token = TOKEN) =>
+      handler(new Request("http://localhost/api/ingesta", { method: "POST", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(cuerpo) }))
+    await ctx.pg.exec("delete from propiedades where id like 'infocasas:ret%' or id like 'urbania:ret%'")
+    await ctx.pg.exec(`
+      insert into propiedades (id, portal, operacion, inmueble, titulo, precio, precio_usd, moneda, distrito, url) values
+        ('infocasas:ret-muerto','infocasas','VENTA','Proyecto','Madre Selva',100000,100000,'USD','Lince','https://www.infocasas.com.pe/proyectos/madre-selva'),
+        ('infocasas:ret-favorito','infocasas','VENTA','Proyecto','Con favorito',100000,100000,'USD','Lince','https://www.infocasas.com.pe/proyectos/x'),
+        ('infocasas:ret-vivo','infocasas','VENTA','Proyecto','Vivo',100000,100000,'USD','Lince','https://www.infocasas.com.pe/proyectos/y'),
+        ('urbania:ret-muerto','urbania','VENTA','Casa','Otro portal',100000,100000,'USD','Lince','https://urbania.pe/z')
+    `)
+    const adminId = (await ctx.pg.query<{ id: number }>("select id::int from usuarios where usuario = 'admin'")).rows[0].id
+    await ctx.pg.exec(`insert into favoritos (admin_id, propiedad_id) values (${adminId}, 'infocasas:ret-favorito')`)
+
+    // Sin token válido no se borra nada.
+    expect((await enviar({ avisos: [], retirados: [{ portal: "infocasas", codigo: "ret-muerto" }] }, "token-equivocado-con-mas-de-24-caracteres")).status).toBe(403)
+    expect((await filas("id = 'infocasas:ret-muerto'")).length).toBe(1)
+
+    const res = await enviar({
+      avisos: [],
+      retirados: [
+        { portal: "infocasas", codigo: "ret-muerto" },
+        { portal: "infocasas", codigo: "ret-favorito" }, // protegido
+        { portal: "INFOCASAS", codigo: "ret-inexistente" }, // no existe
+        { portal: "portal-falso", codigo: "ret-muerto" }, // portal desconocido
+        { portal: "infocasas" }, // sin código
+        null,
+      ],
+    })
+    expect(res.status).toBe(200)
+    expect(await res.json()).toMatchObject({ recibidos: 0, retirados: 1 })
+    const ids = (await filas("id like '%:ret-%'")).map(f => f.id).sort()
+    expect(ids).toEqual(["infocasas:ret-favorito", "infocasas:ret-vivo", "urbania:ret-muerto"])
   })
 
   it("un aviso normal no se ve afectado: sin rango, sin tipologías y con su propio código", async () => {

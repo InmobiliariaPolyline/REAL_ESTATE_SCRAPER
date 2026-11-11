@@ -686,10 +686,15 @@ const monedaDeTexto = (v: unknown): "USD" | "PEN" => {
   return t.includes("US") || t.includes("$") ? "USD" : "PEN"
 }
 
-/** Nombre del proyecto en una dirección de InfoCasas: «/proyectos/b34» o «/b34/187068547» -> «b34». */
+/**
+ * Nombre con el que se agrupan las tipologías de un proyecto: el de la dirección del proyecto («/proyectos/b34») o, si solo se
+ * conoce la de una tipología («/b34/187068547»), el nombre de esa dirección. Sirve solo para agrupar: NO se usa para armar
+ * una dirección, porque el nombre de la tipología no siempre es el del proyecto.
+ */
 export function slugDeProyectoInfocasas(url: string | undefined): string | undefined {
   const t = url ?? ""
-  return /(?:^|\/)proyectos\/([^/?#]+)/.exec(t)?.[1] ?? /^(?:https?:\/\/[^/]+)?\/?([^/?#]+)\/\d+\/?(?:[?#].*)?$/.exec(t)?.[1]
+  const deProyecto = /(?:^|\/)proyectos\/([^?#]+)/.exec(t)?.[1]?.replace(/\/+$/, "").replace(/\//g, "-")
+  return deProyecto ?? /^(?:https?:\/\/[^/]+)?\/?([^/?#]+)\/\d+\/?(?:[?#].*)?$/.exec(t)?.[1]
 }
 
 /** Primer número positivo de entre varios campos posibles (el actor no siempre usa el mismo nombre). */
@@ -770,7 +775,8 @@ export function mapearAvisoInfocasas(item: Record<string, unknown>): Aviso | nul
     area: area ? `${area} m2` : undefined,
     imagen: str(item.thumbnail) ?? fotos[0],
     imagenes: fotos,
-    url: esProyecto && slug ? `https://www.infocasas.com.pe/proyectos/${slug}` : str(item.listingUrl),
+    // La dirección que entrega el actor, tal cual: la de una tipología el portal la lleva al proyecto.
+    url: str(item.listingUrl),
     descripcion: str(item.propertyDescription),
     direccion: str(item.address),
     estacionamientos: garages !== undefined ? String(garages) : undefined,

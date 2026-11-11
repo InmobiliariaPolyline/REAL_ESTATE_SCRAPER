@@ -87,11 +87,18 @@ function datosNextInfocasas(html) {
 // En ambas viene `commercial_units`: la lista de todas las tipologías. Se guarda UN aviso por proyecto, con el rango
 // («Desde … hasta …») calculado de esa lista y la lista misma.
 
-/** Nombre del proyecto en la dirección: «proyectos/b34» o «/b34/187068547» -> «b34». */
-const slugDeProyecto = link => {
-  const t = String(link ?? "")
-  return /(?:^|\/)proyectos\/([^/?#]+)/.exec(t)?.[1] ?? /^\/?([^/?#]+)\/\d+\/?(?:[?#].*)?$/.exec(t)?.[1]
-}
+/**
+ * Dirección de un proyecto tal como la publica el portal: «/proyectos/b34», «/proyectos/grancentralcolonial»,
+ * «/proyectos/eco-park/3767». Se usa TAL CUAL: no se arma con el nombre de una tipología («/gran-central-colonial-2/190490128»),
+ * que no siempre coincide con el del proyecto, ni se recorta («/proyectos/eco-park» redirige a una página genérica).
+ */
+const rutaDeProyecto = link => (/(?:^|\/)proyectos\/[^?#]/.test(String(link ?? "")) ? String(link).replace(/[?#].*$/, "") : undefined)
+
+/** Nombre que identifica al proyecto, sacado de su dirección: «/proyectos/eco-park/3767» -> «eco-park-3767». */
+const claveDeProyecto = ruta => ruta?.replace(/^\/?proyectos\//, "").replace(/\/+$/, "").replace(/\//g, "-")
+
+/** Dirección completa a partir de la ruta que entrega el portal («/x/1» o «x/1»). */
+const direccionDe = (base, ruta) => (ruta ? base + (String(ruta).startsWith("/") ? "" : "/") + ruta : undefined)
 
 const nombreMoneda = c => (typeof c === "string" ? c : c?.name)
 const esDolar = c => /u\$s|usd|us\$|\$/i.test(nombreMoneda(c) ?? "") && !/^s\//i.test(nombreMoneda(c) ?? "")
@@ -137,7 +144,10 @@ function avisoDeProyecto(it, operacion, titulo, objeto, base) {
   const areaMin = areaDesde ?? (areas.length ? Math.min(...areas) : undefined)
   const areaMax = areas.length ? Math.max(...areas) : undefined
 
-  const slug = slugDeProyecto(objeto.link) ?? slugDeProyecto(it.link)
+  // La dirección del proyecto sale de la dirección del proyecto (`project.link`, o el propio enlace si es el proyecto). Si el
+  // registro solo trae el enlace de una tipología, se usa ese enlace tal cual: el portal lo redirige al proyecto.
+  const ruta = rutaDeProyecto(objeto.link) ?? rutaDeProyecto(it.link)
+  const clave = claveDeProyecto(ruta)
   const loc = it.locations ?? {}
   const nombre = k => (Array.isArray(loc[k]) ? loc[k][0]?.name : loc[k]?.name)
   const punto = /POINT\s*\(\s*(-?[\d.]+)\s+(-?[\d.]+)\s*\)/.exec(loc.location_point ?? "")
@@ -148,7 +158,7 @@ function avisoDeProyecto(it, operacion, titulo, objeto, base) {
   return {
     portal: "infocasas",
     // El código es el del proyecto, no el de una tipología: así las distintas formas de leerlo no lo duplican.
-    codigo: slug ? `proyecto-${slug}` : String(objeto.id ?? it.id),
+    codigo: clave ? `proyecto-${clave}` : `proyecto-${objeto.id ?? it.id}`,
     operacion,
     inmueble: "Proyecto",
     titulo,
@@ -163,7 +173,7 @@ function avisoDeProyecto(it, operacion, titulo, objeto, base) {
     area: areaMin === undefined ? undefined : areaMax !== undefined && areaMax > areaMin ? `${areaMin} – ${areaMax} m2` : `${areaMin} m2`,
     imagen: texto(limpiaFoto(it.img)) ?? imagenes[0],
     imagenes,
-    url: slug ? `${base}/proyectos/${slug}` : it.link ? base + (String(it.link).startsWith("/") ? "" : "/") + it.link : undefined,
+    url: direccionDe(base, ruta ?? it.link),
     descripcion: texto(objeto.description) ?? texto(it.description),
     direccion: it.showAddress === false ? undefined : texto(it.address),
     antiguedad: estado ? antiguedadDeEstado(estado) : undefined,
@@ -214,7 +224,7 @@ export function avisoDeInfocasas(it, base = "https://www.infocasas.com.pe") {
     area: area ? `${area} m2` : undefined,
     imagen: texto(limpiaFoto(it.img)) ?? imagenes[0],
     imagenes,
-    url: it.link ? base + (String(it.link).startsWith("/") ? "" : "/") + it.link : undefined,
+    url: direccionDe(base, it.link),
     descripcion: texto(it.description),
     direccion: it.showAddress === false ? undefined : texto(it.address),
     estacionamientos: ficha.garage !== undefined && ficha.garage !== "" ? String(entero(ficha.garage) ?? 0) : undefined,
@@ -244,6 +254,8 @@ export const infocasas = {
     "venta/departamentos/arequipa", "alquiler/departamentos/arequipa", "venta/casas/arequipa",
     "venta/departamentos/la-libertad", "venta/departamentos/piura", "venta/departamentos/lambayeque",
   ],
+  /** Antes de enviar un proyecto se comprueba que su página exista (puede seguir en los listados con la página caída). */
+  verificaProyectos: true,
   maxPaginas: 25,
   urlPagina: (busqueda, n) => `https://www.infocasas.com.pe/${busqueda}${n > 1 ? `/pagina${n}` : ""}`,
   extraer(html) {

@@ -311,26 +311,67 @@ function fusionar(previo: Aviso, nuevo: Aviso): Aviso {
 
 /**
  * Antes de agruparse por proyecto, cada tipología se guardaba como un aviso aparte («B34» tres veces, con el precio y el
- * tamaño de una sola). Al guardar el proyecto se quitan esas copias (las que apuntan a su misma dirección), salvo las
- * que tengan favoritos o enlaces. Es una limpieza de apoyo: si falla, la carga sigue.
+ * tamaño de una sola), y durante un tiempo algunos proyectos se guardaron con una dirección mal armada. Al guardar el
+ * proyecto se quitan esas copias (las que apuntan a su misma dirección o repiten su título y distrito), salvo las que
+ * tengan favoritos o enlaces. Es una limpieza de apoyo: si falla, la carga sigue.
  */
 async function quitarCopiasDeProyectos(db: Db, filas: FilaPropiedad[]) {
+  const sinCuracion = `not exists (select 1 from public.enlaces e where e.propiedad_id = p.id)
+            and not exists (select 1 from public.favoritos f where f.propiedad_id = p.id)`
   for (const fila of filas) {
     const slug = /^[a-z]+:proyecto-(.+)$/.exec(fila.id)?.[1]
     if (!slug || !fila.url) continue
     try {
+      // 1) Copias por tipología que apuntan a la dirección del proyecto o a una de sus tipologías.
       await db.query(
         `delete from public.propiedades p
           where p.portal = $1 and p.id <> $2
             and (p.url = $3 or p.url ~* $4)
-            and not exists (select 1 from public.enlaces e where e.propiedad_id = p.id)
-            and not exists (select 1 from public.favoritos f where f.propiedad_id = p.id)`,
+            and ${sinCuracion}`,
         [fila.portal, fila.id, fila.url, `^https?://[^/]+/${escapeRegex(slug)}/[0-9]+/?$`]
       )
+      // 2) El mismo proyecto guardado antes con otro código (p. ej. con una dirección armada con el nombre de una tipología,
+      //    que daba 404): mismo portal, mismo título y mismo distrito.
+      if (fila.titulo) {
+        await db.query(
+          `delete from public.propiedades p
+            where p.portal = $1 and p.id <> $2 and p.id like $3
+              and p.inmueble = 'Proyecto' and lower(p.titulo) = lower($4)
+              and coalesce(lower(p.distrito), '') = coalesce(lower($5), '')
+              and ${sinCuracion}`,
+        [fila.portal, fila.id, `${fila.portal}:proyecto-%`, fila.titulo, fila.distrito]
+        )
+      }
     } catch {
       // Sin las tablas de curación (o con un error pasajero) no se limpia; el aviso del proyecto ya quedó guardado.
     }
   }
+}
+
+/**
+ * Quita avisos que el portal ya no publica (su página da «404»): el scraper los reporta como `retirados`. Solo se aceptan
+ * portales conocidos y códigos razonables, y no se toca un aviso con favoritos o enlaces (mismo criterio que la limpieza de
+ * inactivos). Devuelve cuántos se quitaron.
+ */
+export async function quitarRetirados(db: Db, retirados: { portal: string; codigo: string }[]): Promise<number> {
+  const ids = [
+    ...new Set(
+      retirados
+        .map(r => ({ portal: String(r?.portal ?? "").toLowerCase(), codigo: String(r?.codigo ?? "").trim() }))
+        .filter(r => (PORTALES as readonly string[]).includes(r.portal) && r.codigo.length > 0 && r.codigo.length <= 120)
+        .map(r => `${r.portal}:${r.codigo}`)
+    ),
+  ]
+  if (ids.length === 0) return 0
+  const filas = (await db.query(
+    `delete from public.propiedades p
+      where p.id = any($1::text[])
+        and not exists (select 1 from public.enlaces e where e.propiedad_id = p.id)
+        and not exists (select 1 from public.favoritos f where f.propiedad_id = p.id)
+      returning p.id`,
+    [ids]
+  )) as unknown[]
+  return Array.isArray(filas) ? filas.length : 0
 }
 
 /**

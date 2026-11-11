@@ -23,6 +23,17 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "3.5.3",
+    fecha: "2026-11-11",
+    titulo: "«Ver aviso» lleva siempre al aviso original",
+    cambios: [
+      { tipo: "correccion", texto: "Corregido el enlace «Ver aviso» de los proyectos de InfoCasas, que desde la v3.4.0 a veces llevaba a «Oops! error 404» o a una página genérica. Se armaba con el nombre de una tipología, que no siempre es el del proyecto (la tipología «gran-central-colonial-2» pertenece al proyecto «grancentralcolonial»). Ahora se usa la dirección del proyecto tal como la publica el portal, completa (por ejemplo /proyectos/eco-park/3767), y con Apify se respeta el enlace que entrega el actor." },
+      { tipo: "correccion", texto: "InfoCasas sigue mostrando en sus listados proyectos cuya propia página ya no existe (en una lectura real, 12 de 21 daban 404). Antes de enviar un proyecto, el scraper comprueba su página: si no existe, no se envía y se quita del catálogo. Así dejan de aparecer avisos cuyo enlace no lleva a ninguna parte." },
+      { tipo: "implementacion", texto: "La entrada de avisos (POST /api/ingesta) acepta una lista opcional de «retirados» (avisos que el portal ya no tiene) y los quita del catálogo, sin tocar los que tengan favoritos o enlaces. Al guardar un proyecto también se limpian las copias antiguas de ese mismo proyecto que se guardaron con una dirección mal armada." },
+      { tipo: "mejora", texto: "Pruebas con datos reales: para los 22 proyectos del listado se comprueba que el enlace es exactamente el que publica el portal, con los casos que fallaban (Gran Central Colonial 1 y 2, Eco Park), la detección de páginas caídas y el borrado protegido de retirados." },
+    ],
+  },
+  {
     version: "3.5.2",
     fecha: "2026-11-11",
     titulo: "Documentación del repositorio al día",

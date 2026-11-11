@@ -1,4 +1,4 @@
-import { guardarAvisos, PORTALES, type Aviso } from "../ingest"
+import { guardarAvisos, PORTALES, quitarRetirados, type Aviso } from "../ingest"
 import { limpiarUnidades } from "../../shared/proyectos"
 import { usdToPenRate } from "../env"
 import { HttpError, badRequest, forbidden, readJson, timingSafeEqual } from "../http"
@@ -74,15 +74,19 @@ export const ingestaRoutes: Route[] = [
 
       const body = await readJson(req)
       if (!Array.isArray(body.avisos)) throw badRequest("Se esperaba { \"avisos\": [ ... ] }")
-      if (body.avisos.length === 0) return { recibidos: 0, guardados: 0, descartados: 0 }
       if (body.avisos.length > MAX_AVISOS_POR_ENVIO) {
         throw badRequest(`Máximo ${MAX_AVISOS_POR_ENVIO} avisos por envío: manda varios lotes`)
       }
+      // Opcional: avisos que el portal ya no tiene ({ portal, codigo }); se quitan del catálogo (salvo los curados).
+      const retiradosPedidos = Array.isArray(body.retirados) ? (body.retirados as { portal: string; codigo: string }[]).slice(0, MAX_AVISOS_POR_ENVIO) : []
+      const retirados = retiradosPedidos.length ? await quitarRetirados(db, retiradosPedidos) : 0
+      if (body.avisos.length === 0) return { recibidos: 0, guardados: 0, descartados: 0, retirados }
 
       const avisos = body.avisos.map(comoAviso).filter((a): a is Aviso => a !== null)
       const { guardados, descartados } = await guardarAvisos(db, avisos, usdToPenRate(env))
       return {
         recibidos: body.avisos.length,
+        retirados,
         guardados,
         // Los que no eran objetos más los que no se pudieron identificar (portal, código u operación inválidos).
         descartados: body.avisos.length - avisos.length + descartados,

@@ -22,7 +22,25 @@ describe("scraper/enviar_avisos.mjs", () => {
     const avisos = Array.from({ length: 450 }, (_, i) => ({ portal: "urbania", codigo: String(i) }))
     const total = await enviarAvisos(avisos, url, "tok")
     expect(llamadas).toEqual([{ auth: "Bearer tok", n: 200 }, { auth: "Bearer tok", n: 200 }, { auth: "Bearer tok", n: 50 }])
-    expect(total).toEqual({ recibidos: 450, guardados: 447, descartados: 3 })
+    expect(total).toEqual({ recibidos: 450, guardados: 447, descartados: 3, retirados: 0 })
+  })
+
+  it("los avisos retirados del portal viajan con el primer lote (y solos si no hay avisos)", async () => {
+    const cuerpos: { avisos: unknown[]; retirados?: unknown[] }[] = []
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_u: string, init: RequestInit) => {
+        cuerpos.push(JSON.parse(init.body as string))
+        return new Response(JSON.stringify({ recibidos: 0, guardados: 0, descartados: 0, retirados: 1 }), { status: 200 })
+      })
+    )
+    const retirados = [{ portal: "infocasas", codigo: "proyecto-madre-selva" }]
+    await enviarAvisos(Array.from({ length: 250 }, (_, i) => ({ portal: "infocasas", codigo: String(i) })), url, "tok", retirados)
+    expect(cuerpos.map(c => [c.avisos.length, c.retirados?.length ?? 0])).toEqual([[200, 1], [50, 0]])
+    cuerpos.length = 0
+    const solo = await enviarAvisos([], url, "tok", retirados)
+    expect(cuerpos).toEqual([{ avisos: [], retirados }])
+    expect(solo.retirados).toBe(1)
   })
 
   it("si la API rechaza el envío, falla con su respuesta", async () => {
