@@ -23,6 +23,19 @@ export const TIPOS: Record<CambioTipo, { label: string; plural: string }> = {
 /** Historial de versiones, de la más reciente a la más antigua. */
 export const VERSIONES: Version[] = [
   {
+    version: "3.4.0",
+    fecha: "2026-11-10",
+    titulo: "Proyectos inmobiliarios leídos con exactitud",
+    cambios: [
+      { tipo: "correccion", texto: "Corregido el origen del error con los proyectos (el caso B34): InfoCasas publica un proyecto de dos formas (el proyecto mismo y cada una de sus tipologías) y el scraper solo reconocía una. Una tipología se guardaba como «Departamento» con el precio, los dormitorios y el área de una sola (US$ 130,600, 3 dormitorios, 66 m²), cuando el portal dice «Desde US$ 108,700 hasta US$ 130,600», de 1 a 3 dormitorios y de 54 a 66 m². Ahora se lee la lista completa de tipologías del proyecto." },
+      { tipo: "implementacion", texto: "Un proyecto se guarda UNA vez (código proyecto-<nombre>) con su precio «Desde» y «Hasta», los dormitorios y baños que ofrece (1, 2, 3), su área como rango (54 – 66 m²) y la lista de tipologías. Da igual por qué listado llegue: las dos formas dan el mismo aviso, y al guardarlo se quitan las copias antiguas por tipología (salvo las que tengan favoritos o enlaces). Los precios ocultos por el anunciante no cuentan; si todos están ocultos, queda sin precio." },
+      { tipo: "implementacion", texto: "La tarjeta y el detalle muestran «Desde» y «Hasta», sin un «precio por m²» engañoso, y el detalle suma la tabla «Tipologías del proyecto» con dormitorios, baños, área, precio por m² y precio de cada opción. Los filtros encuentran el proyecto por cualquiera de sus tipologías (filtrar por 2 dormitorios lo encuentra si ofrece 1, 2 y 3). El panel de administración también muestra el «Hasta»." },
+      { tipo: "mejora", texto: "El scraper propio ahora también lee el listado de proyectos de InfoCasas en cada corrida. El endpoint de ingesta acepta los campos nuevos (precioMax y unidades) y la carga con Apify agrupa por proyecto las tipologías que recibe." },
+      { tipo: "mejora", texto: "Migración opcional db/014_proyectos.sql (precio_max, precio_max_usd y unidades). Sin ejecutarla todo funciona igual; solo faltan el «Hasta» y la tabla de tipologías. Está documentado en docs/SCRAPER_PROPIO.md." },
+      { tipo: "mejora", texto: "Pruebas con datos reales: 22 proyectos de InfoCasas (con precios ocultos, proyectos de terrenos y de una sola tipología) comprueban que el «Desde» es el menor precio, el «Hasta» el mayor, y que el mismo proyecto leído desde listados distintos da el mismo aviso." },
+    ],
+  },
+  {
     version: "3.3.4",
     fecha: "2026-11-10",
     titulo: "Barras de precio en verde",

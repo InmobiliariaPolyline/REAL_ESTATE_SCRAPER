@@ -2,6 +2,7 @@ import type { Db } from "./db"
 import type { ApiEnv } from "./env"
 import { usdToPenRate } from "./env"
 import { guardarAvisos, type Aviso } from "./ingest"
+import { limpiarUnidades, unirUnidades, type UnidadProyecto } from "../shared/proyectos"
 
 /**
  * Carga automática de avisos con Apify, con varias barreras para no pasarse del presupuesto:
@@ -685,7 +686,49 @@ const monedaDeTexto = (v: unknown): "USD" | "PEN" => {
   return t.includes("US") || t.includes("$") ? "USD" : "PEN"
 }
 
-/** Convierte un registro del actor de InfoCasas (`sian.agency`) en un aviso del sistema. */
+/** Nombre del proyecto en una dirección de InfoCasas: «/proyectos/b34» o «/b34/187068547» -> «b34». */
+export function slugDeProyectoInfocasas(url: string | undefined): string | undefined {
+  const t = url ?? ""
+  return /(?:^|\/)proyectos\/([^/?#]+)/.exec(t)?.[1] ?? /^(?:https?:\/\/[^/]+)?\/?([^/?#]+)\/\d+\/?(?:[?#].*)?$/.exec(t)?.[1]
+}
+
+/** Primer número positivo de entre varios campos posibles (el actor no siempre usa el mismo nombre). */
+const primerNum = (...valores: unknown[]): number | undefined => {
+  for (const v of valores) {
+    const n = num(v)
+    if (n !== undefined && n > 0) return n
+  }
+  return undefined
+}
+
+/** Tipologías que el actor entrega dentro de un proyecto, si las entrega (con cualquiera de los nombres habituales). */
+function unidadesDeProyecto(item: Record<string, unknown>): UnidadProyecto[] {
+  for (const campo of ["commercialUnits", "commercial_units", "units", "typologies", "unidades"]) {
+    const lista = item[campo]
+    if (!Array.isArray(lista) || lista.length === 0) continue
+    return limpiarUnidades(
+      lista.map(x => {
+        const u = (x ?? {}) as Record<string, unknown>
+        const precio = (u.price ?? {}) as Record<string, unknown>
+        const oculto = u.priceHidden === true || precio.hidePrice === true
+        return {
+          codigo: u.listingId ?? u.id ?? u.code,
+          dormitorios: primerNum(u.bedrooms),
+          banios: primerNum(u.bathrooms),
+          area: primerNum(u.areaBuilt, u.m2, u.area, u.areaTerrain, u.m2Terrain),
+          precio: oculto ? undefined : primerNum(precio.amount, u.priceAmount, typeof u.price === "number" ? u.price : undefined),
+        }
+      })
+    )
+  }
+  return []
+}
+
+/**
+ * Convierte un registro del actor de InfoCasas (`sian.agency`) en un aviso del sistema. Un proyecto se guarda una sola vez
+ * (código `proyecto-<nombre>`), con la tipología que traiga el registro (y las demás, si las trae): sus tipologías de otros
+ * registros se unen al guardar. El scraper propio (scraper/) lee la lista completa de tipologías de cada proyecto.
+ */
 export function mapearAvisoInfocasas(item: Record<string, unknown>): Aviso | null {
   const codigo = typeof item.listingId === "number" ? String(item.listingId) : str(item.listingId)
   const operacionRaw = str(item.operationType)?.toLowerCase()
@@ -698,15 +741,27 @@ export function mapearAvisoInfocasas(item: Record<string, unknown>): Aviso | nul
   const garages = num(item.garages)
   const fotos = fotosDe({ photos: item.photos })
   const oculto = item.priceHidden === true
+  const slug = slugDeProyectoInfocasas(str(item.listingUrl))
+  const esProyecto = item.isProject === true || item.isProjectUnit === true || /\/proyectos\//.test(str(item.listingUrl) ?? "")
+  const propia: UnidadProyecto = {
+    codigo,
+    dormitorios: primerNum(item.bedrooms),
+    banios: primerNum(item.bathrooms),
+    area: primerNum(item.areaBuilt, item.areaTerrain),
+    precio: oculto ? undefined : primerNum(item.priceAmount),
+  }
+  const unidades = esProyecto ? unirUnidades(unidadesDeProyecto(item), limpiarUnidades([propia])) : []
   return {
     portal: "infocasas",
-    codigo,
+    // Un proyecto se guarda por su nombre, no por el código de una tipología (si no, cada tipología sería un aviso aparte).
+    codigo: esProyecto && slug ? `proyecto-${slug}` : codigo,
     operacion,
-    inmueble: item.isProject === true ? "Proyecto" : tipo ? (TIPOS[tipo.toLowerCase()] ?? tipo) : "Otro",
+    inmueble: esProyecto ? "Proyecto" : tipo ? (TIPOS[tipo.toLowerCase()] ?? tipo) : "Otro",
     titulo,
     precio: oculto ? undefined : num(item.priceAmount),
     moneda: monedaDeTexto(item.priceCurrency),
     precioUsd: oculto ? undefined : num(item.priceUsd),
+    ...(unidades.length ? { unidades } : {}),
     distrito: str(item.neighbourhood) ?? str(item.city) ?? str(item.state),
     departamento: str(item.state),
     provincia: str(item.city),
@@ -715,7 +770,7 @@ export function mapearAvisoInfocasas(item: Record<string, unknown>): Aviso | nul
     area: area ? `${area} m2` : undefined,
     imagen: str(item.thumbnail) ?? fotos[0],
     imagenes: fotos,
-    url: str(item.listingUrl),
+    url: esProyecto && slug ? `https://www.infocasas.com.pe/proyectos/${slug}` : str(item.listingUrl),
     descripcion: str(item.propertyDescription),
     direccion: str(item.address),
     estacionamientos: garages !== undefined ? String(garages) : undefined,

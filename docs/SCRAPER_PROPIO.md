@@ -57,6 +57,7 @@ formado, `400`.
 | `url` | no | Dirección del aviso original |
 | `descripcion`, `direccion`, `publicador` | no | Texto |
 | `latitud`, `longitud`, `mantenimiento` | no | Números |
+| `precioMax`, `unidades` | no | Solo proyectos (ver «Proyectos inmobiliarios»): precio más alto y lista de tipologías `[{ codigo, dormitorios, banios, area, precio }]` |
 
 Lo que no se puede identificar (portal desconocido, sin código u operación inválida) se descarta y se cuenta en
 `descartados`.
@@ -90,7 +91,7 @@ node scraper/scraper.mjs --portal infocasas --paginas 5
 node scraper/scraper.mjs --busqueda venta/departamentos/lima/miraflores --paginas 10
 ```
 
-Opciones: `--provincias` (suma Arequipa, La Libertad, Piura, Lambayeque y proyectos), `--paginas N` (hasta 25 por búsqueda), `--busqueda RUTA` (se puede repetir), `--max N` (tope de avisos,
+Opciones: `--provincias` (suma Arequipa, La Libertad, Piura y Lambayeque), `--paginas N` (hasta 25 por búsqueda), `--busqueda RUTA` (se puede repetir), `--max N` (tope de avisos,
 2000 por defecto), `--pausa S` (segundos entre peticiones, 5 por defecto, mínimo 3) y `--probar`.
 
 **Cómo se porta:** un solo hilo, 5 segundos o más entre peticiones, se identifica como `ScraperPropio/1.0`, consulta
@@ -98,6 +99,47 @@ el `robots.txt` del portal antes de pedir cada página, y **se detiene** si el p
 servidor (no reintenta ni intenta esquivar nada). Cada página se envía apenas se lee.
 
 Las direcciones de búsqueda de cada portal están en `docs/URLS_BUSQUEDA.md`.
+
+### Proyectos inmobiliarios (edificios en construcción, condominios)
+
+Un proyecto **no tiene un solo precio ni un solo tamaño**: ofrece varias tipologías («1 dormitorio, 54 m², US$ 108,700»
+… «3 dormitorios, 66 m², US$ 130,600»). InfoCasas lo muestra como «Desde US$ 108,700 / Hasta US$ 130,600». El sistema
+guarda **un aviso por proyecto**:
+
+| Campo guardado | Qué es |
+| --- | --- |
+| `inmueble` | siempre `Proyecto` |
+| `precio` | el precio más bajo («Desde») |
+| `precio_max` | el precio más alto («Hasta»); vacío si todas cuestan lo mismo |
+| `dormitorios`, `banios` | las cantidades que ofrece el proyecto: `1, 2, 3` |
+| `area` | el rango: `54 – 66 m2` |
+| `unidades` | la lista de tipologías (dormitorios, baños, área y precio de cada una) |
+
+**Cómo llega InfoCasas.** El mismo proyecto aparece de dos formas, según el listado: como el proyecto mismo (`isProject`,
+enlace `proyectos/b34`, con los datos de su tipología más pequeña) y como **una de sus tipologías** (enlace
+`/b34/187068547`, con los datos de esa tipología solamente). Antes eso producía avisos de «Departamento» con el precio y el
+tamaño de una sola tipología (el B34 salía a US$ 130,600 y 66 m², cuando el portal dice desde 108,700 hasta 130,600 y de
+54 a 66 m²). Las dos formas traen `commercial_units` con **todas** las tipologías: el scraper las lee y guarda el
+proyecto con el código `proyecto-<nombre>` (p. ej. `infocasas:proyecto-b34`), de modo que da igual por qué listado llegue.
+Al guardar un proyecto se eliminan las copias antiguas que lo representaban por tipología (salvo las que tengan
+favoritos o enlaces).
+
+**Precios ocultos.** Si el anunciante oculta el precio de una tipología, esa tipología no cuenta para el «Desde/Hasta»
+(sigue en la lista, como «Consultar»). Si todas están ocultas, el proyecto queda sin precio, como en el portal.
+
+**Dónde se ve.** En la tarjeta («Desde» y «Hasta»), en el detalle (precios, rangos y la tabla de tipologías con su precio
+por m²) y en el panel de administración. Los filtros usan el «Desde» para el precio y encuentran el proyecto por
+cualquiera de sus tipologías (un proyecto de 1 a 3 dormitorios aparece al filtrar por 2).
+
+**Migración:** `db/014_proyectos.sql` agrega `precio_max`, `precio_max_usd` y `unidades`. Sin ejecutarla todo funciona
+igual (se guarda el «Desde» y los rangos de dormitorios, baños y área); solo faltan el «Hasta» y la tabla de tipologías.
+
+**Carga con Apify.** El actor de InfoCasas entrega un registro por tipología y no su lista completa: se agrupan por
+proyecto dentro de una misma corrida, pero lo más exacto es la lectura del scraper propio (que trae la lista completa y
+se corre lunes y jueves). Si se usan ambos, el resultado es el mismo aviso (`proyecto-<nombre>`).
+
+**Pruebas:** `scraper/proyectos.test.ts` (22 proyectos reales de InfoCasas guardados en
+`scraper/fixtures/infocasas-proyectos.json`) y `api/proyectos.test.ts` (de punta a punta contra una base real).
 
 **Programarlo en la nube (recomendado, sin computador):** el workflow `.github/workflows/scraper.yml` corre el
 scraper solo, lunes y jueves. Solo hay que crear el secreto `INGESTA_TOKEN` en GitHub (Settings → Secrets and

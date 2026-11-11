@@ -74,10 +74,16 @@ describe("E2E con avisos reales de InfoCasas", () => {
     expect(f.filter(x => x.latitud != null && (x.latitud > 0.5 || x.latitud < -19 || x.longitud > -68 || x.longitud < -82))).toEqual([])
     expect(f.filter(x => x.operacion === "VENTA" && x.precio_usd > 0 && (x.precio_usd < 1000 || x.precio_usd > 300_000_000))).toEqual([])
     expect(new Set(f.map(x => x.inmueble)).has("Local Comercial")).toBe(false) // unificado como «Local comercial»
-    // Un proyecto guardado nunca se queda como «Departamento» con datos de una tipología suelta.
-    const ids = new Set(unicos.filter(i => i.project && !Array.isArray(i.project) && i.project.id).map(i => `infocasas:${i.id}`))
-    expect(f.filter(x => ids.has(x.id)).every(x => x.inmueble === "Proyecto")).toBe(true)
-    expect(ids.size).toBeGreaterThan(0)
+    // Un proyecto guardado nunca se queda como «Departamento» con datos de una tipología suelta: se guarda una vez, por su
+    // nombre (proyecto-<nombre>), y ninguna de sus tipologías queda como un aviso aparte.
+    const deProyecto = unicos.filter(i => i.isProject === true || (i.project && !Array.isArray(i.project) && i.project.id))
+    expect(deProyecto.length).toBeGreaterThan(0)
+    const codigos = new Set(deProyecto.map(i => `infocasas:${avisoDeInfocasas(i).codigo}`))
+    expect(codigos.size).toBeLessThanOrEqual(deProyecto.length)
+    for (const id of codigos) expect(f.find(x => x.id === id)?.inmueble, id).toBe("Proyecto")
+    expect(f.filter(x => deProyecto.some(i => x.id === `infocasas:${i.id}`))).toEqual([])
+    // Y su precio «Desde» no supera al «Hasta».
+    expect(f.filter(x => x.precio_max != null && Number(x.precio_max) <= Number(x.precio))).toEqual([])
   })
 
   const lista = async (q: string) => (await call("GET", `/api/propiedades?pageSize=500&${q}`, { token: member })).body
@@ -108,7 +114,8 @@ describe("E2E con avisos reales de InfoCasas", () => {
       const p = e.precio > 0 && e.moneda === "PEN" ? e.precio : e.precio_usd > 0 ? e.precio_usd * 3.75 : 0
       return e.operacion === "VENTA" && p >= 300000 && p <= 600000
     })
-    await chequear("3 dormitorios", "dormitorios=3", e => e.dormitorios === "3")
+    // Un proyecto de «1, 2, 3» dormitorios aparece al filtrar por 3 (y por 1 o 2), pero «13» no cuenta como 3.
+    await chequear("3 dormitorios", "dormitorios=3", e => /(^|\D)3(\D|$)/.test(e.dormitorios ?? ""))
     // Un distrito oficial se compara exacto: «Miraflores» no trae «San Juan de Miraflores».
     await chequear("Miraflores exacto", "distrito=Miraflores", e => e.distrito === "Miraflores")
     await chequear("San Juan de Miraflores", "distrito=San%20Juan%20de%20Miraflores", e => e.distrito === "San Juan de Miraflores")

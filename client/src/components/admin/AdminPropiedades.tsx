@@ -159,6 +159,7 @@ export default function AdminPropiedades() {
                   titulo={prop.titulo}
                   precio={prop.precio}
                   precioUsd={prop.precio_usd}
+                  precioMax={prop.precio_max}
                   moneda="PEN"
                   monedaOriginal={prop.moneda}
                   distrito={prop.distrito}

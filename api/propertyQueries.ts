@@ -37,6 +37,12 @@ export const PROPERTY_COLUMNS = propertyColumns()
 export const PROPERTY_COLUMNS_TARJETA = `${PROPERTY_COLUMNS},
   estacionamientos, antiguedad, departamento, coalesce(cardinality(imagenes), 0)::int as fotos`
 
+/** Las del catálogo más el precio «Hasta» de los proyectos (db/014); sin esa migración se usa `PROPERTY_COLUMNS_TARJETA`. */
+export const PROPERTY_COLUMNS_PROYECTOS = `${PROPERTY_COLUMNS_TARJETA}, precio_max::float8 as precio_max`
+
+/** Las del panel de administración más el precio «Hasta» de los proyectos (db/014). */
+export const PROPERTY_COLUMNS_ADMIN = `${PROPERTY_COLUMNS}, precio_max::float8 as precio_max`
+
 /** Columnas de `enlaces` devueltas al cliente (id como número). */
 export const ENLACE_COLUMNS =
   "id::int as id, propiedad_id, titulo, descripcion, url, tipo, creado_en"
@@ -437,13 +443,13 @@ function applyAdminWhere(w: Where, f: AdminFilters) {
   applyDetalleWhere(w, f.detalle)
 }
 
-export function buildAdminQuery(f: AdminFilters, page: number, pageSize: number): BuiltQuery {
+export function buildAdminQuery(f: AdminFilters, page: number, pageSize: number, columnas: string = PROPERTY_COLUMNS): BuiltQuery {
   const w = new Where()
   applyAdminWhere(w, f)
   const limit = w.p(pageSize)
   const offset = w.p(page * pageSize)
   return {
-    text: `select ${PROPERTY_COLUMNS}, count(*) over()::int as total
+    text: `select ${columnas}, count(*) over()::int as total
            from ${w.fuente()} ${w.sql()}
            order by creado_en desc, id desc
            limit ${limit} offset ${offset}`,

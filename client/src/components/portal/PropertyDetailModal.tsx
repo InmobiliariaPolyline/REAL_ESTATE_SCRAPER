@@ -26,6 +26,7 @@ import { cn } from '@/lib/utils'
 import { trapFocus } from '@/lib/focusTrap'
 import type { Propiedad } from '@/types'
 import { BarraRango, Dato, Icono3D, Seccion } from './detail/Piezas'
+import Tipologias from './detail/Tipologias'
 
 const GOLD = 'var(--gold)'
 const fmt = (n: number) => n.toLocaleString('es-PE', { maximumFractionDigits: 0 })
@@ -127,8 +128,12 @@ export default function PropertyDetailModal({
   const estado = estadoDeAntiguedad(p?.antiguedad)
   const alquiler = esAlquiler(p?.operacion)
   const esProyecto = tipo.label === 'Proyecto'
-  const porM2 = price ? precioPorM2Partes(price, p?.area) : null
+  // Un proyecto tiene varias tipologías: el precio principal es el «Desde» y se agrega el «Hasta»; el área también es un rango.
+  const rangoDeArea = !!p?.area?.includes('–')
+  const porM2 = price && !(esProyecto && rangoDeArea) ? precioPorM2Partes(price, p?.area) : null
   const partesPrecio = price ? partesDePrecio(price) : null
+  const hasta = esProyecto && p?.precio_max && p.precio > 0 && p.precio_max > p.precio ? partesDePrecio(getPublishedPrice(p.precio_max, p.precio_max_usd, p.moneda, mon)) : null
+  const tipologias = esProyecto && p?.unidades?.length ? p.unidades : null
   // Las viviendas muestran dormitorios y baños aunque falten; un terreno u oficina no los necesita.
   const esVivienda = ['Departamento', 'Casa', 'Proyecto', 'Habitación'].includes(tipo.label)
   const m2 = useMemo(() => (p ? precioPorM2(p) : null), [p])
@@ -273,9 +278,14 @@ export default function PropertyDetailModal({
                           {partesPrecio.monto}
                           {alquiler && <span className="sb-suffix">{" "}/ mes</span>}
                         </Insignia>
+                        {hasta && (
+                          <Insignia tamano="lg" etiqueta={`Hasta · ${hasta.moneda}`} tono="green" titulo="Precio de la tipología más cara del proyecto">
+                            {hasta.monto}
+                          </Insignia>
+                        )}
                         <div className="flex flex-wrap gap-1.5">
                           {otra > 0 && (
-                            <Insignia tamano="md" etiqueta={`≈ ${currencyLabel(monedaPublicada === 'USD' ? 'PEN' : 'USD')} · aproximado`} mono>
+                            <Insignia tamano="md" etiqueta={`${hasta ? 'Desde ' : ''}≈ ${currencyLabel(monedaPublicada === 'USD' ? 'PEN' : 'USD')} · aproximado`} mono>
                               {fmt(otra)}
                             </Insignia>
                           )}
@@ -288,7 +298,7 @@ export default function PropertyDetailModal({
                         {price.approximate && <p className="text-xs text-text-muted">Precio convertido desde la otra moneda.</p>}
                       </div>
                     )}
-                    {posicion && (
+                    {posicion && !esProyecto && (
                       <p
                         className={cn(
                           'mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold',
@@ -305,7 +315,7 @@ export default function PropertyDetailModal({
                   <dl className="grid grid-cols-2 gap-3">
                     {(esVivienda || p.dormitorios) && <Dato icon={BedDouble} tono="violet" label="Dormitorios" value={p.dormitorios || NA} />}
                     {(esVivienda || p.banios) && <Dato icon={Bath} tono="blue" label="Baños" value={p.banios || NA} />}
-                    {p.area && <Dato icon={Ruler} tono="green" label="Área" value={formatoArea(p.area)} hint={categoriaTamano(m2?.m2 ?? null) ? `Tamaño ${categoriaTamano(m2?.m2 ?? null)}` : undefined} />}
+                    {p.area && <Dato icon={Ruler} tono="green" label="Área" value={formatoArea(p.area)} hint={!rangoDeArea && categoriaTamano(m2?.m2 ?? null) ? `Tamaño ${categoriaTamano(m2?.m2 ?? null)}` : undefined} />}
                     {p.estacionamientos && <Dato icon={Car} tono="amber" label="Cocheras" value={p.estacionamientos} />}
                     {(estado || p.antiguedad) && <Dato icon={Hammer} tono="rose" label={estado && /construcci/i.test(estado.label) ? 'Estado' : 'Antigüedad'} value={estado?.label ?? p.antiguedad} />}
                     <Dato icon={tipo.icono} tono="gold" label="Tipo" value={tipo.label} />
@@ -314,6 +324,18 @@ export default function PropertyDetailModal({
               </div>
 
               <div className="space-y-6 border-t border-line p-5 sm:p-6">
+                {/* ── Tipologías del proyecto ─────────────────────────────── */}
+                {tipologias && (
+                  <Seccion
+                    icon={Layers}
+                    tono="green"
+                    title="Tipologías del proyecto"
+                    subtitle={`${tipologias.length} ${tipologias.length === 1 ? 'opción' : 'opciones'}, cada una con su tamaño y su precio`}
+                  >
+                    <Tipologias unidades={tipologias} moneda={monedaPublicada} />
+                  </Seccion>
+                )}
+
                 {/* ── Precio, financiamiento y mercado ───────────────────── */}
                 <div className="grid gap-6 lg:grid-cols-2">
                   <Seccion
@@ -322,7 +344,7 @@ export default function PropertyDetailModal({
                     title={esVenta ? 'Financiamiento de referencia' : 'Costos del alquiler'}
                     subtitle={
                       esVenta
-                        ? `${HIPOTECA.inicialPct} % de inicial, ${HIPOTECA.anios} años, ${HIPOTECA.tasaAnualPct} % anual`
+                        ? `${HIPOTECA.inicialPct} % de inicial, ${HIPOTECA.anios} años, ${HIPOTECA.tasaAnualPct} % anual${esProyecto ? ', sobre el precio «Desde»' : ''}`
                         : `Estimación con ${MESES_GARANTIA} meses de garantía`
                     }
                   >
@@ -333,7 +355,7 @@ export default function PropertyDetailModal({
                       </p>
                     ) : (
                     <dl className="grid gap-3 sm:grid-cols-2">
-                      <Dato icon={Wallet} tono="gold" label="Precio por m²" value={money(m2Moneda)} hint={m2Otra ? `≈ ${currencyLabel(mon === 'USD' ? 'PEN' : 'USD')} ${fmt(m2Otra)}` : undefined} />
+                      {!(esProyecto && rangoDeArea) && <Dato icon={Wallet} tono="gold" label="Precio por m²" value={money(m2Moneda)} hint={m2Otra ? `≈ ${currencyLabel(mon === 'USD' ? 'PEN' : 'USD')} ${fmt(m2Otra)}` : undefined} />}
                       {fin ? (
                         <>
                           <Dato icon={Calculator} tono="green" label="Cuota mensual" value={money(fin.cuota)} hint="Capital más intereses" />
@@ -394,12 +416,21 @@ export default function PropertyDetailModal({
                 {/* ── Características, tiempo y ubicación ────────────────── */}
                 <div className="grid gap-6 lg:grid-cols-3">
                   <Seccion icon={Layers} tono="violet" title="Características">
+                    {esProyecto ? (
+                      <dl className="grid gap-3">
+                        {tipologias && <Dato icon={Layers} tono="violet" label="Tipologías" value={String(tipologias.length)} />}
+                        <Dato icon={BedDouble} tono="violet" label="Dormitorios" value={p.dormitorios || NA} />
+                        <Dato icon={Bath} tono="blue" label="Baños" value={p.banios || NA} />
+                        <Dato icon={Ruler} tono="green" label="Área" value={p.area ? formatoArea(p.area) : NA} />
+                      </dl>
+                    ) : (
                     <dl className="grid gap-3">
                       <Dato icon={BedDouble} tono="violet" label="Área por dormitorio" value={dorm && m2?.m2 ? `${(m2.m2 / dorm).toFixed(0)} m²` : NA} />
                       <Dato icon={Bath} tono="blue" label="Baños por dormitorio" value={dorm && banos ? (banos / dorm).toFixed(1) : NA} />
                       <Dato icon={Wallet} tono="gold" label="Precio por dormitorio" value={dorm && enMoneda ? money(enMoneda / dorm) : NA} />
                       <Dato icon={Ruler} tono="green" label="Tamaño" value={categoriaTamano(m2?.m2 ?? null) ?? NA} />
                     </dl>
+                    )}
                   </Seccion>
 
                   <Seccion icon={CalendarClock} tono="amber" title="Tiempo en el sistema">

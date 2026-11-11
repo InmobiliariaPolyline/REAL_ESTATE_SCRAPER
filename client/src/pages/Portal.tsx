@@ -560,6 +560,7 @@ export default function Portal({
                 titulo={prop.titulo}
                 precio={prop.precio}
                 precioUsd={prop.precio_usd}
+                precioMax={prop.precio_max}
                 moneda={applied.moneda}
                 monedaOriginal={prop.moneda}
                 distrito={prop.distrito}

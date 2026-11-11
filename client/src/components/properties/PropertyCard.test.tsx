@@ -40,6 +40,28 @@ describe('PropertyCard', () => {
     expect(insignia(container)).toEqual(expect.arrayContaining(['Tipo Proyecto', 'Desde · S/ 300,000', 'Estado En construcción']))
   })
 
+  it('un proyecto con varias tipologías muestra «Desde» y «Hasta», sus cantidades y su área como rango, sin un precio por m² engañoso', () => {
+    // B34 (Surquillo): de 1 a 3 dormitorios, de 54 a 66 m², de US$ 108,700 a 130,600.
+    const { container } = render(
+      <PropertyCard {...base} inmueble="Proyecto" titulo="B34" precio={108700} precioUsd={108700} precioMax={130600} moneda="USD" monedaOriginal="USD"
+        dormitorios="1, 2, 3" banios="1, 2" area="54 – 66 m2" antiguedad="En construcción" />
+    )
+    const todas = insignia(container)
+    expect(todas).toEqual(expect.arrayContaining(['Tipo Proyecto', 'Desde · USD 108,700', 'Hasta · USD 130,600', 'Dorm 1, 2, 3', 'Baños 1, 2', 'Área 54 – 66 m²', 'Estado En construcción']))
+    expect(todas.some(t => t?.startsWith('Por m²'))).toBe(false)
+    expect(todas.some(t => t?.startsWith('Tipo Departamento'))).toBe(false)
+  })
+
+  it('el «Hasta» solo aparece en proyectos con un precio más alto que el «Desde»', () => {
+    const sinRango = render(<PropertyCard {...base} inmueble="Proyecto" precioMax={null} />)
+    expect(insignia(sinRango.container).some(t => t?.startsWith('Hasta'))).toBe(false)
+    const igual = render(<PropertyCard {...base} inmueble="Proyecto" precioMax={300000} />)
+    expect(insignia(igual.container).some(t => t?.startsWith('Hasta'))).toBe(false)
+    // Un aviso que no es proyecto nunca muestra «Hasta».
+    const normal = render(<PropertyCard {...base} inmueble="Departamento" precioMax={500000} />)
+    expect(insignia(normal.container).some(t => t?.startsWith('Hasta'))).toBe(false)
+  })
+
   it('sin precio no muestra símbolo de moneda ni «0»', () => {
     const { container } = render(<PropertyCard {...base} precio={0} precioUsd={0} inmueble="Casa" />)
     expect(insignia(container)).toContain('Precio Sin precio')

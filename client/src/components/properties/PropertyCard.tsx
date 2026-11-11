@@ -25,6 +25,8 @@ interface PropertyCardProps {
   titulo: string
   precio: number
   precioUsd: number
+  /** Proyectos: precio más alto («Hasta»); `precio` es el más bajo («Desde»). */
+  precioMax?: number | null
   /** Moneda en que se muestra el precio. */
   moneda: Currency
   /** Moneda en que se publicó el aviso (`precio` está en ella). */
@@ -65,6 +67,7 @@ export default function PropertyCard({
   titulo,
   precio,
   precioUsd,
+  precioMax,
   moneda,
   monedaOriginal,
   distrito,
@@ -103,7 +106,10 @@ export default function PropertyCard({
   const op = operacionVisual(operacion)
   const esProyecto = tipo.label === 'Proyecto'
   const estado = estadoDeAntiguedad(antiguedad)
-  const porM2 = precioPorM2Partes(price, area)
+  // Un proyecto ofrece varias tipologías: «Desde» el precio más bajo «hasta» el más alto, y varios tamaños.
+  const hasta = esProyecto && partes && precioMax && precioMax > precio ? partesDePrecio(getPublishedPrice(precioMax, null, monedaOriginal, moneda)) : null
+  const rangoDeArea = area.includes('–')
+  const porM2 = esProyecto && rangoDeArea ? null : precioPorM2Partes(price, area)
   const nuevo = esNuevo(creadoEn)
   const lugar = ubicacionTexto(distrito, departamento)
   const cocheras = cantidad(estacionamientos)
@@ -206,15 +212,20 @@ export default function PropertyCard({
                 Sin precio
               </Insignia>
             )}
-            {(porM2 && !alquiler) || equivalente ? (
+            {hasta || (porM2 && !alquiler) || equivalente ? (
               <div className="flex flex-wrap gap-1.5">
+                {hasta && (
+                  <Insignia etiqueta={`Hasta · ${hasta.moneda}`} tono="green" mono titulo="Precio de la tipología más cara del proyecto">
+                    {hasta.monto}
+                  </Insignia>
+                )}
                 {porM2 && !alquiler && (
                   <Insignia etiqueta="Por m²" mono>
                     {porM2.moneda} {porM2.monto}
                   </Insignia>
                 )}
                 {equivalente && (
-                  <Insignia etiqueta={`≈ ${equivalente.moneda}`} mono titulo="Conversión aproximada con el tipo de cambio del sistema">
+                  <Insignia etiqueta={`${hasta ? 'Desde ' : ''}≈ ${equivalente.moneda}`} mono titulo="Conversión aproximada con el tipo de cambio del sistema">
                     {equivalente.monto.replace('~', '')}
                   </Insignia>
                 )}

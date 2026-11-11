@@ -1,4 +1,5 @@
 import { guardarAvisos, PORTALES, type Aviso } from "../ingest"
+import { limpiarUnidades } from "../../shared/proyectos"
 import { usdToPenRate } from "../env"
 import { HttpError, badRequest, forbidden, readJson, timingSafeEqual } from "../http"
 import type { Route } from "../router"
@@ -48,6 +49,9 @@ export function comoAviso(x: unknown): Aviso | null {
     latitud: numero(r.latitud),
     longitud: numero(r.longitud),
     mantenimiento: numero(r.mantenimiento),
+    // Proyectos: precio más alto y tipologías (el resto de campos desconocidos se ignora).
+    precioMax: numero(r.precioMax ?? r.precio_max),
+    unidades: Array.isArray(r.unidades) ? limpiarUnidades(r.unidades) : undefined,
   }
 }
 

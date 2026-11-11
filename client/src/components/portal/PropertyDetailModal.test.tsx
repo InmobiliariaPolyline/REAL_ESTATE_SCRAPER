@@ -118,4 +118,49 @@ describe('PropertyDetailModal', () => {
     expect(screen.getByText(/Venta · USD/)).toBeInTheDocument()
     expect(screen.getByText(/≈ S\/ · aproximado/)).toBeInTheDocument()
   })
+
+  const b34 = {
+    id: 'infocasas:proyecto-b34', portal: 'infocasas', operacion: 'VENTA', inmueble: 'Proyecto', titulo: 'B34',
+    precio: 108700, precio_usd: 108700, precio_max: 130600, precio_max_usd: 130600, moneda: 'USD', distrito: 'Surquillo', departamento: 'Lima',
+    dormitorios: '1, 2, 3', banios: '1, 2', area: '54 – 66 m2', antiguedad: 'En construcción', imagen: 'https://img.test/1.jpg',
+    imagenes: ['https://img.test/1.jpg'], url: 'https://www.infocasas.com.pe/proyectos/b34',
+    unidades: [
+      { codigo: '187065797', dormitorios: 1, banios: 1, area: 54, precio: 108700 },
+      { codigo: '187068541', dormitorios: 2, banios: 2, area: 65, precio: 120580 },
+      { codigo: '187068547', dormitorios: 3, banios: 2, area: 66, precio: 130600 },
+    ],
+  }
+
+  it('un proyecto muestra el precio «Desde» y «Hasta», sus rangos y la lista de sus tipologías', async () => {
+    fetchPropertyDetail.mockResolvedValue({ propiedad: b34, historial: [] })
+    abrir()
+    const dialogo = await screen.findByRole('dialog')
+    const insignias = Array.from(dialogo.querySelectorAll('.sb')).map(e => e.textContent?.replace(/\s+/g, ' ').trim())
+    expect(insignias).toEqual(expect.arrayContaining(['Tipo Proyecto', 'Desde · USD 108,700', 'Hasta · USD 130,600']))
+    expect(insignias.some(t => t?.startsWith('Por m²'))).toBe(false) // con varios tamaños no hay un solo precio por m²
+    expect(await screen.findByText('Tipologías del proyecto')).toBeInTheDocument()
+    expect(screen.getByText('3 opciones, cada una con su tamaño y su precio')).toBeInTheDocument()
+    expect(screen.getAllByText('1, 2, 3').length).toBeGreaterThan(0) // dormitorios
+    expect(screen.getAllByText('54 – 66 m²').length).toBeGreaterThan(0)
+    expect(screen.getByText('USD 120,580')).toBeInTheDocument()
+    // No se compara un «desde» con la mediana de ventas de la zona.
+    expect(dialogo.textContent).not.toMatch(/la mediana de Surquillo/)
+  })
+
+  it('un proyecto de una sola tipología no inventa un «Hasta»', async () => {
+    fetchPropertyDetail.mockResolvedValue({ propiedad: { ...b34, precio_max: null, area: '164 m2', unidades: [b34.unidades[0]] }, historial: [] })
+    abrir()
+    const dialogo = await screen.findByRole('dialog')
+    await screen.findByText('Tipologías del proyecto')
+    expect(Array.from(dialogo.querySelectorAll('.sb')).some(e => e.textContent?.startsWith('Hasta'))).toBe(false)
+    expect(screen.getByText('1 opción, cada una con su tamaño y su precio')).toBeInTheDocument()
+  })
+
+  it('un aviso normal no muestra tipologías ni «Hasta»', async () => {
+    abrir()
+    const dialogo = await screen.findByRole('dialog')
+    await screen.findAllByRole('tab')
+    expect(screen.queryByText('Tipologías del proyecto')).toBeNull()
+    expect(Array.from(dialogo.querySelectorAll('.sb')).some(e => e.textContent?.startsWith('Hasta'))).toBe(false)
+  })
 })

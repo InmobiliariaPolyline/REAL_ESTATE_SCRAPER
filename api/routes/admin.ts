@@ -7,6 +7,7 @@ import {
   buildAdminCount,
   buildAdminQuery,
   parseAdminFilters,
+  PROPERTY_COLUMNS_ADMIN,
   propertyColumns,
 } from "../propertyQueries"
 import type { Db } from "../db"
@@ -64,8 +65,17 @@ export const adminRoutes: Route[] = [
       const pageSize = intParam(url.searchParams.get("pageSize"), ADMIN_PAGE_SIZE, 1, MAX_PAGE_SIZE)
       const page = intParam(url.searchParams.get("page"), 0, 0, 100000)
 
-      const q = buildAdminQuery(filters, page, pageSize)
-      const rows = await db.query<Record<string, unknown> & { total: number }>(q.text, q.params)
+      type Fila = Record<string, unknown> & { total: number }
+      let rows: Fila[]
+      try {
+        // Con el precio «Hasta» de los proyectos (db/014); sin esa migración se usan las columnas de siempre.
+        const q = buildAdminQuery(filters, page, pageSize, PROPERTY_COLUMNS_ADMIN)
+        rows = await db.query<Fila>(q.text, q.params)
+      } catch (err) {
+        if (!/column .*does not exist|no existe la columna/i.test(String((err as { message?: string })?.message ?? ""))) throw err
+        const q = buildAdminQuery(filters, page, pageSize)
+        rows = await db.query<Fila>(q.text, q.params)
+      }
       let count = rows[0]?.total ?? 0
       if (rows.length === 0 && page > 0) {
         const c = buildAdminCount(filters)

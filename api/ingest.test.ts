@@ -184,11 +184,28 @@ describe("datos extra del aviso (db/009)", () => {
     }
     const r = await guardarAvisos(db, [{ ...base, codigo: "D2", descripcion: "x", imagenes: ["https://a/1.jpg"] }])
     expect(r.guardados).toBe(1)
-    expect(consultas).toHaveLength(4) // completa, sin ubicación, sin detalles y, por último, sin fotos
-    expect(consultas[3]).not.toContain("imagenes")
-    expect(consultas[3]).not.toContain("descripcion")
-    expect(consultas[3]).not.toContain("departamento")
-    expect(consultas[3]).toContain("titulo")
+    expect(consultas).toHaveLength(5) // completa, sin proyectos (014), sin ubicación, sin detalles y, por último, sin fotos
+    expect(consultas[4]).not.toContain("imagenes")
+    expect(consultas[4]).not.toContain("descripcion")
+    expect(consultas[4]).not.toContain("departamento")
+    expect(consultas[4]).not.toContain("precio_max")
+    expect(consultas[4]).toContain("titulo")
+  })
+
+  it("sin la migración 014 el aviso se guarda igual, sin el «Hasta» ni las tipologías", async () => {
+    const consultas: string[] = []
+    const db = {
+      query: async (text: string) => {
+        consultas.push(text)
+        if (text.includes("precio_max")) throw new Error('column "precio_max" of relation "propiedades" does not exist')
+      },
+    }
+    const proyecto = { ...base, codigo: "proyecto-x", inmueble: "Proyecto", unidades: [{ dormitorios: 1, area: 50, precio: 100000 }, { dormitorios: 2, area: 70, precio: 150000 }] }
+    const r = await guardarAvisos(db, [proyecto])
+    expect(r.guardados).toBe(1)
+    expect(consultas).toHaveLength(2)
+    expect(consultas[1]).not.toContain("unidades")
+    expect(consultas[1]).toContain("dormitorios")
   })
 
   it("un error que no es de columnas faltantes se propaga", async () => {

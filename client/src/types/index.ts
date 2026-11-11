@@ -1,3 +1,4 @@
+import type { UnidadProyecto } from "@shared/proyectos"
 import { DEFAULT_PORTAL_FILTERS, type PortalFilterState } from "@shared/savedSearch"
 
 export type Vista = "login" | "admin" | "portal" | "vencido"
@@ -52,6 +53,11 @@ export interface Propiedad {
   latitud?: number | null
   longitud?: number | null
   mantenimiento?: number | null
+  /** Proyectos: precio más alto («Hasta»), en la moneda del aviso; `precio` es el más bajo («Desde»). */
+  precio_max?: number | null
+  precio_max_usd?: number | null
+  /** Proyectos: tipologías (dormitorios, baños, área y precio de cada una). Solo en el detalle. */
+  unidades?: UnidadProyecto[] | null
 }
 
 export type FilterState = PortalFilterState

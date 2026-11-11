@@ -1,6 +1,8 @@
 import { DEFAULT_USD_TO_PEN_RATE } from "../shared/constants"
 import { safeHttpUrl } from "../shared/url"
 import { razonarTipo } from "../shared/tipoInmueble"
+import { escapeRegex } from "../shared/filters"
+import { limpiarUnidades, resumirUnidades, unirUnidades, type UnidadProyecto } from "../shared/proyectos"
 import { ubicacionCanonica } from "../shared/ubicacion"
 
 export const PORTALES = ["properati", "infocasas", "babilonia", "urbania", "adondevivir"] as const
@@ -39,6 +41,10 @@ export interface Aviso {
   latitud?: number
   longitud?: number
   mantenimiento?: number
+  /** Proyectos: precio más alto («Hasta»), en `moneda`. `precio` es el más bajo («Desde»). */
+  precioMax?: number
+  /** Proyectos: tipologías (dormitorios, baños, área y precio de cada una). Si se entregan, el precio, el rango y las cantidades se calculan de ellas. */
+  unidades?: UnidadProyecto[]
 }
 
 /** Fila lista para `public.propiedades`. */
@@ -68,6 +74,10 @@ export interface FilaPropiedad {
   latitud: number | null
   longitud: number | null
   mantenimiento: number | null
+  precio_max: number | null
+  precio_max_usd: number | null
+  /** JSON con las tipologías de un proyecto (`null` si no es un proyecto o no se conocen). */
+  unidades: string | null
 }
 
 const ENTIDADES: Record<string, string> = {
@@ -167,6 +177,9 @@ const areaEnM2 = (area: string | undefined) => {
 
 const money = (n: number | undefined) => (Number.isFinite(n) && (n as number) > 0 ? (n as number) : 0)
 
+/** Un proyecto no cuesta lo mismo en todas sus tipologías; un «Hasta» fuera de lo razonable se descarta. */
+const MAX_VECES_EL_MINIMO = 30
+
 /** Valida y normaliza un aviso. Devuelve `null` si no se puede identificar de forma estable. */
 export function normalizarAviso(
   aviso: Aviso,
@@ -177,15 +190,25 @@ export function normalizarAviso(
   if (aviso.operacion !== "VENTA" && aviso.operacion !== "ALQUILER") return null
 
   const moneda = aviso.moneda === "USD" ? "USD" : "PEN"
-  const precio = money(aviso.precio)
-  let precioUsd = usdCoherente(money(aviso.precio), moneda, money(aviso.precioUsd), usdToPen)
+  const inmueble = razonarTipo(aviso.inmueble, aviso.titulo)
+  // Un proyecto con tipologías: el precio «Desde», el «Hasta» y las cantidades salen de ellas (así dos fuentes del mismo
+  // proyecto dan el mismo resultado).
+  const unidades = inmueble === "Proyecto" ? limpiarUnidades(aviso.unidades) : []
+  const resumen = unidades.length ? resumirUnidades(unidades) : null
+  const precio = money(resumen ? resumen.precio : aviso.precio)
+  let precioMax = precio ? money(resumen ? resumen.precioMax : aviso.precioMax) : 0
+  if (precioMax <= precio || precioMax > precio * MAX_VECES_EL_MINIMO) precioMax = 0
+  // El dólar de un proyecto se calcula del precio «Desde» (el que trae el aviso puede ser el de una sola tipología).
+  let precioUsd = resumen ? 0 : usdCoherente(money(aviso.precio), moneda, money(aviso.precioUsd), usdToPen)
   if (!precioUsd && precio) precioUsd = moneda === "USD" ? precio : precio / usdToPen
 
   let precioFinal = precio
-  if (precioInverosimil(aviso.operacion, precioUsd, areaEnM2(aviso.area))) {
+  if (precioInverosimil(aviso.operacion, precioUsd, areaEnM2(resumen?.area ?? aviso.area))) {
     precioFinal = 0
     precioUsd = 0
+    precioMax = 0
   }
+  const precioMaxUsd = precioMax ? (moneda === "USD" ? precioMax : precioMax / usdToPen) : 0
 
   const imagenes = normalizarFotos(aviso.imagen, aviso.imagenes)
   // Ubicación coherente: un distrito de Lima o del Callao manda sobre lo que diga el portal (varios publican el Callao
@@ -196,7 +219,7 @@ export function normalizarAviso(
     id: `${aviso.portal}:${codigo}`,
     portal: aviso.portal,
     operacion: aviso.operacion,
-    inmueble: razonarTipo(aviso.inmueble, aviso.titulo),
+    inmueble,
     titulo: clean(aviso.titulo),
     precio: precioFinal,
     precio_usd: Math.round(precioUsd * 100) / 100,
@@ -204,9 +227,9 @@ export function normalizarAviso(
     distrito,
     departamento: lugar.departamento,
     provincia: lugar.provincia,
-    dormitorios: clean(aviso.dormitorios),
-    banios: clean(aviso.banios),
-    area: clean(aviso.area),
+    dormitorios: clean(resumen?.dormitorios ?? aviso.dormitorios),
+    banios: clean(resumen?.banios ?? aviso.banios),
+    area: clean(resumen?.area ?? aviso.area),
     imagen: imagenes[0] ?? null,
     imagenes,
     url: safeHttpUrl(aviso.url),
@@ -217,6 +240,9 @@ export function normalizarAviso(
     publicador: corto(aviso.publicador, 120),
     ...coordenadasDePeru(aviso.latitud, aviso.longitud),
     mantenimiento: money(aviso.mantenimiento) || null,
+    precio_max: precioMax || null,
+    precio_max_usd: precioMaxUsd ? Math.round(precioMaxUsd * 100) / 100 : null,
+    unidades: unidades.length ? JSON.stringify(unidades) : null,
   }
 }
 
@@ -230,11 +256,14 @@ const COLUMNAS = [
   "id", "portal", "operacion", "inmueble", "titulo", "precio", "precio_usd", "moneda",
   "distrito", "dormitorios", "banios", "area", "imagen", "url", "imagenes",
   "descripcion", "direccion", "estacionamientos", "antiguedad", "publicador", "latitud", "longitud", "mantenimiento",
-  "departamento", "provincia",
+  "departamento", "provincia", "precio_max", "precio_max_usd", "unidades",
 ] as const
 
 /** Columnas de la migración 011 (ubicación). */
 const COLUMNAS_011 = ["departamento", "provincia"] as const
+
+/** Columnas de la migración 014 (proyectos: rango de precio y tipologías). */
+const COLUMNAS_014 = ["precio_max", "precio_max_usd", "unidades"] as const
 
 /** Columnas que existen solo con las migraciones 008 (fotos) y 009 (detalles). */
 const COLUMNAS_009 = ["descripcion", "direccion", "estacionamientos", "antiguedad", "publicador", "latitud", "longitud", "mantenimiento"] as const
@@ -244,9 +273,10 @@ type Columna = (typeof COLUMNAS)[number]
 const en = (lista: readonly string[], c: string) => lista.includes(c)
 const NIVELES: readonly (readonly Columna[])[] = [
   COLUMNAS,
-  COLUMNAS.filter(c => !en(COLUMNAS_011, c)),
-  COLUMNAS.filter(c => !en(COLUMNAS_011, c) && !en(COLUMNAS_009, c)),
-  COLUMNAS.filter(c => !en(COLUMNAS_011, c) && !en(COLUMNAS_009, c) && c !== "imagenes"),
+  COLUMNAS.filter(c => !en(COLUMNAS_014, c)),
+  COLUMNAS.filter(c => !en(COLUMNAS_014, c) && !en(COLUMNAS_011, c)),
+  COLUMNAS.filter(c => !en(COLUMNAS_014, c) && !en(COLUMNAS_011, c) && !en(COLUMNAS_009, c)),
+  COLUMNAS.filter(c => !en(COLUMNAS_014, c) && !en(COLUMNAS_011, c) && !en(COLUMNAS_009, c) && c !== "imagenes"),
 ]
 
 async function insertarLote(db: Db, lote: FilaPropiedad[], columnas: readonly Columna[]) {
@@ -271,6 +301,39 @@ async function insertarLote(db: Db, lote: FilaPropiedad[], columnas: readonly Co
 }
 
 /**
+ * Un proyecto llega a veces como varios avisos (uno por tipología) con el mismo código: se unen sus tipologías para que
+ * el aviso final tenga el rango completo en lugar de quedarse con la última.
+ */
+function fusionar(previo: Aviso, nuevo: Aviso): Aviso {
+  if (previo.unidades?.length && nuevo.unidades?.length) return { ...nuevo, unidades: unirUnidades(previo.unidades, nuevo.unidades) }
+  return nuevo
+}
+
+/**
+ * Antes de agruparse por proyecto, cada tipología se guardaba como un aviso aparte («B34» tres veces, con el precio y el
+ * tamaño de una sola). Al guardar el proyecto se quitan esas copias (las que apuntan a su misma dirección), salvo las
+ * que tengan favoritos o enlaces. Es una limpieza de apoyo: si falla, la carga sigue.
+ */
+async function quitarCopiasDeProyectos(db: Db, filas: FilaPropiedad[]) {
+  for (const fila of filas) {
+    const slug = /^[a-z]+:proyecto-(.+)$/.exec(fila.id)?.[1]
+    if (!slug || !fila.url) continue
+    try {
+      await db.query(
+        `delete from public.propiedades p
+          where p.portal = $1 and p.id <> $2
+            and (p.url = $3 or p.url ~* $4)
+            and not exists (select 1 from public.enlaces e where e.propiedad_id = p.id)
+            and not exists (select 1 from public.favoritos f where f.propiedad_id = p.id)`,
+        [fila.portal, fila.id, fila.url, `^https?://[^/]+/${escapeRegex(slug)}/[0-9]+/?$`]
+      )
+    } catch {
+      // Sin las tablas de curación (o con un error pasajero) no se limpia; el aviso del proyecto ya quedó guardado.
+    }
+  }
+}
+
+/**
  * UPSERT por `id` (ver docs/INGESTA.md): `creado_en` no se toca y `ultima_vista_en` se refresca
  * en cada corrida en que el aviso sigue publicado.
  */
@@ -279,17 +342,23 @@ export async function guardarAvisos(
   avisos: Aviso[],
   usdToPen: number = DEFAULT_USD_TO_PEN_RATE
 ): Promise<{ guardados: number; descartados: number }> {
-  // Si un aviso viene repetido en la misma corrida se queda con el último.
+  // Si un aviso viene repetido en la misma corrida se queda con el último (los proyectos unen sus tipologías).
+  const unicos = new Map<string, Aviso>()
+  for (const aviso of avisos) {
+    const clave = `${aviso.portal}:${aviso.codigo?.trim()}`
+    const previo = unicos.get(clave)
+    unicos.set(clave, previo ? fusionar(previo, aviso) : aviso)
+  }
   const filas = new Map<string, FilaPropiedad>()
   let descartados = 0
-  for (const aviso of avisos) {
+  for (const aviso of unicos.values()) {
     const fila = normalizarAviso(aviso, usdToPen)
     if (fila) filas.set(fila.id, fila)
     else descartados++
   }
 
   const lista = [...filas.values()]
-  // Sin las migraciones 008/009 se sigue guardando todo lo demás, solo sin galería ni detalles.
+  // Sin las migraciones 008/009/011/014 se sigue guardando todo lo demás, solo sin galería, detalles ni rango de proyectos.
   let nivel = 0
   for (let i = 0; i < lista.length; i += CHUNK) {
     const lote = lista.slice(i, i + CHUNK)
@@ -304,5 +373,6 @@ export async function guardarAvisos(
       }
     }
   }
+  await quitarCopiasDeProyectos(db, lista)
   return { guardados: lista.length, descartados }
 }

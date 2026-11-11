@@ -24,12 +24,6 @@ function antiguedadDe(valor) {
   return t
 }
 
-/** El menor número positivo de una lista como ["1","2","3"]; `undefined` si no hay (p. ej. ["0"], monoambiente). */
-const menorPositivo = lista => {
-  const n = (Array.isArray(lista) ? lista : []).map(v => Number(v)).filter(v => Number.isFinite(v) && v > 0)
-  return n.length > 0 ? Math.min(...n) : undefined
-}
-
 // Área máxima creíble por tipo (m²); los terrenos, edificios y similares pueden ser enormes.
 const AREA_MAXIMA = { Departamento: 3000, Proyecto: 3000, Casa: 20000, Oficina: 20000, "Local Comercial": 50000 }
 
@@ -82,20 +76,116 @@ function datosNextInfocasas(html) {
   }
 }
 
+// ── Proyectos ────────────────────────────────────────────────────────────────
+//
+// Un proyecto (edificio en construcción, condominio) ofrece varias tipologías: «1 dormitorio, 54 m², US$ 108,700» hasta
+// «3 dormitorios, 66 m², US$ 130,600». InfoCasas lo entrega de dos formas, y las dos deben dar el mismo aviso:
+//   - como el proyecto mismo (`isProject`, `isProjectUnit: false`, `project: []`, enlace «proyectos/b34»), con el precio,
+//     el área y los dormitorios de su tipología más pequeña;
+//   - como una de sus tipologías (`isProjectUnit: true`, `project: {…}`, enlace «/b34/187068547»), con los datos de esa
+//     tipología solamente (por eso un proyecto aparecía como un «Departamento» de US$ 130,600 y 66 m²).
+// En ambas viene `commercial_units`: la lista de todas las tipologías. Se guarda UN aviso por proyecto, con el rango
+// («Desde … hasta …») calculado de esa lista y la lista misma.
+
+/** Nombre del proyecto en la dirección: «proyectos/b34» o «/b34/187068547» -> «b34». */
+const slugDeProyecto = link => {
+  const t = String(link ?? "")
+  return /(?:^|\/)proyectos\/([^/?#]+)/.exec(t)?.[1] ?? /^\/?([^/?#]+)\/\d+\/?(?:[?#].*)?$/.exec(t)?.[1]
+}
+
+const nombreMoneda = c => (typeof c === "string" ? c : c?.name)
+const esDolar = c => /u\$s|usd|us\$|\$/i.test(nombreMoneda(c) ?? "") && !/^s\//i.test(nombreMoneda(c) ?? "")
+
+/** Cantidades distintas de menor a mayor («1, 2, 3»), como las guarda el servidor. */
+const listaNumeros = valores => {
+  const distintos = [...new Set(valores.filter(v => typeof v === "number" && v > 0))].sort((x, y) => x - y)
+  return distintos.length ? distintos.join(", ") : undefined
+}
+
+/** Un registro de InfoCasas que es un proyecto (o una tipología de uno); `null` si es un aviso normal. */
+function proyectoDe(it) {
+  const objeto = it.project && typeof it.project === "object" && !Array.isArray(it.project) && it.project.id ? it.project : null
+  return it.isProject === true || objeto ? objeto ?? {} : null
+}
+
+function avisoDeProyecto(it, operacion, titulo, objeto, base) {
+  const ficha = Object.fromEntries((it.technicalSheet ?? []).map(t => [t.field, t.value]))
+  const crudas = Array.isArray(it.commercial_units) ? it.commercial_units : []
+  // Sin lista de tipologías, el propio registro es la única que se conoce.
+  const fuentes = crudas.length
+    ? crudas
+    : [{ id: it.id, bedrooms: it.bedrooms ?? entero(ficha.bedrooms), bathrooms: it.bathrooms ?? entero(ficha.bathrooms), m2: it.m2Built || it.m2 || it.m2Terrain, price: it.price }]
+  const oculto = it.price?.hidePrice === true && !crudas.length
+  const unidades = fuentes.map(u => ({
+    codigo: String(u.id),
+    dormitorios: positivo(Number(u.bedrooms)),
+    banios: positivo(Number(u.bathrooms)),
+    area: positivo(Number(u.m2)) ?? positivo(Number(u.m2Terrain)),
+    precio: u.price?.hidePrice === true || oculto ? undefined : positivo(Number(u.price?.amount)),
+    moneda: nombreMoneda(u.price?.currency),
+  }))
+  const conPrecio = unidades.filter(u => u.precio !== undefined)
+  const minimo = conPrecio.length ? Math.min(...conPrecio.map(u => u.precio)) : undefined
+  const maximo = conPrecio.length ? Math.max(...conPrecio.map(u => u.precio)) : undefined
+  const monedaDe = conPrecio[0]?.moneda ?? nombreMoneda(it.price?.currency) ?? nombreMoneda(objeto.minPrice?.currency)
+  // Sin la lista de tipologías solo se conoce la propia y, si el proyecto lo informa, su precio y su área «desde».
+  const listaConocida = crudas.length > 0
+  const desde = !listaConocida && !oculto ? positivo(Number(objeto.minPrice?.amount)) : undefined
+  const precio = desde ?? minimo
+  const areas = unidades.map(u => u.area).filter(Boolean)
+  const areaDesde = !listaConocida ? positivo(Number(objeto.minM2)) : undefined
+  const areaMin = areaDesde ?? (areas.length ? Math.min(...areas) : undefined)
+  const areaMax = areas.length ? Math.max(...areas) : undefined
+
+  const slug = slugDeProyecto(objeto.link) ?? slugDeProyecto(it.link)
+  const loc = it.locations ?? {}
+  const nombre = k => (Array.isArray(loc[k]) ? loc[k][0]?.name : loc[k]?.name)
+  const punto = /POINT\s*\(\s*(-?[\d.]+)\s+(-?[\d.]+)\s*\)/.exec(loc.location_point ?? "")
+  const limpiaFoto = u => (typeof u === "string" ? u.replace(/#.*$/, "") : u)
+  const imagenes = (it.images ?? []).map(i => limpiaFoto(i?.image)).filter(Boolean)
+  const estado = texto(ficha.construction_state_name)
+
+  return {
+    portal: "infocasas",
+    // El código es el del proyecto, no el de una tipología: así las distintas formas de leerlo no lo duplican.
+    codigo: slug ? `proyecto-${slug}` : String(objeto.id ?? it.id),
+    operacion,
+    inmueble: "Proyecto",
+    titulo,
+    precio,
+    precioMax: precio !== undefined && maximo !== undefined && maximo > precio ? maximo : undefined,
+    moneda: esDolar(monedaDe) ? "USD" : "PEN",
+    distrito: nombre("neighbourhood") ?? nombre("commune") ?? nombre("zone") ?? nombre("locality") ?? nombre("city") ?? nombre("state"),
+    departamento: nombre("state"),
+    provincia: nombre("city"),
+    dormitorios: (!listaConocida ? listaNumeros((objeto.bedrooms ?? []).map(Number)) : undefined) ?? listaNumeros(unidades.map(u => u.dormitorios)),
+    banios: (!listaConocida ? listaNumeros((objeto.bathrooms ?? []).map(Number)) : undefined) ?? listaNumeros(unidades.map(u => u.banios)),
+    area: areaMin === undefined ? undefined : areaMax !== undefined && areaMax > areaMin ? `${areaMin} – ${areaMax} m2` : `${areaMin} m2`,
+    imagen: texto(limpiaFoto(it.img)) ?? imagenes[0],
+    imagenes,
+    url: slug ? `${base}/proyectos/${slug}` : it.link ? base + (String(it.link).startsWith("/") ? "" : "/") + it.link : undefined,
+    descripcion: texto(objeto.description) ?? texto(it.description),
+    direccion: it.showAddress === false ? undefined : texto(it.address),
+    antiguedad: estado ? antiguedadDeEstado(estado) : undefined,
+    publicador: texto(it.owner?.name),
+    latitud: punto ? Number(punto[2]) : undefined,
+    longitud: punto ? Number(punto[1]) : undefined,
+    // Sin la lista completa no se guarda una sola tipología como si fuera todo el proyecto.
+    unidades: listaConocida ? unidades.map(({ moneda: _m, ...u }) => u) : undefined,
+  }
+}
+
 /** Un aviso de InfoCasas (`searchFast.data[i]`) como aviso del sistema; `null` si no sirve. */
 export function avisoDeInfocasas(it, base = "https://www.infocasas.com.pe") {
   const operacion = /^venta/i.test(it?.operation_type?.name ?? "") ? "VENTA" : /^alquiler/i.test(it?.operation_type?.name ?? "") ? "ALQUILER" : null
   const titulo = texto(it?.title)
   if (!it?.id || !operacion || !titulo) return null
 
+  const objeto = proyectoDe(it)
+  if (objeto) return avisoDeProyecto(it, operacion, titulo, objeto, base)
+
   const ficha = Object.fromEntries((it.technicalSheet ?? []).map(t => [t.field, t.value]))
-  // Un aviso con `project` es un proyecto inmobiliario (en el portal se muestra «Desde …»): el listado trae los
-  // datos de una de sus tipologías, pero la ficha del portal (y lo que ve quien abre el enlace) usa los mínimos
-  // del proyecto, así que se guardan esos y el aviso se marca como «Proyecto».
-  // Los avisos normales traen `project: []`; uno real es un objeto con id.
-  const proyecto = it.project && typeof it.project === "object" && !Array.isArray(it.project) && it.project.id ? it.project : null
-  const desde = proyecto?.minPrice?.amount > 0 ? proyecto.minPrice : null
-  const precio = desde ?? it.price ?? {}
+  const precio = it.price ?? {}
   const moneda = /u\$s|usd/i.test(precio.currency?.name ?? "") ? "USD" : "PEN"
   const oculto = it.price?.hidePrice === true
   const loc = it.locations ?? {}
@@ -104,10 +194,8 @@ export function avisoDeInfocasas(it, base = "https://www.infocasas.com.pe") {
   const gastos = montoConMoneda(ficha.commonExpenses)
   const limpiaFoto = u => (typeof u === "string" ? u.replace(/#.*$/, "") : u)
   const imagenes = (it.images ?? []).map(i => limpiaFoto(i?.image)).filter(Boolean)
-  const dormitorios = (proyecto ? menorPositivo(proyecto.bedrooms) : undefined) ?? entero(ficha.bedrooms)
-  const banios = (proyecto ? menorPositivo(proyecto.bathrooms) : undefined) ?? entero(ficha.bathrooms)
-  const areaMin = proyecto ? positivo(proyecto.minM2) : undefined
-  const tipoInmueble = proyecto ? "Proyecto" : texto(it.property_type?.name) ?? "Otro"
+  const tipoInmueble = texto(it.property_type?.name) ?? "Otro"
+  const area = areaDe(it, ficha, tipoInmueble)
 
   return {
     portal: "infocasas",
@@ -117,21 +205,20 @@ export function avisoDeInfocasas(it, base = "https://www.infocasas.com.pe") {
     titulo,
     precio: oculto ? undefined : positivo(precio.amount),
     moneda,
-    // En un proyecto el dólar lo calcula el sistema a partir del precio «desde».
-    precioUsd: oculto || desde ? undefined : positivo(it.price_amount_usd),
+    precioUsd: oculto ? undefined : positivo(it.price_amount_usd),
     distrito: nombre("neighbourhood") ?? nombre("commune") ?? nombre("zone") ?? nombre("locality") ?? nombre("city") ?? nombre("state"),
     departamento: nombre("state"),
     provincia: nombre("city"),
-    dormitorios: dormitorios?.toString(),
-    banios: banios?.toString(),
-    area: (areaMin ?? areaDe(it, ficha, tipoInmueble)) ? `${areaMin ?? areaDe(it, ficha, tipoInmueble)} m2` : undefined,
+    dormitorios: entero(ficha.bedrooms)?.toString(),
+    banios: entero(ficha.bathrooms)?.toString(),
+    area: area ? `${area} m2` : undefined,
     imagen: texto(limpiaFoto(it.img)) ?? imagenes[0],
     imagenes,
-    url: it.link ? base + it.link : undefined,
-    descripcion: (proyecto ? texto(proyecto.description) : undefined) ?? texto(it.description),
+    url: it.link ? base + (String(it.link).startsWith("/") ? "" : "/") + it.link : undefined,
+    descripcion: texto(it.description),
     direccion: it.showAddress === false ? undefined : texto(it.address),
     estacionamientos: ficha.garage !== undefined && ficha.garage !== "" ? String(entero(ficha.garage) ?? 0) : undefined,
-    antiguedad: antiguedadDe(ficha.constructionYear) ?? (proyecto ? antiguedadDeEstado(ficha.construction_state_name) : undefined),
+    antiguedad: antiguedadDe(ficha.constructionYear),
     publicador: texto(it.owner?.name),
     latitud: punto ? Number(punto[2]) : undefined,
     longitud: punto ? Number(punto[1]) : undefined,
@@ -149,12 +236,13 @@ export const infocasas = {
     "venta/departamentos/lima", "alquiler/departamentos/lima", "venta/casas/lima", "alquiler/casas/lima",
     "venta/terrenos/lima", "venta/oficinas/lima", "alquiler/oficinas/lima",
     "venta/locales-comerciales/lima", "alquiler/locales-comerciales/lima",
+    // Los proyectos tienen su propio listado (todo el país): cada uno se guarda una vez, con su rango de precios.
+    "proyectos",
   ],
   /** Con --provincias se agregan estas (probadas): las principales ciudades fuera de Lima. */
   busquedasProvincias: [
     "venta/departamentos/arequipa", "alquiler/departamentos/arequipa", "venta/casas/arequipa",
     "venta/departamentos/la-libertad", "venta/departamentos/piura", "venta/departamentos/lambayeque",
-    "proyectos",
   ],
   maxPaginas: 25,
   urlPagina: (busqueda, n) => `https://www.infocasas.com.pe/${busqueda}${n > 1 ? `/pagina${n}` : ""}`,

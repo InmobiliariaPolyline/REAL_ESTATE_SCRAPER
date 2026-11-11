@@ -7,6 +7,7 @@ import { badRequest, intParam, notFound, optStr, readJson, str } from "../http"
 import {
   ENLACE_COLUMNS,
   PROPERTY_COLUMNS,
+  PROPERTY_COLUMNS_PROYECTOS,
   PROPERTY_COLUMNS_TARJETA,
   buildFacetas,
   buildPortalCount,
@@ -72,16 +73,19 @@ export const portalRoutes: Route[] = [
       const rate = usdToPenRate(env)
 
       type Fila = Record<string, unknown> & { total: number }
-      let rows: Fila[]
-      try {
-        // Con las columnas de las etiquetas de la tarjeta; sin las migraciones 008/009/011 se usan las básicas.
-        const query = buildPortalQuery(filters, page, pageSize, rate, PROPERTY_COLUMNS_TARJETA)
-        rows = await db.query<Fila>(query.text, query.params)
-      } catch (err) {
-        if (!/column .*does not exist|no existe la columna/i.test(String((err as { message?: string })?.message ?? ""))) throw err
-        const query = buildPortalQuery(filters, page, pageSize, rate)
-        rows = await db.query<Fila>(query.text, query.params)
+      let rows: Fila[] | undefined
+      // De la más completa a la más básica: con las etiquetas de la tarjeta y el precio «Hasta» de los proyectos (db/014);
+      // sin las migraciones 014, 008/009/011 se usan las anteriores.
+      for (const columnas of [PROPERTY_COLUMNS_PROYECTOS, PROPERTY_COLUMNS_TARJETA, PROPERTY_COLUMNS]) {
+        try {
+          const query = buildPortalQuery(filters, page, pageSize, rate, columnas)
+          rows = await db.query<Fila>(query.text, query.params)
+          break
+        } catch (err) {
+          if (!/column .*does not exist|no existe la columna/i.test(String((err as { message?: string })?.message ?? "")) || columnas === PROPERTY_COLUMNS) throw err
+        }
       }
+      rows ??= []
 
       let count = rows[0]?.total ?? 0
       if (rows.length === 0 && page > 0) {
@@ -170,6 +174,7 @@ export const portalRoutes: Route[] = [
       const base = rows[0] as { imagen: string | null; operacion: string; distrito: string | null; precio_usd: number }
       let extra: Record<string, unknown> = {}
       for (const columnas of [
+        "imagenes, ultima_vista_en, departamento, provincia, descripcion, direccion, estacionamientos, antiguedad, publicador, latitud, longitud, mantenimiento::float8 as mantenimiento, precio_max::float8 as precio_max, precio_max_usd::float8 as precio_max_usd, unidades",
         "imagenes, ultima_vista_en, departamento, provincia, descripcion, direccion, estacionamientos, antiguedad, publicador, latitud, longitud, mantenimiento::float8 as mantenimiento",
         "imagenes, ultima_vista_en, descripcion, direccion, estacionamientos, antiguedad, publicador, latitud, longitud, mantenimiento::float8 as mantenimiento",
         "imagenes, ultima_vista_en",
