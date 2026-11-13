@@ -42,7 +42,9 @@ export async function sincronizarVistaCentral(origen: Db, central: Db): Promise<
     `INSERT INTO central.scraper_propiedades
        (propiedad_id, portal, operacion, inmueble, titulo, precio, moneda, precio_usd, distrito,
         dormitorios, banios, area, url, encontrada_en, ultima_vista_en)
-     SELECT t.id, t.portal, t.operacion, t.inmueble, t.titulo, t.precio, t.moneda, t.precio_usd, t.distrito,
+     SELECT t.id, t.portal, t.operacion, t.inmueble, t.titulo,
+            LEAST(GREATEST(t.precio, -999999999999.99), 999999999999.99), t.moneda,
+            LEAST(GREATEST(t.precio_usd, -999999999999.99), 999999999999.99), t.distrito,
             t.dormitorios, t.banios, t.area, t.url, t.creado_en, t.ultima_vista_en
        FROM jsonb_to_recordset($1::jsonb) AS t(
          id text, portal text, operacion text, inmueble text, titulo text, precio numeric, precio_usd numeric,
