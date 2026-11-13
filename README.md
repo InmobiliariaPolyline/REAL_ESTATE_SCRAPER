@@ -173,6 +173,7 @@ Requiere Node 22 y pnpm (la versión exacta está en `package.json`).
 | `CARGA_URLS`, `CARGA_URLS_URBANIA`, `CARGA_URLS_INFOCASAS`, `CARGA_URLS_PROPERATI` | No | Búsquedas a rotar de cada fuente (ver [`docs/URLS_BUSQUEDA.md`](docs/URLS_BUSQUEDA.md)) |
 | `APIFY_CREDIT_USD`, `APIFY_COST_PER_1000` | No | Crédito mensual de Apify (5) y costo por 1 000 avisos (3), para calcular los topes |
 | `ALERT_WEBHOOK_URL`, `ALERT_STALE_HOURS` | No | Alertas del watchdog: webhook (Slack, Discord o compatible) y horas sin actividad (24 por defecto) |
+| `CENTRAL_DATABASE_URL` | No | Vista central para el agente de Coze: cadena de Neon del rol `writer_scraper`. Tras guardar avisos, copia un resumen (las 200 propiedades más recientes y conteos por portal). Sin ella no se sincroniza nada |
 | `CRON_SECRET` | No | Permite a un planificador externo llamar a `POST /api/internal/watchdog` (cabecera `x-cron-secret`) |
 | `VITE_API_URL` | No | Solo si la API vive en otro dominio (por defecto, el mismo origen) |
 

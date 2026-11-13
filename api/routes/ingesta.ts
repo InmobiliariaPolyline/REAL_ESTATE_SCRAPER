@@ -1,6 +1,7 @@
 import { guardarAvisos, PORTALES, quitarRetirados, type Aviso } from "../ingest"
 import { limpiarUnidades } from "../../shared/proyectos"
 import { usdToPenRate } from "../env"
+import { sincronizarSiConfigurado } from "../vistaCentral"
 import { HttpError, badRequest, forbidden, readJson, timingSafeEqual } from "../http"
 import type { Route } from "../router"
 
@@ -84,6 +85,8 @@ export const ingestaRoutes: Route[] = [
 
       const avisos = body.avisos.map(comoAviso).filter((a): a is Aviso => a !== null)
       const { guardados, descartados } = await guardarAvisos(db, avisos, usdToPenRate(env))
+      // Vista central para el agente de Coze (opcional; nunca rompe la ingesta).
+      await sincronizarSiConfigurado(db, env)
       return {
         recibidos: body.avisos.length,
         retirados,
