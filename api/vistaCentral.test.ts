@@ -111,6 +111,17 @@ describe("sincronizarVistaCentral", () => {
     expect((resumen.rows[0] as any).total).toBe(MAX_PROPIEDADES_VISTA + 25)
   })
 
+  it("un precio enorme no rompe toda la sincronización: se acota al máximo de la columna", async () => {
+    await insertar("urbania:1", "urbania", "VENTA", "2026-01-01T10:00:00Z")
+    await origen.query("UPDATE public.propiedades SET precio = 1e15, precio_usd = -1e15 WHERE id = 'urbania:1'")
+    await insertar("urbania:2", "urbania", "VENTA", "2026-01-02T10:00:00Z")
+    await expect(sincronizarVistaCentral(dbOrigen, dbCentral)).resolves.toEqual({ propiedades: 2, resumenes: 1 })
+    const f = await central.query("SELECT precio::text p, precio_usd::text u FROM central.scraper_propiedades WHERE propiedad_id = 'urbania:1'")
+    expect(f.rows[0]).toEqual({ p: "999999999999.99", u: "-999999999999.99" })
+    const normal = await central.query("SELECT precio::text p FROM central.scraper_propiedades WHERE propiedad_id = 'urbania:2'")
+    expect(normal.rows[0]).toEqual({ p: "100000.00" })
+  })
+
   it("no copia columnas sensibles ni de otras tablas", async () => {
     await insertar("urbania:1", "urbania", "VENTA", "2026-01-01T10:00:00Z")
     await sincronizarVistaCentral(dbOrigen, dbCentral)
