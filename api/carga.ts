@@ -2,6 +2,7 @@ import type { Db } from "./db"
 import type { ApiEnv } from "./env"
 import { usdToPenRate } from "./env"
 import { guardarAvisos, type Aviso } from "./ingest"
+import { sincronizarSiConfigurado } from "./vistaCentral"
 import { limpiarUnidades, unirUnidades, type UnidadProyecto } from "../shared/proyectos"
 
 /**
@@ -1198,6 +1199,8 @@ export async function procesarResultado(db: Db, env: ApiEnv, evento: EventoApify
     const fuente = fuentesDeCarga(env)[FUENTES_IDS.includes(corrida.fuente as FuenteId) ? (corrida.fuente as FuenteId) : "adondevivir"]
     const avisos = validos.map(fuente.mapear).filter((a): a is Aviso => a !== null)
     const { guardados } = avisos.length > 0 ? await guardarAvisos(db, avisos, usdToPenRate(env)) : { guardados: 0 }
+    // Vista central para el agente de Coze (opcional; nunca rompe la carga).
+    if (guardados > 0) await sincronizarSiConfigurado(db, env)
 
     // Los registros de error del actor no son avisos ni se cobran: no cuentan como recibidos.
     const { estado, detalle } = veredicto(exito, evento.eventType, validos.length, errores, fuente.nombre)

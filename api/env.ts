@@ -3,6 +3,8 @@ import { DEFAULT_USD_TO_PEN_RATE } from "../shared/constants"
 /** Variables de entorno que usa la API (todas opcionales salvo DATABASE_URL). */
 export interface ApiEnv {
   DATABASE_URL?: string
+  /** Vista central para el agente de Coze (opcional): cadena de Neon del rol `writer_scraper`. Sin ella no se sincroniza nada. */
+  CENTRAL_DATABASE_URL?: string
   /** Tipo de cambio PEN por 1 USD; debe coincidir con VITE_USD_TO_PEN_RATE del cliente. */
   USD_TO_PEN_RATE?: string
   /** Alertas del watchdog: webhook (Slack/Discord compatible) y horas sin actividad para alertar. */
